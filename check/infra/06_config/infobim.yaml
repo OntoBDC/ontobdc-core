@@ -1,0 +1,7 @@
+modules:
+  - install:
+      engine: venv
+language: en
+template:
+  name: "Default InfoBIM Community Template"
+  path: src/tui/terminal/template/infobim-community-tui

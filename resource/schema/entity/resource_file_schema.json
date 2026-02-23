@@ -1,0 +1,696 @@
+{
+  "archive": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.archive",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Archive\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://reference.data.gov.uk/technical-registry/Aggregate",
+        "http://www.udfr.org/onto#AggregateGenre",
+        "http://vocab.getty.edu/aat/300375748",
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Archive"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Archive"
+      ]
+    }
+  },
+  "audio": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.audio",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Audio\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "media"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.udfr.org/onto#SoundGenre",
+        "http://reference.data.gov.uk/technical-registry/Audio",
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Audio",
+        "http://id.loc.gov/vocabulary/resourceTypes/Aud",
+        "http://purl.org/dc/dcmitype/Sound"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Audio"
+      ]
+    }
+  },
+  "database": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.database",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Database\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://vocab.getty.edu/aat/300028543",
+        "http://reference.data.gov.uk/technical-registry/Database",
+        "http://www.udfr.org/onto#DatabaseGenre"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Database"
+      ]
+    }
+  },
+  "dataset": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.dataset",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Dataset\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://reference.data.gov.uk/technical-registry/Dataset",
+        "http://www.udfr.org/onto#DatasetGenre",
+        "http://id.loc.gov/vocabulary/resourceTypes/Dat",
+        "http://purl.org/dc/dcmitype/Dataset"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Dataset"
+      ]
+    }
+  },
+  "document": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.document",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Document\"@en"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://vocab.getty.edu/aat/300026031",
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Document",
+        "http://www.udfr.org/onto#DocumentGenre"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Document"
+      ]
+    }
+  },
+  "email": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.email",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Email\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://vocab.getty.edu/aat/300149026",
+        "http://reference.data.gov.uk/technical-registry/Email",
+        "http://www.udfr.org/onto#EmailGenre"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Email"
+      ]
+    }
+  },
+  "executable": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.executable",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Executable\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "software"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Executable",
+        "http://www.udfr.org/onto#ExecutableGenre"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Executable"
+      ]
+    }
+  },
+  "fileHash": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.fileHash",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"FileHash\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#FileHash"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#FileHash"
+      ]
+    }
+  },
+  "filesystem": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.filesystem",
+    "properties": {
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": [
+        "http://www.w3.org/2000/01/rdf-schema#Class"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#comment": [
+        "\"A filesystem. Examples of filesystems include hard disk partitions",
+        "removable media",
+        "but also images thereof stored in files such as ISO.\""
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Filesystem\""
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#DataContainer"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Filesystem"
+      ],
+      "mapsTo": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Filesystem"
+      ]
+    }
+  },
+  "folder": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.folder",
+    "properties": {
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": [
+        "http://www.w3.org/2000/01/rdf-schema#Class"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#comment": [
+        "\"A folder/directory. Examples of folders include folders on a filesystem and message folders in a mailbox.\""
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Folder\""
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#DataContainer"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Folder"
+      ],
+      "mapsTo": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Folder"
+      ]
+    }
+  },
+  "font": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.font",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Font\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Font"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Font"
+      ]
+    }
+  },
+  "gIS": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.gIS",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"GIS\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "dataset"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://reference.data.gov.uk/technical-registry/GIS"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#GIS"
+      ]
+    }
+  },
+  "hTML": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.hTML",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"HTML\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "markup"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#HTMLDocument",
+        "http://vocab.getty.edu/aat/300266021"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#HTML"
+      ]
+    }
+  },
+  "image": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.image",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Image\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "media"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.udfr.org/onto#StillImageGenre",
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Image",
+        "http://id.loc.gov/vocabulary/resourceTypes/Img",
+        "http://purl.org/dc/dcmitype/StillImage"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Image"
+      ]
+    }
+  },
+  "markup": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.markup",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Markup\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "structuredText"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://reference.data.gov.uk/technical-registry/MarkupText"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Markup"
+      ]
+    }
+  },
+  "media": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.media",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Media\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Media",
+        "http://id.loc.gov/vocabulary/resourceTypes/Mul"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Media"
+      ]
+    }
+  },
+  "mediaList": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.mediaList",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"MediaList\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#MediaList"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#MediaList"
+      ]
+    }
+  },
+  "mediaType": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.mediaType",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#comment": [
+        "\"A file format or physical medium.\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Media Type\"@en"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://purl.org/dc/terms/MediaType"
+      ],
+      "mapsTo": [
+        "http://purl.org/dc/terms/MediaType"
+      ]
+    }
+  },
+  "model": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.model",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Model\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.udfr.org/onto#ModelGenre",
+        "http://vocab.getty.edu/aat/300047753"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Model"
+      ]
+    }
+  },
+  "pageDescription": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.pageDescription",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"PageDescription\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "text"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#PaginatedTextDocument",
+        "http://reference.data.gov.uk/technical-registry/PageDescription",
+        "http://www.udfr.org/onto#PageDescriptionGenre"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#PageDescription"
+      ]
+    }
+  },
+  "presentation": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.presentation",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Presentation\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Presentation",
+        "http://reference.data.gov.uk/technical-registry/Presentation",
+        "http://www.udfr.org/onto#PresentationGenre"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Presentation"
+      ]
+    }
+  },
+  "rasterImage": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.rasterImage",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"RasterImage\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "image"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#RasterImage",
+        "http://reference.data.gov.uk/technical-registry/RasterImage"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#RasterImage"
+      ]
+    }
+  },
+  "software": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.software",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Software\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Software",
+        "http://vocab.getty.edu/aat/300028566",
+        "http://purl.org/dc/dcmitype/Software"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Software"
+      ]
+    }
+  },
+  "sourceCode": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.sourceCode",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"SourceCode\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "structuredText"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#SourceCode"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#SourceCode"
+      ]
+    }
+  },
+  "spreadsheet": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.spreadsheet",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Spreadsheet\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Spreadsheet",
+        "http://reference.data.gov.uk/technical-registry/Spreadsheet",
+        "http://www.udfr.org/onto#SpreadsheetGenre"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Spreadsheet"
+      ]
+    }
+  },
+  "structuredText": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.structuredText",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"StructuredText\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "text"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://reference.data.gov.uk/technical-registry/StructuredText"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#StructuredText"
+      ]
+    }
+  },
+  "text": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.text",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Text\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#TextDocument",
+        "http://www.udfr.org/onto#TextGenre",
+        "http://purl.org/dc/dcmitype/Text",
+        "http://id.loc.gov/vocabulary/resourceTypes/Txt"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Text"
+      ]
+    }
+  },
+  "unknown": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.unknown",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Unknown\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.udfr.org/onto#Unknown",
+        "http://id.loc.gov/vocabulary/resourceTypes/Unk"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Unknown"
+      ]
+    }
+  },
+  "unstructuredText": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.unstructuredText",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"UnstructuredText\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "text"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#PlainTextDocument",
+        "http://reference.data.gov.uk/technical-registry/UnstructuredText"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#UnstructuredText"
+      ]
+    }
+  },
+  "vectorImage": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.vectorImage",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"VectorImage\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "image"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#VectorImage",
+        "http://reference.data.gov.uk/technical-registry/VectorImage"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#VectorImage"
+      ]
+    }
+  },
+  "video": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.video",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Video\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "media"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.udfr.org/onto#MovingImageGenre",
+        "http://reference.data.gov.uk/technical-registry/Video",
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Video",
+        "http://id.loc.gov/vocabulary/resourceTypes/Mov",
+        "http://purl.org/dc/dcmitype/MovingImage"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Video"
+      ]
+    }
+  },
+  "website": {
+    "http://purl.org/dc/terms/identifier": "org.ontobdc.domain.resource.entity.website",
+    "properties": {
+      "http://www.w3.org/2000/01/rdf-schema#label": [
+        "\"Website\"@en"
+      ],
+      "http://www.w3.org/2000/01/rdf-schema#subClassOf": [
+        "document"
+      ]
+    },
+    "type": {
+      "definition": "http://www.w3.org/ns/prov#Entity",
+      "http://www.w3.org/ns/prov#wasDerivedFrom": [
+        "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Website",
+        "http://vocab.getty.edu/aat/300265431"
+      ],
+      "mapsTo": [
+        "http://pcdm.org/file-format-types#Website"
+      ]
+    }
+  }
+}

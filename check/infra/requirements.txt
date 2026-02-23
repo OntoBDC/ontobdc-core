@@ -1,0 +1,12 @@
+rich
+PyYAML
+numpy
+ifcopenshell
+setuptools
+pytest
+pytest-cov
+pytest-sugar
+PyPDF2
+pypdf
+PyMuPDF
+pypdfium2
