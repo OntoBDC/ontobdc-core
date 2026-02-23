@@ -2,8 +2,8 @@
 from abc import abstractmethod
 from pathlib import Path
 from typing import List, Dict, Any, Iterable
-from stack.core.src.domain.port.repository import RepositoryPort
-from stack.resource.src.domain.port.entity import (
+from ontobdc.core.src.domain.port.repository import RepositoryPort
+from ontobdc.resource.src.domain.port.entity import (
     FilesystemPort,
     FolderPort,
     MediaTypePort,

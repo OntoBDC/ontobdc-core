@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from rich.console import Console
-from stack.run.capability_core import Capability, CapabilityExecutor, CapabilityMetadata
-from stack.core.src.adapter import TableViewAdapter
-from stack.resource.src.domain.port.repository import FileRepositoryPort
+from ontobdc.run.capability_core import Capability, CapabilityExecutor, CapabilityMetadata
+from ontobdc.core.src.adapter.rich_table import TableViewAdapter
+from ontobdc.resource.src.domain.port.repository import FileRepositoryPort
 
 
 class ListDocumentsCapability(Capability):
