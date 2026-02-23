@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ontobdc"
 authors = [{ name="Elias M P Junior" }]
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "OntoBDC"
 readme = "README.md"
 requires-python = ">=3.10"
