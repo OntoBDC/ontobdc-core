@@ -9,15 +9,15 @@ project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from stack.run.capability_core import CapabilityRegistry
-from stack.resource.src.domain.port.repository import FileRepositoryPort
-from stack.resource.plugin.capability.list_documents import ListDocumentsCapability
-from stack.resource.plugin.capability.list_documents_by_type import ListDocumentsByTypeCapability
-from stack.resource.plugin.capability.list_documents_by_template import ListDocumentsByTemplateCapability
-from stack.resource.plugin.capability.list_documents_by_name_pattern import (
+from ontobdc.run.capability_core import CapabilityRegistry
+from ontobdc.resource.src.domain.port.repository import FileRepositoryPort
+from ontobdc.resource.plugin.capability.list_documents import ListDocumentsCapability
+from ontobdc.resource.plugin.capability.list_documents_by_type import ListDocumentsByTypeCapability
+from ontobdc.resource.plugin.capability.list_documents_by_template import ListDocumentsByTemplateCapability
+from ontobdc.resource.plugin.capability.list_documents_by_name_pattern import (
     ListDocumentsByNamePatternCapability,
 )
-from stack.resource.plugin.capability.list_documents_by_bbox import ListDocumentsByBboxCapability
+from ontobdc.resource.plugin.capability.list_documents_by_bbox import ListDocumentsByBboxCapability
 
 
 class SimpleMenuSelector:

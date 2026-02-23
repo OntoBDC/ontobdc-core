@@ -1,21 +1,22 @@
-
+import fnmatch
 import json
 from pathlib import Path
-from rich.console import Console
 from typing import Any, Dict, List, Optional
-from stack.core.src.adapter import TableViewAdapter
-from stack.run.capability_core import Capability, CapabilityExecutor, CapabilityMetadata
-from stack.resource.src.domain.port.repository import FileRepositoryPort
+
+from rich.console import Console
+from ontobdc.run.capability_core import Capability, CapabilityExecutor, CapabilityMetadata
+from ontobdc.core.src.adapter.rich_table import TableViewAdapter
+from ontobdc.resource.src.domain.port.repository import FileRepositoryPort
 
 
-class ListDocumentsByBboxCapability(Capability):
+class ListDocumentsByNamePatternCapability(Capability):
     METADATA = CapabilityMetadata(
-        id="org.ontobdc.domain.resource.capability.list_documents_by_bbox",
+        id="org.ontobdc.domain.resource.capability.list_documents_by_name_pattern",
         version="0.1.0",
-        name="List Documents by BBox",
-        description="Lists documents from a FileRepositoryPort filtered by bounding box and optional mimetypes.",
+        name="List Documents by Name Pattern",
+        description="Lists documents from a FileRepositoryPort filtered by name pattern and optional mimetypes.",
         author="Elias M. P. Junior",
-        tags=["resource", "document", "file", "listing", "bbox", "mimetype"],
+        tags=["resource", "document", "file", "listing", "name", "pattern", "mimetype"],
         supported_languages=["en", "pt_BR"],
         input_schema={
             "type": "object",
@@ -25,10 +26,10 @@ class ListDocumentsByBboxCapability(Capability):
                     "required": True,
                     "description": "Repository instance (FileRepositoryPort)",
                 },
-                "bbox": {
-                    "type": "array",
+                "pattern": {
+                    "type": "string",
                     "required": True,
-                    "description": "Bounding box [x_min, y_min, x_max, y_max]",
+                    "description": "Name pattern (fnmatch-style, e.g. '*.pdf')",
                 },
                 "mimetypes": {
                     "type": "array",
@@ -50,17 +51,13 @@ class ListDocumentsByBboxCapability(Capability):
         output_schema={
             "type": "object",
             "properties": {
-                "org.ontobdc.domain.resource.document.list_by_bbox.content": {
+                "org.ontobdc.domain.resource.document.list_by_name_pattern.content": {
                     "type": "array",
                     "description": "List of documents",
                 },
-                "org.ontobdc.domain.resource.document.list_by_bbox.count": {
+                "org.ontobdc.domain.resource.document.list_by_name_pattern.count": {
                     "type": "integer",
                     "description": "Number of documents listed",
-                },
-                "org.ontobdc.domain.resource.document.list_by_bbox.bbox": {
-                    "type": "array",
-                    "description": "Bounding box used for filtering",
                 },
             },
         },
@@ -71,9 +68,9 @@ class ListDocumentsByBboxCapability(Capability):
                 "description": "File repository not configured for capability",
             },
             {
-                "code": "org.ontobdc.domain.resource.document.exception.invalid_bbox",
+                "code": "org.ontobdc.domain.resource.document.exception.invalid_name_pattern",
                 "python_type": "ValueError",
-                "description": "Invalid bounding box provided",
+                "description": "Invalid or empty name pattern provided",
             },
         ],
     )
@@ -83,12 +80,9 @@ class ListDocumentsByBboxCapability(Capability):
         if not isinstance(repo, FileRepositoryPort):
             raise ValueError("Repository must be a FileRepositoryPort")
 
-        bbox = inputs.get("bbox")
-        if not isinstance(bbox, list) or len(bbox) != 4:
-            raise ValueError("Bounding box must be a list of four numbers")
-        for v in bbox:
-            if not isinstance(v, (int, float)):
-                raise ValueError("Bounding box values must be numbers")
+        pattern = inputs.get("pattern")
+        if not isinstance(pattern, str) or not pattern:
+            raise ValueError("Name pattern must be a non-empty string")
 
         mimetypes = inputs.get("mimetypes")
         limit = inputs.get("limit")
@@ -107,10 +101,16 @@ class ListDocumentsByBboxCapability(Capability):
             if isinstance(docs, list):
                 documents.extend(docs)
 
+        filtered: List[Any] = []
+        for doc in documents:
+            name = self._extract_name(doc)
+            if name and fnmatch.fnmatch(name, pattern):
+                filtered.append(doc)
+
         if isinstance(base_path, str) and base_path:
             base = Path(base_path).resolve()
-            filtered: List[Any] = []
-            for doc in documents:
+            restricted: List[Any] = []
+            for doc in filtered:
                 name = self._extract_name(doc)
                 if not name:
                     continue
@@ -120,29 +120,18 @@ class ListDocumentsByBboxCapability(Capability):
                     continue
                 try:
                     resolved.relative_to(base)
-                    filtered.append(doc)
+                    restricted.append(doc)
                 except ValueError:
                     continue
-            documents = filtered
+            filtered = restricted
 
         if isinstance(limit, int) and limit > 0:
-            documents = documents[:limit]
+            filtered = filtered[:limit]
 
         return {
-            "org.ontobdc.domain.resource.document.list_by_bbox.content": documents,
-            "org.ontobdc.domain.resource.document.list_by_bbox.count": len(documents),
-            "org.ontobdc.domain.resource.document.list_by_bbox.bbox": bbox,
+            "org.ontobdc.domain.resource.document.list_by_name_pattern.content": filtered,
+            "org.ontobdc.domain.resource.document.list_by_name_pattern.count": len(filtered),
         }
-
-    def check(self, inputs: Dict[str, Any]) -> bool:
-        repo_ok = isinstance(inputs.get("repository"), FileRepositoryPort)
-        bbox = inputs.get("bbox")
-        if not isinstance(bbox, list) or len(bbox) != 4:
-            return False
-        return repo_ok
-
-    def get_default_cli_strategy(self, **kwargs: Any) -> Optional[Any]:
-        return ListDocumentsByBboxCliStrategy(**kwargs)
 
     def _extract_name(self, doc: Any) -> Optional[str]:
         if isinstance(doc, dict):
@@ -155,17 +144,28 @@ class ListDocumentsByBboxCapability(Capability):
             return doc
         return None
 
+    def check(self, inputs: Dict[str, Any]) -> bool:
+        repo_ok = isinstance(inputs.get("repository"), FileRepositoryPort)
+        pattern = inputs.get("pattern")
+        mimetypes = inputs.get("mimetypes")
+        if not isinstance(pattern, str) or not pattern:
+            return False
+        if mimetypes is not None and not isinstance(mimetypes, list):
+            return False
+        return repo_ok
 
-class ListDocumentsByBboxCliStrategy:
+    def get_default_cli_strategy(self, **kwargs: Any) -> Optional[Any]:
+        return ListDocumentsByNamePatternCliStrategy(**kwargs)
+
+
+class ListDocumentsByNamePatternCliStrategy:
     def __init__(self, **kwargs: Any) -> None:
         self.repository: Optional[FileRepositoryPort] = kwargs.get("repository")
 
     def setup_parser(self, parser) -> None:
         parser.add_argument(
-            "bbox",
-            nargs=4,
-            type=float,
-            help="Bounding box: x_min y_min x_max y_max",
+            "pattern",
+            help="Name pattern (fnmatch-style, e.g. '*.pdf')",
         )
         parser.add_argument(
             "--mimetype",
@@ -193,7 +193,7 @@ class ListDocumentsByBboxCliStrategy:
         executor = CapabilityExecutor()
         inputs: Dict[str, Any] = {
             "repository": self.repository,
-            "bbox": list(args.bbox),
+            "pattern": args.pattern,
         }
         if args.mimetypes:
             inputs["mimetypes"] = args.mimetypes
@@ -218,15 +218,13 @@ class ListDocumentsByBboxCliStrategy:
         capability: Capability,
         result: Any,
     ) -> None:
-        docs = result.get("org.ontobdc.domain.resource.document.list_by_bbox.content", [])
-        count = result.get("org.ontobdc.domain.resource.document.list_by_bbox.count", 0)
-        bbox = result.get("org.ontobdc.domain.resource.document.list_by_bbox.bbox", [])
-        console.print(f"[green]BBox:[/green] {bbox}")
+        docs = result.get("org.ontobdc.domain.resource.document.list_by_name_pattern.content", [])
+        count = result.get("org.ontobdc.domain.resource.document.list_by_name_pattern.count", 0)
         table = TableViewAdapter.create_table(
             title="Documents",
             columns=[
-                TableViewAdapter.col("#", kind="index"),
-                TableViewAdapter.col("Document", kind="primary", overflow="fold"),
+                ("#", {"justify": "right", "style": "dim"}),
+                ("Document", {"overflow": "fold"}),
             ],
         )
         for idx, doc in enumerate(docs, start=1):
