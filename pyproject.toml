@@ -18,6 +18,15 @@ dependencies = [
 [tool.setuptools]
 package-dir = {"" = "src"}
 
+[tool.setuptools.package-data]
+"ontobdc" = [
+    "*.sh",
+    "cli/*.sh",
+    "dev/*.sh",
+    "run/*.sh",
+    "check/infra/*.sh",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["ontobdc*"]
