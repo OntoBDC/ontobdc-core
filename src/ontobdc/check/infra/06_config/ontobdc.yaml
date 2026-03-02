@@ -1,8 +1,0 @@
-modules:
-  - install:
-      engine: venv
-  - dev:
-      source: ontobdc/dev
-  - run:
-      source: ontobdc/run
-

@@ -1,0 +1,28 @@
+{
+    "config": {
+        "engines": [
+            "venv",
+            "colab"
+        ]
+    },
+    "base": {
+        "infra": [
+            "is_connected_to_internet",
+            "is_engine_installed"
+        ]
+    },
+    "engines": {
+        "venv": {
+            "infra": [
+                "is_venv_active",
+                "install_python_dependencies"
+            ]
+        },
+        "colab": {
+            "infra": [
+                "is_colab",
+                "install_python_dependencies"
+            ]
+        }
+    }
+}

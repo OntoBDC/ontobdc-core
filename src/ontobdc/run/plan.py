@@ -14,19 +14,7 @@ project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from stack.src.bib.core.capability.registry import CapabilityRegistry
-from stack.src.bib.core.capability.repository import LocalCapabilityRepository
-from stack.src.bib.core.capability.metadata import CapabilityMetadata
-
-console = Console()
-
-GRAY = "bright_black"
-CYAN = "cyan"
-YELLOW = "yellow"
-GREEN = "green"
-RED = "red"
-WHITE = "white"
-BOLD = "bold"
+from ontobdc.run.ui import print_message_box, console, GRAY, CYAN, YELLOW, GREEN, RED, WHITE, BOLD
 
 
 def print_header(title: str):
@@ -51,46 +39,10 @@ def print_sub_step(msg: str, status: str = "success"):
         console.print(f"  [{GRAY}]• {msg}[/{GRAY}]")
 
 
-def print_message_box(color: str, title_type: str, title_text: str, msg_text: str):
-    console.print("")
-    term_width = shutil.get_terminal_size().columns
-    inner_width = term_width - 2
-    hline = "─" * inner_width
 
-    console.print(f"[{color}]╭{hline}╮[/{color}]")
-
-    prefix = " >_ "
-    type_formatted = f"[{BOLD} {color}]{title_type}[/{BOLD} {color}]"
-
-    visible_len = 4 + len(title_type) + (1 + len(title_text) if title_text else 0)
-    pad_len = max(0, inner_width - visible_len)
-    padding = " " * pad_len
-
-    line_content = f"[{color}]│[/{color}]{prefix}{type_formatted}"
-    if title_text:
-        line_content += f" {title_text}"
-    line_content += f"{padding}[{color}]│[/{color}]"
-
-    console.print(line_content)
-
-    console.print(f"[{color}]│[/{color}]{' ' * inner_width}[{color}]│[/{color}]")
-
-    lines = msg_text.split("\n")
-    for line in lines:
-        if not line:
-            wrapped_lines = [" "]
-        else:
-            wrapped_lines = textwrap.wrap(line, width=inner_width, drop_whitespace=False)
-
-        for wline in wrapped_lines:
-            visible_len = Text.from_markup(wline).cell_len
-            pad_len = max(0, inner_width - visible_len)
-            padding = " " * pad_len
-            console.print(
-                f"[{color}]│[/{color}][{GRAY}]{wline}[/{GRAY}]{padding}[{color}]│[/{color}]"
-            )
-
-    console.print(f"[{color}]╰{hline}╯[/{color}]")
+from ontobdc.src.bib.core.capability.registry import CapabilityRegistry
+from ontobdc.src.bib.core.capability.repository import LocalCapabilityRepository
+from ontobdc.src.bib.core.capability.metadata import CapabilityMetadata
 
 
 class ExecutionPlanner:
@@ -210,7 +162,7 @@ class ExecutionPlanner:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="InfoBIM Execution Planner")
+    parser = argparse.ArgumentParser(description="ontobdc Execution Planner")
     parser.add_argument(
         "capability_id", help="The ID of the target capability to plan for"
     )

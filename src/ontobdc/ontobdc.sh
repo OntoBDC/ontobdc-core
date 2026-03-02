@@ -18,7 +18,7 @@ while [ -h "$SCRIPT_PATH" ]; do
     esac
 done
 SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
-CONFIG_FILE="${SCRIPT_DIR}/../config/ontobdc.yaml"
+CONFIG_FILE="${SCRIPT_DIR}/../../config/ontobdc.yaml"
 
 if [[ "$1" == "commit" || "$1" == "branch" ]]; then
     ACTION="$1"
@@ -30,6 +30,32 @@ if [[ "$1" == "commit" || "$1" == "branch" ]]; then
         exit $?
     else
         echo -e "${RED}Error:${RESET} ${ACTION}.sh not found in ontobdc/dev"
+        exit 1
+    fi
+fi
+
+if [[ "$1" == "check" ]]; then
+    TOOL_SCRIPT="${SCRIPT_DIR}/check/check.sh"
+
+    if [[ -f "$TOOL_SCRIPT" ]]; then
+        shift
+        bash "$TOOL_SCRIPT" "$@"
+        exit $?
+    else
+        echo -e "${RED}Error:${RESET} check.sh not found in ontobdc/check"
+        exit 1
+    fi
+fi
+
+if [[ "$1" == "setup" ]]; then
+    TOOL_SCRIPT="${SCRIPT_DIR}/dev/setup.sh"
+
+    if [[ -f "$TOOL_SCRIPT" ]]; then
+        shift
+        bash "$TOOL_SCRIPT" "$@"
+        exit $?
+    else
+        echo -e "${RED}Error:${RESET} setup.sh not found in ontobdc/dev"
         exit 1
     fi
 fi
@@ -52,6 +78,8 @@ if [[ -z "$1" || "$1" == "-h" || "$1" == "--help" || "$1" == "help" ]]; then
     echo -e "${WHITE}ontobdc CLI${RESET}"
     echo -e "  ${CYAN}commit${RESET}    ${GRAY}Git workflow for ontobdc and related modules${RESET}"
     echo -e "  ${CYAN}branch${RESET}    ${GRAY}Branch workflow for ontobdc and related modules${RESET}"
+    echo -e "  ${CYAN}check${RESET}     ${GRAY}Run infrastructure checks${RESET}"
+    echo -e "  ${CYAN}setup${RESET}     ${GRAY}Create ontobdc config with engine (venv|colab)${RESET}"
     echo -e "  ${CYAN}run${RESET}       ${GRAY}Run a capability via ontobdc/run${RESET}"
     echo -e "  ${CYAN}plan${RESET}      ${GRAY}Plan capability execution${RESET}"
     exit 0

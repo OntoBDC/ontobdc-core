@@ -25,4 +25,4 @@ The user will provide the output of `git diff --cached` (or `git diff`).
 ## Output
 Return ONLY the commit message. No markdown code blocks, no explanations, no conversational text.
 
-command: ./infobim commit "{message}"
+command: ./ontobdc commit "{message}"

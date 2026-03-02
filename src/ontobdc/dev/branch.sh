@@ -135,7 +135,7 @@ git_branch() {
                 fi
             elif [ "$ACTION" == "changelog" ]; then
                 # Changelog: List added, modified, removed files since branch start
-                # Usage: ./infobim branch changelog [target_branch]
+                # Usage: ./ontobdc branch changelog [target_branch]
                 
                 TARGET_REF="$BRANCH_NAME"
                 BASE_BRANCH=""

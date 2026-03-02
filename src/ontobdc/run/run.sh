@@ -1,7 +1,19 @@
 #!/bin/bash
 
+clear
+# Do not clear screen, let the user see previous output
+# clear
+
+# Get the script directory and root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+
+# Store current working directory to pass it as --root-path if not provided
+# But wait, ontobdc/run/run.py uses os.getcwd() by default if --root-path is not provided.
+# However, run.sh changes directory to ROOT_DIR below!
+# This is why relative paths or implicit CWD fail when running from outside.
+# We must capture the original CWD and pass it to python script if not overridden.
+ORIGINAL_CWD=$(pwd)
 
 cd "$ROOT_DIR" || exit 1
 
@@ -22,16 +34,42 @@ if [[ -f "$CONFIG_FILE" ]]; then
     [[ -z "$ENGINE" ]] && ENGINE="venv"
 fi
 
-if [ "$ENGINE" != "colab" ]; then
-    if [[ -f "venv/bin/activate" ]]; then
+# Check if --root-path or --repository is already provided
+HAS_ROOT_PATH=false
+for arg in "$@"; do
+    if [[ "$arg" == "--root-path" || "$arg" == "--repository" ]]; then
+        HAS_ROOT_PATH=true
+        break
+    fi
+done
+
+if [ "$HAS_ROOT_PATH" = false ]; then
+    # Inject --root-path with original CWD
+    set -- "$@" "--root-path" "$ORIGINAL_CWD"
+fi
+
+if [ "$ENGINE" == "colab" ]; then
+    # For colab, just run python
+    exec python3 ontobdc/run/run.py "$@"
+else
+    # For local, use venv
+    if [[ -n "$VIRTUAL_ENV" ]]; then
+        # Already in a venv, do nothing
+        :
+    elif [[ -f "venv/bin/activate" ]]; then
         source venv/bin/activate
     elif [[ -f ".venv/bin/activate" ]]; then
         source .venv/bin/activate
+    elif [[ -f "${ORIGINAL_CWD}/.venv/bin/activate" ]]; then
+        source "${ORIGINAL_CWD}/.venv/bin/activate"
+    elif [[ -f "${ORIGINAL_CWD}/venv/bin/activate" ]]; then
+        source "${ORIGINAL_CWD}/venv/bin/activate"
     else
         echo "Virtual environment not found in venv/ or .venv/"
-        echo "Please run './ontobdc/cli/check.sh --repair' to setup the environment."
+        echo "Please run 'ontobdc check --repair' to setup the environment."
         exit 1
     fi
+    # Use python from path (which should be the venv python now)
+    # And run module instead of file path to ensure imports work correctly
+    exec python3 -m ontobdc.run.run "$@"
 fi
-
-exec python3 stack/run/run.py "$@"

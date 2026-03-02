@@ -1,6 +1,6 @@
 #!/bin/bash
 
-infobim_help_dev() {
+ontobdc_help_dev() {
   echo ""
   echo -e "  ${WHITE}DEV MODULE COMMANDS${RESET}"
   echo ""

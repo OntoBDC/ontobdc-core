@@ -11,7 +11,8 @@ RED='\033[31m'
 BLUE='\033[34m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+# Path: src/ontobdc/dev/commit.sh -> ../../../.. -> ontobdc-stack/
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 
 TERM_WIDTH=$(tput cols)
 INNER_WIDTH=$((TERM_WIDTH - 2))
@@ -103,13 +104,13 @@ if [ "$1" == "--auto" ]; then
     # However, if an OPENAI_API_KEY was present, we could do:
     # curl ...
     
-    echo -e "${GRAY}To proceed manually, run: ${CYAN}./infobim commit ${GRAY}\"Your message\"${RESET}"
+    echo -e "${GRAY}To proceed manually, run: ${CYAN}./ontobdc commit ${GRAY}\"Your message\"${RESET}"
     exit 1
 fi
 
 if [ -z "$1" ]; then
     echo ""
-    print_message_box "$RED" "Error" "Missing commit message" "Usage: ${CYAN}./infobim commit ${GRAY}\"Your commit message here\"${RESET}"
+    print_message_box "$RED" "Error" "Missing commit message" "Usage: ${CYAN}./ontobdc commit ${GRAY}\"Your commit message here\"${RESET}"
     echo ""
     exit 1
 fi
@@ -174,8 +175,15 @@ git_commit() {
 cd "$ROOT_DIR" || exit 1
 
 while read -r line; do
-    git_commit "$line"
-done < <(git submodule foreach --recursive 'echo $path')
+    if [ -n "$line" ]; then
+        git_commit "$line"
+    fi
+done < <(git submodule foreach --recursive --quiet 'echo $path')
+
+# Also check for ontobdc-wip explicitly if not covered by submodule foreach
+if [ -d "ontobdc-wip/.git" ] && ! git submodule status ontobdc-wip >/dev/null 2>&1; then
+    git_commit "ontobdc-wip"
+fi
 
 git_commit "."
 
