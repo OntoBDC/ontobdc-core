@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ontobdc"
 authors = [{ name="Elias M P Junior" }]
-version = "0.1.0a2"
+version = "0.1.0a3"
 description = "OntoBDC"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,6 +13,7 @@ dependencies = [
     "rich",
     "PyYAML",
     "numpy",
+    "datapackage",
 ]
 
 [project.scripts]
@@ -27,7 +28,12 @@ package-dir = {"" = "src"}
     "cli/*.sh",
     "dev/*.sh",
     "run/*.sh",
-    "check/infra/*.sh",
+    "check/*.sh",
+    "check/*.json",
+    "check/infra/*/*.sh",
+    "core/**",
+    "module/**",
+    "prompt/**",
 ]
 
 [tool.setuptools.packages.find]
