@@ -7,8 +7,7 @@ It provides:
 - File and dataset repositories built on top of folders and filesystems
 - Resource-oriented capabilities that can be composed into higher-level flows
 
-You can use OntoBDC as a Python package, via its own CLI
-(`ontobdc.sh` / `run/run.sh`), or integrated into other stacks.
+You can use OntoBDC as a Python package, via its own CLI `ontobdc`, or integrated into other stacks.
 
 ---
 
@@ -25,42 +24,45 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-This makes the `ontobdc` package importable in your Python environment.
+This makes the `ontobdc` package importable in your Python environment and installs the `ontobdc` command.
 
-### 2. Run capabilities via ontobdc CLI
+### 2. Configure the Environment
 
-This repository provides a thin CLI wrapper in `ontobdc.sh` that dispatches
-to development tools and the capability runner:
+Before running capabilities, configure your environment (engine). This will create the necessary configuration files and verify your installation.
 
+**For Local Environment (venv):**
 ```bash
-./ontobdc.sh -h
+ontobdc setup venv
 ```
 
-Main commands:
-
-- `./ontobdc.sh run …`  → runs capabilities through `ontobdc/run/run.py`
-- `./ontobdc.sh plan …` → plans capability execution flows
-- `./ontobdc.sh commit` / `./ontobdc.sh branch` → Git workflow helpers for this repo
-
-You can also call the runner script directly:
-
+**For Google Colab:**
 ```bash
-./ontobdc/run/run.sh run --json
+ontobdc setup colab
 ```
 
-This prints a JSON catalog of registered capabilities, including those
-coming from OntoBDC itself and, if configured, other plugin packages.
+The `setup` command automatically runs system checks (`ontobdc check --repair`) to ensure all dependencies and configurations are correct.
 
-OntoBDC ships resource-oriented capabilities, for example
-to list documents from a repository:
+### 3. Run Capabilities
 
-- `org.ontobdc.domain.resource.capability.list_documents_by_bbox`
-- `org.ontobdc.domain.resource.capability.list_documents_by_type`
-- `org.ontobdc.domain.resource.capability.list_documents_by_name_pattern`
+Use the CLI to run capabilities. If you don't provide a capability ID, an interactive menu will appear.
 
-These capabilities are designed to work over a `FileRepositoryPort`
-implementation, typically backed by local folders or other storage
-adapters.
+```bash
+ontobdc run
+```
+
+To run a specific capability directly:
+
+```bash
+ontobdc run org.ontobdc.domain.resource.capability.list_documents_by_type
+```
+
+### 4. Other Commands
+
+- `ontobdc check` → Runs infrastructure checks (internet, dependencies, engine config). Use `--repair` to attempt auto-fixes.
+- `ontobdc plan …` → Plans capability execution flows.
+- `ontobdc commit` / `ontobdc branch` → Git workflow helpers for this repo (development mode).
+
+---
 
 ## 🧩 Capabilities
 
@@ -68,30 +70,19 @@ OntoBDC focuses on **resource and file-centric** capabilities. Examples:
 
 ### Resource Capabilities
 
-These live under `ontobdc.resource.plugin.capability`:
+These live under `ontobdc.module.resource.plugin.capability`:
 
 | ID | Description |
 |----|-------------|
-| `org.ontobdc.domain.resource.capability.list_documents_by_bbox` | Lists documents from a `FileRepositoryPort` filtered by bounding box and optional mimetypes. |
-| `org.ontobdc.domain.resource.capability.list_documents_by_type` | Lists documents filtered by logical type (e.g., models, drawings, reports). |
-| `org.ontobdc.domain.resource.capability.list_documents_by_name_pattern` | Lists documents filtered by name patterns (glob or regex-style matching). |
+| `org.ontobdc.domain.resource.capability.list_documents_by_name_pattern` | Lists documents filtered by name patterns (glob/regex). |
+| `org.ontobdc.domain.resource.capability.list_documents_by_type` | Lists documents filtered by logical type. |
 
-These capabilities consume repositories defined in
-`ontobdc.resource.src.domain.port.repository` and adapters in
-`ontobdc.resource.src.adapter`.
+### Social / WhatsApp Capabilities
 
-### Drive / PDF Capabilities
+Under `ontobdc.module.social.plugin` you will find capabilities for social data processing:
 
-Under `ontobdc.tmp.src.drive.plugin.capability.pdf` you will find
-experimental capabilities such as:
-
-- Attaching images to PDF files
-- Converting PDF pages to PNG
-- Extracting PDF pages to markdown
-- Counting pages in a PDF
-
-They are meant for document processing workflows that sit on top of
-OntoBDC’s file and dataset abstractions.
+- `org.ontobdc.domain.social.capability.list_whatsapp_accounts`
+- Extract unanswered messages from WhatsApp exports
 
 ---
 
@@ -100,27 +91,18 @@ OntoBDC’s file and dataset abstractions.
 OntoBDC is structured as a set of **layers**:
 
 - **Domain Ports and Entities**  
-  - `ontobdc.resource.src.domain.port.*` defines interfaces for entities
-    (documents, folders, datasets) and repositories.
-  - `ontobdc.resource.src.domain.entity` and schemas describe how these
-    resources are modeled.
+  - `ontobdc.core.domain.port.*` defines interfaces for entities and repositories.
+  - `ontobdc.module.*.schema` describes how these resources are modeled.
 
 - **Adapters**  
-  - `ontobdc.resource.src.adapter` provides concrete adapters for
-    filesystem-based repositories and folder structures.
-  - `ontobdc.core.src.adapter` includes presentation adapters, such as
-    rich table rendering for terminal output.
+  - `ontobdc.module.*.adapter` provides concrete adapters for filesystem-based repositories and external services.
+  - `ontobdc.core.adapter` includes presentation adapters, such as rich table rendering.
 
 - **Capabilities**  
-  - `ontobdc.resource.plugin.capability` packages domain operations as
-    reusable capabilities compatible with the InfoBIM execution model.
-  - Drive / PDF capabilities live under `ontobdc.tmp.src.drive.plugin.capability`.
+  - `ontobdc.module.*.plugin.capability` packages domain operations as reusable capabilities compatible with the InfoBIM execution model.
 
 - **Runner Integration**  
-  - `ontobdc/run/run.py` registers capabilities in a shared
-    `CapabilityRegistry` and wires them to the CLI, including
-    `--json` catalog export and an interactive menu when no capability ID
-    is provided.
+  - `ontobdc.run` handles capability discovery, execution, and CLI interaction.
 
 ---
 
@@ -129,9 +111,8 @@ OntoBDC is structured as a set of **layers**:
 OntoBDC is designed to be **agent-friendly**:
 
 - Capabilities expose structured input and output schemas
-- The runner supports a JSON catalog (`--json`) for automatic discovery
-- Planning helpers in `ontobdc/run/plan.py` can be used to build and
-  visualize multi-step execution graphs
+- The runner supports a JSON catalog (`ontobdc run --json`) for automatic discovery
+- Planning helpers can be used to build and visualize multi-step execution graphs
 
 ---
 
@@ -153,5 +134,4 @@ workflows.
 
 ## 📄 License
 
-OntoBDC is part of the **InfoBIM Community** ecosystem.  
-Licensed under **Apache 2.0**.***
+Licensed under **Apache 2.0**.
