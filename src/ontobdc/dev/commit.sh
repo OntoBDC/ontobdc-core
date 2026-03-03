@@ -12,9 +12,13 @@ BLUE='\033[34m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Path: src/ontobdc/dev/commit.sh -> ../../../.. -> ontobdc-stack/
+# IMPORTANT: Adjust this relative path if the script location changes!
+# Currently: ontobdc-wip/src/ontobdc/dev/commit.sh
+# Target: ontobdc-stack (root of the monorepo/workspace)
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 
 TERM_WIDTH=$(tput cols)
+if [ -z "$TERM_WIDTH" ]; then TERM_WIDTH=80; fi
 INNER_WIDTH=$((TERM_WIDTH - 2))
 
 # Generate horizontal lines
@@ -23,170 +27,114 @@ FULL_HLINE=$(printf '─%.0s' $(seq 1 $TERM_WIDTH))
 
 # --- Functions ---
 print_message_box() {
+    # Simple message box implementation
     local COLOR="$1"
-    local TITLE_TYPE="$2"    # e.g., "Error", "Success", "Warning"
+    local TITLE_TYPE="$2"
     local TITLE_TEXT="$3"
     local MSG_TEXT="$4"
     
-    # Calculate lengths
-    # Title line: " >_ TYPE TITLE"
-    # " >_ " is 4 chars.
-    
-    local TYPE_LEN=${#TITLE_TYPE}
-    local TEXT_LEN=${#TITLE_TEXT}
-    # Visible length = 4 + TYPE_LEN + 1 (space) + TEXT_LEN
-    # If TITLE_TEXT is empty, handle gracefully
-    
-    local TITLE_VISIBLE_LEN=$((4 + TYPE_LEN))
-    if [ -n "$TITLE_TEXT" ]; then
-        TITLE_VISIBLE_LEN=$((TITLE_VISIBLE_LEN + 1 + TEXT_LEN))
-    fi
-
-    local TITLE_PAD_LEN=$((INNER_WIDTH - TITLE_VISIBLE_LEN))
-    if [ $TITLE_PAD_LEN -lt 0 ]; then TITLE_PAD_LEN=0; fi
-    local TITLE_PAD=$(printf '%*s' "$TITLE_PAD_LEN" "")
-    
-    local MSG_LEN=${#MSG_TEXT}
-    local MSG_PAD_LEN=$((INNER_WIDTH - MSG_LEN))
-    if [ $MSG_PAD_LEN -lt 0 ]; then MSG_PAD_LEN=0; fi
-    local MSG_PAD=$(printf '%*s' "$MSG_PAD_LEN" "")
-    
-    local EMPTY_PAD=$(printf '%*s' "$INNER_WIDTH" "")
-    
     echo -e "${COLOR}╭${HLINE}╮${RESET}"
-    if [ -n "$TITLE_TEXT" ]; then
-        echo -e "${COLOR}│${RESET} >_ ${BOLD}${COLOR}${TITLE_TYPE}${RESET} ${TITLE_TEXT}${TITLE_PAD}${COLOR}│${RESET}"
-    else
-        echo -e "${COLOR}│${RESET} >_ ${BOLD}${COLOR}${TITLE_TYPE}${RESET}${TITLE_PAD}${COLOR}│${RESET}"
-    fi
-    echo -e "${COLOR}│${RESET}${EMPTY_PAD}${COLOR}│${RESET}"
-    
-    # Handle multi-line messages
-    echo -e "$MSG_TEXT" | while IFS= read -r line; do
-        # Strip ANSI codes for length calculation
-        local CLEAN_LINE=$(echo -e "$line" | sed 's/\x1b\[[0-9;]*m//g')
-        local MSG_LEN=${#CLEAN_LINE}
-        local MSG_PAD_LEN=$((INNER_WIDTH - MSG_LEN))
-        if [ $MSG_PAD_LEN -lt 0 ]; then MSG_PAD_LEN=0; fi
-        local MSG_PAD=$(printf '%*s' "$MSG_PAD_LEN" "")
-        echo -e "${COLOR}│${RESET}${GRAY}${line}${RESET}${MSG_PAD}${COLOR}│${RESET}"
-    done
-    
+    echo -e "${COLOR}│${RESET} >_ ${BOLD}${COLOR}${TITLE_TYPE}${RESET} ${TITLE_TEXT}"
+    echo -e "${COLOR}│${RESET}"
+    echo -e "${COLOR}│${RESET} ${MSG_TEXT}"
     echo -e "${COLOR}╰${HLINE}╯${RESET}"
 }
 
-# Script to automate commits across multiple repositories
-# Usage: ./commit.sh "Commit message" OR ./commit.sh --auto
+if [ -z "$1" ]; then
+    echo -e "${RED}Error: Missing commit message${RESET}"
+    echo -e "Usage: ontobdc commit \"Your message\""
+    exit 1
+fi
 
 MSG="$1"
 
-if [ "$1" == "--auto" ]; then
-    # Check if a prompt definition exists
-    PROMPT_FILE="./stack/prompts/commit.md"
+echo -e "${CYAN}Starting commit process...${RESET}"
+echo -e "${GRAY}Root Directory: ${ROOT_DIR}${RESET}"
+echo -e "${GRAY}Message: ${WHITE}\"$MSG\"${RESET}"
+echo ""
+
+# Function to perform git operations in a directory
+process_repo() {
+    local REPO_PATH="$1"
+    local REPO_NAME=$(basename "$REPO_PATH")
     
-    if [ ! -f "$PROMPT_FILE" ]; then
-        echo ""
-        print_message_box "$RED" "Error" "Prompt file not found" "Please create $PROMPT_FILE first."
-        echo ""
-        exit 1
+    # Skip if directory doesn't exist
+    if [ ! -d "$REPO_PATH" ]; then
+        return
     fi
     
-    # Placeholder logic for AI integration
-    # In a real scenario with an API key, we would call it here.
-    # For now, we inform the user (or the AI Agent) to use the prompt.
+    # Check if it's a git repo
+    if [ ! -d "$REPO_PATH/.git" ] && [ ! -f "$REPO_PATH/.git" ]; then
+        return
+    fi
+
+    echo -e "${YELLOW}❯ Processing ${REPO_NAME}${RESET}"
     
-    echo ""
-    print_message_box "$YELLOW" "Info" "Auto-Commit Mode" "Please use an LLM with the prompt in:\n${CYAN}${PROMPT_FILE}${RESET}\n\nWaiting for manual message input or AI execution..."
-    echo ""
-    
-    # If this script is running interactively without an AI agent hooking into it,
-    # we can't magically generate the text.
-    # However, if an OPENAI_API_KEY was present, we could do:
-    # curl ...
-    
-    echo -e "${GRAY}To proceed manually, run: ${CYAN}./ontobdc commit ${GRAY}\"Your message\"${RESET}"
-    exit 1
-fi
-
-if [ -z "$1" ]; then
-    echo ""
-    print_message_box "$RED" "Error" "Missing commit message" "Usage: ${CYAN}./ontobdc commit ${GRAY}\"Your commit message here\"${RESET}"
-    echo ""
-    exit 1
-fi
-
-MSG="$1"
-ROOT_DIR="$ROOT_DIR"
-
-echo ""
-echo -e "${GRAY}${FULL_HLINE}${RESET}"
-echo -e "${CYAN}Starting commit process...${RESET}"
-echo ""
-echo -e "${GRAY}Message: ${WHITE}\"$MSG\"${RESET}"
-echo -e "${GRAY}${FULL_HLINE}${RESET}"
-echo ""
-
-git_commit() {
-    local DIR="$1"
-
-    if [ -d "$DIR" ]; then
-        # Enter directory
-        cd "$DIR" || { echo -e "${RED}Failed to enter $DIR${RESET}"; return; }
-
-        # Check if it is a git repository
-        if [ -d ".git" ] || git rev-parse --git-dir > /dev/null 2>&1; then
-            BRANCH=$(git branch --show-current 2>/dev/null || git rev-parse --abbrev-ref HEAD)
-            echo -e "${YELLOW}❯ ${WHITE}Processing ${CYAN}${DIR}${RESET} ${GRAY}(${BRANCH})${RESET}"
-
-            # Add changes
-            git add .
-
-            # Check if there is anything to commit
-            if ! git diff-index --quiet HEAD --; then
-                git commit -m "$MSG" > /dev/null 2>&1
-                echo -e "  ${GREEN}✓ Committed changes${RESET}"
-
-                # Check if remote exists
-                if [ -n "$(git remote)" ]; then
-                    git push > /dev/null 2>&1
-                    if [ $? -eq 0 ]; then
-                        echo -e "  ${GREEN}✓ Pushed to remote${RESET}"
-                    else
-                        git push --set-upstream origin "$BRANCH" > /dev/null 2>&1
-                        if [ $? -eq 0 ]; then
-                            echo -e "  ${GREEN}✓ Pushed to remote (set upstream)${RESET}"
-                        else
-                            echo -e "  ${RED}✗ Push failed${RESET}"
-                        fi
-                    fi
+    # Run in subshell to preserve CWD
+    (
+        cd "$REPO_PATH" || exit
+        
+        # Stash current branch name
+        BRANCH=$(git branch --show-current 2>/dev/null || git rev-parse --abbrev-ref HEAD)
+        
+        # Add all changes
+        git add . > /dev/null 2>&1
+        
+        # Check for changes
+        if ! git diff-index --quiet HEAD --; then
+            git commit -m "$MSG" > /dev/null 2>&1
+            echo -e "  ${GREEN}✓ Committed changes${RESET}"
+            
+            # Push if remote exists
+            if git remote | grep -q "."; then
+                if git push > /dev/null 2>&1; then
+                    echo -e "  ${GREEN}✓ Pushed to remote${RESET}"
                 else
-                    echo -e "  ${GRAY}• No remote repository found (skipping push)${RESET}"
+                     # Try setting upstream
+                     if git push --set-upstream origin "$BRANCH" > /dev/null 2>&1; then
+                        echo -e "  ${GREEN}✓ Pushed to remote (set upstream)${RESET}"
+                     else
+                        echo -e "  ${RED}✗ Push failed${RESET}"
+                     fi
                 fi
             else
-                echo -e "  ${GRAY}• No changes to commit${RESET}"
+                echo -e "  ${GRAY}• No remote repository found (skipping push)${RESET}"
             fi
+        else
+            echo -e "  ${GRAY}• No changes to commit${RESET}"
         fi
-        
-        # Return to root directory
-        cd "$ROOT_DIR" || return
-    fi
+    )
 }
 
-cd "$ROOT_DIR" || exit 1
-
-while read -r line; do
-    if [ -n "$line" ]; then
-        git_commit "$line"
-    fi
-done < <(git submodule foreach --recursive --quiet 'echo $path')
-
-# Also check for ontobdc-wip explicitly if not covered by submodule foreach
-if [ -d "ontobdc-wip/.git" ] && ! git submodule status ontobdc-wip >/dev/null 2>&1; then
-    git_commit "ontobdc-wip"
+# 1. Process Submodules explicitly detected via .gitmodules
+# This is more robust than `git submodule foreach` which might skip if not initialized
+if [ -f "${ROOT_DIR}/.gitmodules" ]; then
+    # Extract paths from .gitmodules
+    # Format: 	path = ontobdc-wip
+    SUBMODULES=$(grep "path =" "${ROOT_DIR}/.gitmodules" | awk '{print $3}')
+    
+    for SUB in $SUBMODULES; do
+        process_repo "${ROOT_DIR}/${SUB}"
+    done
 fi
 
-git_commit "."
+# 2. Process ontobdc-wip explicitly if not in .gitmodules (development fallback)
+if [ -d "${ROOT_DIR}/ontobdc-wip" ]; then
+    # Check if we already processed it (simple string check)
+    if [[ "$SUBMODULES" != *"ontobdc-wip"* ]]; then
+        process_repo "${ROOT_DIR}/ontobdc-wip"
+    fi
+fi
+
+# 3. Process ontobdc-core explicitly (core distribution)
+if [ -d "${ROOT_DIR}/ontobdc-core" ]; then
+    if [[ "$SUBMODULES" != *"ontobdc-core"* ]]; then
+        process_repo "${ROOT_DIR}/ontobdc-core"
+    fi
+fi
+
+# 4. Process Root Repository (Last)
+process_repo "${ROOT_DIR}"
 
 echo ""
-print_message_box "$GREEN" "Success!" "Commit finished" "All repositories updated."
-echo ""
+echo -e "${GREEN}Success! Commit finished.${RESET}"
