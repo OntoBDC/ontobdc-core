@@ -1,5 +1,7 @@
 #!/bin/bash
 
+clear
+
 BOLD='\033[1m'
 RESET='\033[0m'
 CYAN='\033[36m'
@@ -75,6 +77,7 @@ if [[ "$1" == "run" || "$1" == "plan" ]]; then
 fi
 
 if [[ -z "$1" || "$1" == "-h" || "$1" == "--help" || "$1" == "help" ]]; then
+    echo ""
     echo -e "${WHITE}ontobdc CLI${RESET}"
     echo -e "  ${CYAN}commit${RESET}    ${GRAY}Git workflow for ontobdc and related modules${RESET}"
     echo -e "  ${CYAN}branch${RESET}    ${GRAY}Branch workflow for ontobdc and related modules${RESET}"

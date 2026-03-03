@@ -74,14 +74,33 @@ def dev_command(action, args):
         print(f"Error executing {action} script: {e}")
         sys.exit(1)
 
+def print_help():
+    # Colors
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+    CYAN = '\033[36m'
+    GRAY = '\033[90m'
+    WHITE = '\033[37m'
+    
+    print(f"{WHITE}ontobdc CLI{RESET}")
+    print(f"  {CYAN}commit{RESET}    {GRAY}Git workflow for ontobdc and related modules{RESET}")
+    print(f"  {CYAN}branch{RESET}    {GRAY}Branch workflow for ontobdc and related modules{RESET}")
+    print(f"  {CYAN}check{RESET}     {GRAY}Run infrastructure checks{RESET}")
+    print(f"  {CYAN}setup{RESET}     {GRAY}Create ontobdc config with engine (venv|colab){RESET}")
+    print(f"  {CYAN}run{RESET}       {GRAY}Run a capability via ontobdc/run{RESET}")
+    print(f"  {CYAN}plan{RESET}      {GRAY}Plan capability execution{RESET}")
+
 def main():
     # If no args, print help
     if len(sys.argv) == 1:
-        print("OntoBDC CLI")
-        print("Available commands: run, check, setup, commit, branch, plan")
+        print_help()
         sys.exit(0)
 
     cmd = sys.argv[1]
+    
+    if cmd in ["-h", "--help", "help"]:
+        print_help()
+        sys.exit(0)
     
     if cmd == "run":
         # Pass control to existing run module
@@ -130,6 +149,7 @@ def main():
         
     else:
         print(f"Unknown command: {cmd}")
+        print_help()
         sys.exit(1)
 
 if __name__ == "__main__":
