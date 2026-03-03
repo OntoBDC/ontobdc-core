@@ -39,6 +39,16 @@ ontobdc --help
 
 From there, you can execute checks, run capabilities, and interact with registered use cases.
 
+### Alternative: Google Colab
+
+You can try OntoBDC directly in Google Colab without installing anything locally.
+
+<a href="examples/ontobdc_example.ipynb" target="_blank">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+
+View or download the [example notebook](examples/ontobdc_example.ipynb) to see capabilities in action.
+
 ## ✅ Checking
 
 The `check` command validates engineering data against defined capabilities and rules.
