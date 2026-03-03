@@ -10,7 +10,7 @@ OntoBDC provides a structured way to define capabilities, actions, and use cases
 
 It enables reproducible, auditable, and automation-ready workflows across technical domains.
 
-## Used by
+## 🏗️ Used by
 
 OntoBDC is currently used as the core data and execution layer of:
 
@@ -18,7 +18,12 @@ OntoBDC is currently used as the core data and execution layer of:
 
 InfoBIM leverages OntoBDC to define capabilities, execute checks, and orchestrate engineering data workflows.
 
-## 🚀 Getting started
+## 📦 Requirements
+
+- Python 3.11+
+- pip
+
+## 🚀 Getting Started
 
 Install the package:
 
@@ -34,7 +39,7 @@ ontobdc --help
 
 From there, you can execute checks, run capabilities, and interact with registered use cases.
 
-## 🧪 Checking
+## ✅ Checking
 
 The `check` command validates engineering data against defined capabilities and rules.
 
@@ -49,6 +54,10 @@ It executes registered checks over the target dataset, reports inconsistencies, 
 </p>
 
 This ensures reproducibility, auditability, and deterministic validation of engineering workflows.
+
+## 🤝 Contributing
+
+We are always on the lookout for contributors to help us fix bugs, create new features, or help us improve project documentation. If you are interested, feel free to create a [PR](https://github.com/OntoBDC/ontobdc-core/pulls) or open an [issue](https://github.com/OntoBDC/ontobdc-core/issues) on this topic.
 
 ## 📄 License
 
