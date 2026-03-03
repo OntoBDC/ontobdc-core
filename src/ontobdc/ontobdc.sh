@@ -78,13 +78,14 @@ fi
 
 if [[ -z "$1" || "$1" == "-h" || "$1" == "--help" || "$1" == "help" ]]; then
     echo ""
-    echo -e "${WHITE}ontobdc CLI${RESET}"
+    echo -e "${WHITE}OntoBDC CLI${RESET}"
     echo -e "  ${CYAN}commit${RESET}    ${GRAY}Git workflow for ontobdc and related modules${RESET}"
     echo -e "  ${CYAN}branch${RESET}    ${GRAY}Branch workflow for ontobdc and related modules${RESET}"
     echo -e "  ${CYAN}check${RESET}     ${GRAY}Run infrastructure checks${RESET}"
     echo -e "  ${CYAN}setup${RESET}     ${GRAY}Create ontobdc config with engine (venv|colab)${RESET}"
     echo -e "  ${CYAN}run${RESET}       ${GRAY}Run a capability via ontobdc/run${RESET}"
     echo -e "  ${CYAN}plan${RESET}      ${GRAY}Plan capability execution${RESET}"
+    echo ""
     exit 0
 fi
 
