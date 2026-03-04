@@ -81,8 +81,8 @@ def print_help():
     CYAN = '\033[36m'
     GRAY = '\033[90m'
     WHITE = '\033[37m'
-    
-    print(f"{WHITE}ontobdc CLI{RESET}")
+
+    print(f"{WHITE}OntoBDC CLI{RESET}")
     print(f"  {CYAN}commit{RESET}    {GRAY}Git workflow for ontobdc and related modules{RESET}")
     print(f"  {CYAN}branch{RESET}    {GRAY}Branch workflow for ontobdc and related modules{RESET}")
     print(f"  {CYAN}check{RESET}     {GRAY}Run infrastructure checks{RESET}")
