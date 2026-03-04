@@ -82,6 +82,7 @@ def print_help():
     GRAY = '\033[90m'
     WHITE = '\033[37m'
 
+    print("")
     print(f"{WHITE}OntoBDC CLI{RESET}")
     print(f"  {CYAN}commit{RESET}    {GRAY}Git workflow for ontobdc and related modules{RESET}")
     print(f"  {CYAN}branch{RESET}    {GRAY}Branch workflow for ontobdc and related modules{RESET}")
@@ -89,6 +90,7 @@ def print_help():
     print(f"  {CYAN}setup{RESET}     {GRAY}Create ontobdc config with engine (venv|colab){RESET}")
     print(f"  {CYAN}run{RESET}       {GRAY}Run a capability via ontobdc/run{RESET}")
     print(f"  {CYAN}plan{RESET}      {GRAY}Plan capability execution{RESET}")
+    print("")
 
 def main():
     # If no args, print help
