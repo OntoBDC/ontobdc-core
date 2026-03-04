@@ -11,11 +11,44 @@ RED='\033[31m'
 BLUE='\033[34m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Path: src/ontobdc/dev/commit.sh -> ../../../.. -> ontobdc-stack/
-# IMPORTANT: Adjust this relative path if the script location changes!
-# Currently: ontobdc-wip/src/ontobdc/dev/commit.sh
-# Target: ontobdc-stack (root of the monorepo/workspace)
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
+
+# --- Determine Root Directory ---
+# The script can run in two modes:
+# 1. Dev Mode (from source): Script is deep inside ontobdc-wip/src/ontobdc/dev
+# 2. Installed Mode (pip): Script is inside site-packages/ontobdc/dev
+
+# Try to find the root by looking for .git or .gitmodules upwards from CWD
+# This allows 'ontobdc commit' to work from anywhere within a repo
+find_git_root() {
+    local DIR="$PWD"
+    while [ "$DIR" != "/" ]; do
+        if [ -d "$DIR/.git" ] || [ -f "$DIR/.gitmodules" ]; then
+            echo "$DIR"
+            return 0
+        fi
+        DIR=$(dirname "$DIR")
+    done
+    return 1
+}
+
+GIT_ROOT=$(find_git_root)
+
+if [ -n "$GIT_ROOT" ]; then
+    ROOT_DIR="$GIT_ROOT"
+else
+    # Fallback to relative path logic if we can't find a git root from CWD
+    # This assumes we are running from source structure
+    ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
+    
+    # Check if this fallback actually points to a git repo
+    if [ ! -d "$ROOT_DIR/.git" ] && [ ! -f "$ROOT_DIR/.gitmodules" ]; then
+        # If fallback also fails (e.g. installed package running outside a repo),
+        # default to CWD but warn
+        echo -e "${YELLOW}Warning: Could not detect git repository root. Using current directory.${RESET}"
+        ROOT_DIR="$PWD"
+    fi
+fi
+
 
 TERM_WIDTH=$(tput cols)
 if [ -z "$TERM_WIDTH" ]; then TERM_WIDTH=80; fi
