@@ -17,7 +17,7 @@ except ImportError:
 
 setup_project_root()
 
-from ontobdc.run.ui import print_message_box, RED
+from ontobdc.run.ui import YELLOW, print_message_box, RED
 
 # Debug start
 # console = Console()
@@ -367,7 +367,7 @@ def main():
                     continue
 
         if not options:
-            print_message_box(RED, "Error", "Loading Error", "No matching capabilities found (missing required arguments?).")
+            print_message_box(YELLOW, "Warning", "Loading Error", "No matching capabilities found (missing required arguments?).")
             sys.exit(1)
 
         selector = SimpleMenuSelector()
