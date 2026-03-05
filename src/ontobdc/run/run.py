@@ -188,6 +188,7 @@ def main():
     extra_args = []
     i = 1
     include_actions = False
+    explicit_capability_id = None
 
     # Debug print to diagnose argument parsing issues
     # print(f"DEBUG: sys.argv={sys.argv}")
@@ -212,6 +213,14 @@ def main():
              else:
                 i += 1
              continue
+
+        if arg == "--id":
+            if i + 1 < len(sys.argv):
+                explicit_capability_id = sys.argv[i+1]
+                i += 2
+            else:
+                i += 1
+            continue
 
         if arg == "--act":
             include_actions = True
@@ -313,7 +322,7 @@ def main():
     # Parse just to check export flag globally if set early
     # But wait, we want to parse the first positional arg as capability_id
     
-    if len(cleaned_argv) <= 1:
+    if len(cleaned_argv) <= 1 and not explicit_capability_id:
         # Interactive mode if no args (except prog name)
         
         # Construct options for SimpleMenuSelector
@@ -387,7 +396,10 @@ def main():
              include_actions = True
         
     else:
-        capability_id = cleaned_argv[1]
+        if explicit_capability_id:
+            capability_id = explicit_capability_id
+        else:
+            capability_id = cleaned_argv[1]
         # Remove prog name and capability_id
         extra_args_start_index = 2
     
