@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "DEBUG: Executing ontobdc-core/src/ontobdc/ontobdc.sh"
+
 clear
 
 BOLD='\033[1m'
@@ -76,6 +78,19 @@ if [[ "$1" == "run" || "$1" == "plan" ]]; then
     fi
 fi
 
+if [[ "$1" == "list" ]]; then
+    TOOL_SCRIPT="${SCRIPT_DIR}/list/list.sh"
+
+    if [[ -f "$TOOL_SCRIPT" ]]; then
+        shift
+        bash "$TOOL_SCRIPT" "$@"
+        exit $?
+    else
+        echo -e "${RED}Error:${RESET} list.sh not found in ontobdc/list"
+        exit 1
+    fi
+fi
+
 if [[ -z "$1" || "$1" == "-h" || "$1" == "--help" || "$1" == "help" ]]; then
     echo ""
     echo -e "${WHITE}OntoBDC CLI${RESET}"
@@ -85,6 +100,7 @@ if [[ -z "$1" || "$1" == "-h" || "$1" == "--help" || "$1" == "help" ]]; then
     echo -e "  ${CYAN}setup${RESET}     ${GRAY}Create ontobdc config with engine (venv|colab)${RESET}"
     echo -e "  ${CYAN}run${RESET}       ${GRAY}Run a capability via ontobdc/run${RESET}"
     echo -e "  ${CYAN}plan${RESET}      ${GRAY}Plan capability execution${RESET}"
+    echo -e "  ${CYAN}list${RESET}      ${GRAY}List available capabilities${RESET}"
     echo ""
     exit 0
 fi
