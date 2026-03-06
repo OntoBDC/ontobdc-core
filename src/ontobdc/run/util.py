@@ -73,9 +73,6 @@ def load_capability_packages():
                                     abs_path = os.path.abspath(os.path.join(config_dir, local_path))
                                     
                                     # Try to determine the import root
-                                    # Example: id="ontobdc.module", path=".../src/ontobdc/module"
-                                    # We want to add ".../src" to sys.path
-                                    
                                     parts = pkg_id.split('.')
                                     current_path = abs_path
                                     match = True
@@ -84,9 +81,6 @@ def load_capability_packages():
                                         if os.path.basename(current_path) == part:
                                             current_path = os.path.dirname(current_path)
                                         else:
-                                            # Path structure doesn't match package name fully
-                                            # Just use the provided path as is, or maybe one level up?
-                                            # Let's assume user pointed to the package root if it doesn't match
                                             match = False
                                             break
                                     

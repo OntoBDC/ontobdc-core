@@ -10,7 +10,43 @@ GREEN='\033[32m'
 RED='\033[31m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# --- Determine Root Directory ---
+# The script can run in two modes:
+# 1. Dev Mode (from source): Script is deep inside ontobdc-wip/src/ontobdc/dev
+# 2. Installed Mode (pip): Script is inside site-packages/ontobdc/dev
+
+# Try to find the root by looking for .git or .gitmodules upwards from CWD
+# This allows 'ontobdc branch' to work from anywhere within a repo
+find_git_root() {
+    local DIR="$PWD"
+    while [ "$DIR" != "/" ]; do
+        if [ -d "$DIR/.git" ] || [ -f "$DIR/.gitmodules" ]; then
+            echo "$DIR"
+            return 0
+        fi
+        DIR=$(dirname "$DIR")
+    done
+    return 1
+}
+
+GIT_ROOT=$(find_git_root)
+
+if [ -n "$GIT_ROOT" ]; then
+    ROOT_DIR="$GIT_ROOT"
+else
+    # Fallback to relative path logic if we can't find a git root from CWD
+    # This assumes we are running from source structure
+    ROOT_DIR="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
+    
+    # Check if this fallback actually points to a git repo
+    if [ ! -d "$ROOT_DIR/.git" ] && [ ! -f "$ROOT_DIR/.gitmodules" ]; then
+        # If fallback also fails (e.g. installed package running outside a repo),
+        # default to CWD but warn
+        echo -e "${YELLOW}Warning: Could not detect git repository root. Using current directory.${RESET}"
+        ROOT_DIR="$PWD"
+    fi
+fi
 
 # Get terminal width
 TERM_WIDTH=$(tput cols)
@@ -213,20 +249,56 @@ git_branch() {
     fi
 }
 
-# Process sub-repositories (like infra) found by find command
-# This covers both submodules (if initialized) and manual sub-repos
-find . -maxdepth 2 -name ".git" | while read git_dir; do
-    repo_dir=$(dirname "$git_dir")
-    # Skip current directory (.) to avoid double processing (it's handled at the end)
-    if [ "$repo_dir" != "." ] && [ "$repo_dir" != "./." ]; then
-        # Remove ./ prefix if present for cleaner output
-        clean_dir=${repo_dir#./}
-        git_branch "$clean_dir"
+process_repo() {
+    local REPO_PATH="$1"
+    local REPO_NAME=$(basename "$REPO_PATH")
+    
+    # Skip if directory doesn't exist
+    if [ ! -d "$REPO_PATH" ]; then
+        return
     fi
-done
+    
+    # Check if it's a git repo
+    # Check for .git dir or .git file (submodules)
+    if [ ! -d "$REPO_PATH/.git" ] && [ ! -f "$REPO_PATH/.git" ]; then
+        return
+    fi
 
-# Process root repository
-git_branch "."
+    echo -e "${YELLOW}❯ Processing ${REPO_NAME}${RESET}"
+    git_branch "$REPO_PATH"
+}
+
+# 1. Process Submodules explicitly detected via .gitmodules
+if [ -f "${ROOT_DIR}/.gitmodules" ]; then
+    # Extract paths from .gitmodules
+    # Format: 	path = ontobdc-wip
+    SUBMODULES=$(grep "path =" "${ROOT_DIR}/.gitmodules" | awk '{print $3}')
+    
+    for SUB in $SUBMODULES; do
+        process_repo "${ROOT_DIR}/${SUB}"
+    done
+fi
+
+# 2. Process ontobdc-wip explicitly if not in .gitmodules (development fallback)
+if [ -d "${ROOT_DIR}/ontobdc-wip" ]; then
+    # Check if we already processed it (simple string check)
+    if [[ "$SUBMODULES" != *"ontobdc-wip"* ]]; then
+        process_repo "${ROOT_DIR}/ontobdc-wip"
+    fi
+fi
+
+# 3. Process ontobdc-core explicitly (core distribution)
+if [ -d "${ROOT_DIR}/ontobdc-core" ]; then
+    if [[ "$SUBMODULES" != *"ontobdc-core"* ]]; then
+        process_repo "${ROOT_DIR}/ontobdc-core"
+    fi
+fi
+
+# 4. Process Root Repository (Last)
+# Note: git_branch handles entering the dir.
+# But git_branch expects the dir path.
+echo -e "${YELLOW}❯ Processing Root${RESET}"
+git_branch "${ROOT_DIR}"
 
 echo ""
 print_message_box "$GREEN" "Success!" "Branch process finished" "All repositories processed."

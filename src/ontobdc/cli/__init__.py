@@ -4,6 +4,12 @@ import subprocess
 import os
 from ontobdc.run.run import main as run_main
 
+try:
+    from ontobdc.list.list import main as list_main
+except ImportError:
+    list_main = None
+
+
 
 def check_main(args):
     # Get the directory of this file (src/ontobdc/cli)
@@ -90,6 +96,7 @@ def print_help():
     print(f"  {CYAN}setup{RESET}     {GRAY}Create ontobdc config with engine (venv|colab){RESET}")
     print(f"  {CYAN}run{RESET}       {GRAY}Run a capability via ontobdc/run{RESET}")
     print(f"  {CYAN}plan{RESET}      {GRAY}Plan capability execution{RESET}")
+    print(f"  {CYAN}list{RESET}      {GRAY}List available capabilities{RESET}")
     print("")
 
 def main():
@@ -115,21 +122,54 @@ def main():
         
         sys.argv = [sys.argv[0]] + sys.argv[2:]
         run_main()
+
     elif cmd == "check":
         parser = argparse.ArgumentParser(description="System Check")
         parser.add_argument("--repair", action="store_true", help="Attempt to repair issues")
         # Parse only arguments after 'check'
         args, unknown = parser.parse_known_args(sys.argv[2:])
         check_main(args)
+
     elif cmd == "setup":
         parser = argparse.ArgumentParser(description="Setup Engine")
         parser.add_argument("engine", help="Engine name (e.g. venv, colab)")
         args, unknown = parser.parse_known_args(sys.argv[2:])
         setup_main(args)
+
     elif cmd == "commit":
         dev_command("commit", None)
+
     elif cmd == "branch":
         dev_command("branch", None)
+    
+    elif cmd == "list":
+        if list_main:
+             sys.argv = [sys.argv[0]] + sys.argv[2:]
+             list_main()
+        else:
+             # Fallback to subprocess call to list.sh in core if import fails
+             # Try to find list.sh relative to this file
+             # We assume ontobdc-core is reachable
+             # cli/.. -> src/ontobdc -> list -> list.sh (if list is in wip)
+             # But I moved list to core.
+             # Let's try to locate list.sh in the package structure
+             # Assuming standard install: site-packages/ontobdc/list/list.sh
+             
+             current_dir = os.path.dirname(os.path.abspath(__file__))
+             # Check local first (dev env)
+             list_script = os.path.join(current_dir, "..", "list", "list.sh")
+             
+             if not os.path.exists(list_script):
+                 # Try to find via module path logic if possible, or fail
+                 print("Error: ontobdc.list module not found and list.sh not found.")
+                 sys.exit(1)
+                 
+             cmd_args = [list_script] + sys.argv[2:]
+             try:
+                subprocess.run(cmd_args, check=True)
+             except subprocess.CalledProcessError as e:
+                sys.exit(e.returncode)
+
     elif cmd == "plan":
         # plan is under run/plan.sh, not dev
         # But wait, run module handles run.py. Does it handle plan?
