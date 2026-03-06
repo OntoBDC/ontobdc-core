@@ -100,15 +100,15 @@ process_repo() {
     if [ ! -d "$REPO_PATH/.git" ] && [ ! -f "$REPO_PATH/.git" ]; then
         return
     fi
+    
+    # Get current branch name
+    local BRANCH=$(cd "$REPO_PATH" && (git branch --show-current 2>/dev/null || git rev-parse --abbrev-ref HEAD))
 
-    echo -e "${YELLOW}❯ Processing ${REPO_NAME}${RESET}"
+    echo -e "${WHITE}❯ Processing ${REPO_NAME} ${CYAN}(${BRANCH})${RESET}"
     
     # Run in subshell to preserve CWD
     (
         cd "$REPO_PATH" || exit
-        
-        # Stash current branch name
-        BRANCH=$(git branch --show-current 2>/dev/null || git rev-parse --abbrev-ref HEAD)
         
         # Add all changes
         git add . > /dev/null 2>&1
