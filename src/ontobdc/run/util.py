@@ -54,9 +54,49 @@ def load_capability_packages():
             with open(found_config, 'r') as f:
                 data = yaml.safe_load(f)
                 if data and 'packages' in data and isinstance(data['packages'], list):
-                    packages = data['packages']
-                    if packages: # If list is not empty
-                        return packages
+                    raw_packages = data['packages']
+                    processed_packages = []
+                    
+                    config_dir = os.path.dirname(os.path.abspath(found_config))
+                    
+                    for pkg in raw_packages:
+                        if isinstance(pkg, str):
+                            processed_packages.append(pkg)
+                        elif isinstance(pkg, dict):
+                            pkg_id = pkg.get("id")
+                            if pkg_id:
+                                processed_packages.append(pkg_id)
+                                
+                                # Handle local path
+                                if pkg.get("type") == "local" and pkg.get("path"):
+                                    local_path = pkg.get("path")
+                                    abs_path = os.path.abspath(os.path.join(config_dir, local_path))
+                                    
+                                    # Try to determine the import root
+                                    # Example: id="ontobdc.module", path=".../src/ontobdc/module"
+                                    # We want to add ".../src" to sys.path
+                                    
+                                    parts = pkg_id.split('.')
+                                    current_path = abs_path
+                                    match = True
+                                    # Walk up the path matching package parts
+                                    for part in reversed(parts):
+                                        if os.path.basename(current_path) == part:
+                                            current_path = os.path.dirname(current_path)
+                                        else:
+                                            # Path structure doesn't match package name fully
+                                            # Just use the provided path as is, or maybe one level up?
+                                            # Let's assume user pointed to the package root if it doesn't match
+                                            match = False
+                                            break
+                                    
+                                    target_path = current_path if match else abs_path
+                                    
+                                    if target_path not in sys.path:
+                                        sys.path.insert(0, target_path)
+
+                    if processed_packages:
+                        return processed_packages
         except Exception as e:
             # If error reading config, fallback silently
             print_message_box(RED, "Error", "Loading Error", str(e))
