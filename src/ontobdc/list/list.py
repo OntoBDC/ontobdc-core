@@ -65,7 +65,7 @@ def main():
                             "name": meta.name,
                             "description": meta.description,
                             "author": meta.author,
-                            "tags": meta.tags,
+                            "tags": meta.tags if isinstance(meta.tags, (list, tuple)) else [], # Ensure tags is hashable-ish (list of strings usually) or handle later
                             "supported_languages": meta.supported_languages,
                             "input_schema": input_schema,
                             "output_schema": meta.output_schema,
@@ -83,7 +83,7 @@ def main():
                             "name": meta.name,
                             "description": meta.description,
                             "author": meta.author,
-                            "tags": meta.tags,
+                            "tags": meta.tags if isinstance(meta.tags, (list, tuple)) else [],
                             "type": "action"
                         }
                         actions.append(act_dict)
@@ -93,6 +93,8 @@ def main():
                 pass
 
         # Deduplicate by ID
+        # Convert list of dicts to dictionary keyed by ID
+        # This avoids set(capabilities) which causes 'unhashable type: dict'
         unique_caps = {c['id']: c for c in capabilities}.values()
         unique_acts = {a['id']: a for a in actions}.values()
         

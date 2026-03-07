@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --- Determine Root Directory ---
 # The script can run in two modes:
-# 1. Dev Mode (from source): Script is deep inside ontobdc-wip/src/ontobdc/dev
+# 1. Dev Mode (from source): Script is deep inside core/src/ontobdc/dev
 # 2. Installed Mode (pip): Script is inside site-packages/ontobdc/dev
 
 # Try to find the root by looking for .git or .gitmodules upwards from CWD
@@ -271,7 +271,7 @@ process_repo() {
 # 1. Process Submodules explicitly detected via .gitmodules
 if [ -f "${ROOT_DIR}/.gitmodules" ]; then
     # Extract paths from .gitmodules
-    # Format: 	path = ontobdc-wip
+    # Format: 	path = core
     SUBMODULES=$(grep "path =" "${ROOT_DIR}/.gitmodules" | awk '{print $3}')
     
     for SUB in $SUBMODULES; do
@@ -291,6 +291,20 @@ fi
 if [ -d "${ROOT_DIR}/ontobdc-core" ]; then
     if [[ "$SUBMODULES" != *"ontobdc-core"* ]]; then
         process_repo "${ROOT_DIR}/ontobdc-core"
+    fi
+fi
+
+# 4. Process core explicitly (new structure)
+if [ -d "${ROOT_DIR}/core" ]; then
+    if [[ "$SUBMODULES" != *"core"* ]]; then
+        process_repo "${ROOT_DIR}/core"
+    fi
+fi
+
+# 5. Process wip explicitly (new structure)
+if [ -d "${ROOT_DIR}/wip" ]; then
+    if [[ "$SUBMODULES" != *"wip"* ]]; then
+        process_repo "${ROOT_DIR}/wip"
     fi
 fi
 

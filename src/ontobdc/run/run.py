@@ -90,12 +90,14 @@ try:
             pass
         except Exception as e:
              # Other errors might be critical, log but try to continue
+             # Convert e to string safely, as it might be a complex object
              print_message_box(RED, "Error", f"Loading Error in {pkg}", str(e))
     
     capabilities = all_capabilities
     actions = all_actions
 
 except Exception as e:
+    # Safely convert exception to string to avoid 'unhashable type: dict' if e contains one
     print_message_box(RED, "Error", "Loading Error", str(e))
     sys.exit(1)
 
@@ -219,16 +221,20 @@ def main():
             if "=" in key:
                 key, val = key.split("=", 1)
                 capabilities_attrs[key] = val
+                capabilities_attrs[key.replace("-", "_")] = val  # Also store snake_case version
                 extra_args.append(arg)
                 i += 1
             elif i + 1 < len(sys.argv) and not sys.argv[i+1].startswith("-"):
                 val = sys.argv[i+1]
                 capabilities_attrs[key] = val
+                capabilities_attrs[key.replace("-", "_")] = val
                 extra_args.append(arg)
                 extra_args.append(sys.argv[i+1])
                 i += 2 
             else:
+                # Flag without value (boolean true)
                 capabilities_attrs[key] = val
+                capabilities_attrs[key.replace("-", "_")] = val
                 extra_args.append(arg)
                 i += 1 
             continue
@@ -426,63 +432,48 @@ def main():
         # Let's try to parse from sys.argv, filtering out what we handled?
         # Or just parse_known_args from the point after capability_id.
         
-        # Find index of capability_id in sys.argv
-        try:
-            # When selected interactively, capability_id is not in sys.argv
-            # So remaining_args from sys.argv might be just flags or empty
-            # But the parser expects capability_id as first positional argument!
-            if capability_id not in sys.argv:
-                # We must inject capability_id into args for parser
-                # But wait, remaining_args logic below relies on index.
-                # If not present, we use cleaned_argv + extra_args? No.
-                # We just use the raw flags provided.
+        args_for_parser = [capability_id]
+        
+        # Iterate over sys.argv to collect flags
+        # We need to skip:
+        # 1. Program name (sys.argv[0])
+        # 2. 'run' command (if present)
+        # 3. '--id' and its value (since we injected capability_id manually at start)
+        # 4. Capability ID itself if it was positional (to avoid duplication)
+        
+        # We need to handle flags with values vs boolean flags
+        # This simple loop assumes --flag value or --flag.
+        # But if we don't know which flags take values, we might consume wrong things.
+        # However, argparse will re-parse properly if we just pass everything that isn't consumed by our skips.
+        
+        skip_next = False
+        # Start from 1 to skip script name
+        for i, arg in enumerate(sys.argv[1:], start=1):
+            if skip_next:
+                skip_next = False
+                continue
                 
-                # Filter out program name and run command if present
-                # Actually, in interactive mode, sys.argv might just be ['ontobdc', 'run', '--flag']
-                # We want the flags.
+            if arg == "run":
+                continue
+            
+            # Skip --id and its value
+            if arg == "--id":
+                skip_next = True
+                continue
+            
+            # Skip positional capability_id if present
+            # ONLY if it matches exactly AND we haven't seen it yet? 
+            # Or always? If user passes ID twice?
+            if arg == capability_id:
+                continue
                 
-                # Let's collect flags that are not 'run' or the program name.
-                # Simplified: just use sys.argv[1:] but filter out 'run' if it's there?
-                # Actually, the parser needs [capability_id, --flag, ...]
-                
-                # So we construct args_for_parser
-                args_for_parser = [capability_id]
-                
-                # Append flags from sys.argv (skipping prog name)
-                # We need to be careful not to duplicate things if logic is complex
-                # But for interactive mode, usually user ran `ontobdc run` or `ontobdc run --flag`
-                
-                for arg in sys.argv[1:]:
-                     # Skip 'run' command itself if present (it's usually sys.argv[1] if installed as entrypoint?)
-                     # But entrypoint might be `ontobdc` calling this script.
-                     # If we are here, we are running `python run.py` or via entrypoint.
-                     # If via entrypoint, sys.argv[0] is script.
-                     
-                     # If user typed `ontobdc run`, sys.argv is ['.../ontobdc', 'run']
-                     # We want to skip 'run' if it's not a flag.
-                     if arg == "run": 
-                         continue
-                     if arg == "--act": # consume custom flag
-                         continue
-                     if arg in ["-h", "--help", "--json"]: # consume help flags
-                         continue
-                     
-                     args_for_parser.append(arg)
-                     
-                remaining_args = args_for_parser
-            else:
-                idx = sys.argv.index(capability_id)
-                remaining_args = sys.argv[idx:] # Include capability_id for parser!
-                
-        except ValueError:
-            # Should not happen if check above works, but safety net
-            # If we can't find it, we inject it
-            args_for_parser = [capability_id]
-            for arg in sys.argv[1:]:
-                 if arg == "run": continue
-                 if arg == "--act": continue
-                 args_for_parser.append(arg)
-            remaining_args = args_for_parser
+            if arg == "--act":
+                continue
+            
+            # Pass everything else
+            args_for_parser.append(arg)
+            
+        remaining_args = args_for_parser
 
         # Also need to handle global flags like --export if they appeared BEFORE capability_id
         global_export_format = None
@@ -505,7 +496,11 @@ def main():
                 if action.dest == "export":
                     action.default = global_export_format
 
+        # Debug args
+        # print(f"DEBUG: remaining_args={remaining_args}", file=sys.stderr)
+        
         final_args, unknown = real_parser.parse_known_args(remaining_args)
+        # print(f"DEBUG: final_args={final_args}", file=sys.stderr)
         
         # If unknown args are present and this capability doesn't handle them, 
         # we might want to warn or just ignore if they were intended for other capabilities in a chain

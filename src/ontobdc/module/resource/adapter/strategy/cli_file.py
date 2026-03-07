@@ -66,10 +66,10 @@ class ListFilesCliStrategy:
             inputs["base_path"] = args.base_path
         if getattr(args, "type", None):
             inputs["types"] = args.type
-            inputs["file-type"] = args.type
+            inputs["file_type"] = args.type
         if getattr(args, "file_name", None):
             inputs["name_pattern"] = args.file_name
-            inputs["file-name"] = args.file_name
+            inputs["file_name"] = args.file_name
             
         result = executor.execute(capability, inputs)
         self.render(console, args, capability, result)

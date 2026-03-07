@@ -31,23 +31,27 @@ class ListDocumentsByTypeCapability(Capability):
                     "description": "Repository instance (DocumentRepositoryPort)",
                     "check": [HasReadPermission]
                 },
-                "file-type": {
+                "file_type": {
                     "type": "array",
+                    "uri": "org.ontobdc.domain.resource.input.file.type",
                     "required": True,
                     "description": "List of document types to filter by (e.g., ['pdf', 'json'])",
                 },
-                "file-name": {
+                "file_name": {
                     "type": "string",
+                    "uri": "org.ontobdc.domain.resource.input.file.name",
                     "required": False,
                     "description": "Optional name pattern to filter by (glob or regex:)",
                 },
                 "start": {
                     "type": "integer",
+                    "uri": "org.ontobdc.domain.resource.input.list.start",
                     "required": False,
                     "description": "Starting index for pagination (0 = first)",
                 },
                 "limit": {
                     "type": "integer",
+                    "uri": "org.ontobdc.domain.resource.input.list.limit",
                     "required": False,
                     "description": "Maximum number of documents to return (0 = no limit)",
                 },
@@ -84,7 +88,7 @@ class ListDocumentsByTypeCapability(Capability):
         return ListFilesCliStrategy(**kwargs)
 
     def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        types: List[str] = inputs.get("file-type", [])
+        types: List[str] = inputs.get("file_type", [])
             
         limit: int = inputs.get("limit", 0)
         start: int = inputs.get("start", 0)

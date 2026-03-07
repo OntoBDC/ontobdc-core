@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --- Determine Root Directory ---
 # The script can run in two modes:
-# 1. Dev Mode (from source): Script is deep inside ontobdc-wip/src/ontobdc/dev
+# 1. Dev Mode (from source): Script is deep inside core/src/ontobdc/dev
 # 2. Installed Mode (pip): Script is inside site-packages/ontobdc/dev
 
 # Try to find the root by looking for .git or .gitmodules upwards from CWD

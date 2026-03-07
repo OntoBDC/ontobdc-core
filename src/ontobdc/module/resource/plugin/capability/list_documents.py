@@ -29,11 +29,13 @@ class ListDocumentsCapability(Capability):
                 },
                 "start": {
                     "type": "integer",
+                    "uri": "org.ontobdc.domain.resource.input.list.start",
                     "required": False,
                     "description": "Starting index for pagination (0 = first)",
                 },
                 "limit": {
                     "type": "integer",
+                    "uri": "org.ontobdc.domain.resource.input.list.limit",
                     "required": False,
                     "description": "Maximum number of files to return (0 = no limit)",
                 },

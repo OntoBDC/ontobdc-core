@@ -30,18 +30,21 @@ class ListDocumentsByNamePatternCapability(Capability):
                     "description": "Repository instance (DocumentRepositoryPort)",
                     "check": [HasReadPermission]
                 },
-                "file-name": {
+                "file_name": {
                     "type": "string",
+                    "uri": "org.ontobdc.domain.resource.input.file.name",
                     "required": True,
                     "description": "Name pattern to filter by. Default is glob. Use 'regex:' prefix for regex.",
                 },
                 "start": {
                     "type": "integer",
+                    "uri": "org.ontobdc.domain.resource.input.list.start",
                     "required": False,
                     "description": "Starting index for pagination (0 = first)",
                 },
                 "limit": {
                     "type": "integer",
+                    "uri": "org.ontobdc.domain.resource.input.list.limit",
                     "required": False,
                     "description": "Maximum number of documents to return (0 = no limit)",
                 },
