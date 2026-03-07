@@ -90,12 +90,14 @@ try:
             pass
         except Exception as e:
              # Other errors might be critical, log but try to continue
+             # Convert e to string safely, as it might be a complex object
              print_message_box(RED, "Error", f"Loading Error in {pkg}", str(e))
     
     capabilities = all_capabilities
     actions = all_actions
 
 except Exception as e:
+    # Safely convert exception to string to avoid 'unhashable type: dict' if e contains one
     print_message_box(RED, "Error", "Loading Error", str(e))
     sys.exit(1)
 

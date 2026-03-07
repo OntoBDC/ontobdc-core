@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODULE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # Try to find message_box.sh in likely locations
-# 1. In project root (development mode): .../src/ontobdc/../../message_box.sh -> src/../message_box.sh (ontobdc-wip/message_box.sh)
+# 1. In project root (development mode): .../src/ontobdc/../../message_box.sh -> src/../message_box.sh (core/message_box.sh)
 # 2. In installed package root: .../site-packages/ontobdc/message_box.sh
 
 # Check if we are in development mode (source tree)
