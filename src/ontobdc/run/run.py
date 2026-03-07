@@ -214,16 +214,9 @@ def main():
             continue
             
         # Parse --key value or --key=value
-        # This handles generic attributes filtering for list/interactive mode
         if arg.startswith("--"):
             key = arg[2:]
             val = True 
-            
-            # Special case for --file-type which might be an array or just a flag for capability
-            # We want to store it in capabilities_attrs for filtering?
-            # If capabilities_attrs is used for is_satisfied check, then YES.
-            # But wait, if --file-type is an argument for EXECUTION, does it also filter discovery?
-            # Usually yes, if 'required' in schema.
             
             if "=" in key:
                 key, val = key.split("=", 1)
@@ -243,9 +236,7 @@ def main():
                 capabilities_attrs[key] = val
                 capabilities_attrs[key.replace("-", "_")] = val
                 extra_args.append(arg)
-                i += 1
-            
-            # Also add to cleaned_argv just in case? No, cleaned_argv is for unknown purposes here.
+                i += 1 
             continue
             
         # If not standard arg and not attribute (e.g. positional capability_id), keep it
@@ -441,13 +432,6 @@ def main():
         # Let's try to parse from sys.argv, filtering out what we handled?
         # Or just parse_known_args from the point after capability_id.
         
-        # Find capability_id in sys.argv to see if it's positional or passed via --id
-        # The logic below assumes capability_id is positional.
-        # But if we used --id flag, it might not be positional in the way argparse expects (first arg).
-        
-        # We need to construct a clean list of arguments for the capability parser:
-        # [capability_id, --flag1, val1, ...]
-        
         args_for_parser = [capability_id]
         
         # Iterate over sys.argv to collect flags
@@ -512,7 +496,11 @@ def main():
                 if action.dest == "export":
                     action.default = global_export_format
 
+        # Debug args
+        # print(f"DEBUG: remaining_args={remaining_args}", file=sys.stderr)
+        
         final_args, unknown = real_parser.parse_known_args(remaining_args)
+        # print(f"DEBUG: final_args={final_args}", file=sys.stderr)
         
         # If unknown args are present and this capability doesn't handle them, 
         # we might want to warn or just ignore if they were intended for other capabilities in a chain
