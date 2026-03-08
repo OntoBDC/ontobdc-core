@@ -2,10 +2,11 @@
 import re
 from fnmatch import fnmatch
 from typing import Any, Dict, List, Optional
+from ontobdc.module.resource.adapter.renderer.file_list import FileListRenderer
 from ontobdc.module.resource.audit.repository import HasReadPermission
 from ontobdc.run.core.capability import Capability, CapabilityMetadata
-from ontobdc.module.resource.adapter.strategy.cli_file import ListFilesCliStrategy
 from ontobdc.module.resource.domain.port.repository import DocumentRepositoryPort
+from ontobdc.run.core.port.contex import CliContextPort
 
 
 class ListDocumentsByNamePatternCapability(Capability):
@@ -26,6 +27,7 @@ class ListDocumentsByNamePatternCapability(Capability):
             "properties": {
                 "repository": {
                     "type": DocumentRepositoryPort,
+                    "uri": "org.ontobdc.domain.resource.document.repository.incoming",
                     "required": True,
                     "description": "Repository instance (DocumentRepositoryPort)",
                     "check": [HasReadPermission]
@@ -38,13 +40,13 @@ class ListDocumentsByNamePatternCapability(Capability):
                 },
                 "start": {
                     "type": "integer",
-                    "uri": "org.ontobdc.domain.resource.input.list.start",
+                    "uri": "org.ontobdc.domain.resource.input.pagination.start",
                     "required": False,
                     "description": "Starting index for pagination (0 = first)",
                 },
                 "limit": {
                     "type": "integer",
-                    "uri": "org.ontobdc.domain.resource.input.list.limit",
+                    "uri": "org.ontobdc.domain.resource.input.pagination.limit",
                     "required": False,
                     "description": "Maximum number of documents to return (0 = no limit)",
                 },
@@ -65,22 +67,14 @@ class ListDocumentsByNamePatternCapability(Capability):
         },
     )
 
-    def get_default_cli_strategy(self, **kwargs: Any) -> Optional[Any]:
-        return ListFilesCliStrategy(**kwargs)
+    def get_default_cli_renderer(self) -> Optional[Any]:
+        return FileListRenderer()
 
-    def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        repo: DocumentRepositoryPort = inputs.get("repository")
-        pattern: str = inputs.get("file-name")
-        
-        # Check for legacy/alias input
-        if not pattern:
-            pattern = inputs.get("name_pattern")
-
-        if not pattern:
-            raise ValueError("Name pattern is required")
-
-        limit: int = inputs.get("limit", 0)
-        start: int = inputs.get("start", 0)
+    def execute(self, context: CliContextPort) -> Dict[str, Any]:
+        repo: DocumentRepositoryPort = context.get_parameter_value("repository")
+        pattern: str = context.get_parameter_value("file_name")
+        limit: int = context.get_parameter_value("limit", 0)
+        start: int = context.get_parameter_value("start", 0)
 
         is_regex = False
         if pattern.startswith("regex:"):
@@ -96,9 +90,7 @@ class ListDocumentsByNamePatternCapability(Capability):
         # Use iter_file_paths for efficient traversal
         # Note: This might be slow for very large repos if we don't have a optimized search method in repo
         # ideally repo should support search_by_pattern, but for now we iterate.
-        repository: DocumentRepositoryPort = inputs.get("repository")
-        
-        for path in repository.iter_file_paths():
+        for path in repo.iter_file_paths():
             name = path.name
             match = False
             if is_regex:

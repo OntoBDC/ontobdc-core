@@ -22,7 +22,7 @@ except ImportError:
 
 setup_project_root()
 
-from ontobdc.run.core.loader import CapabilityLoader, ActionLoader
+from ontobdc.run.adapter.loader import CapabilityLoader, ActionLoader
 
 def main():
     parser = argparse.ArgumentParser(description="List OntoBDC capabilities")

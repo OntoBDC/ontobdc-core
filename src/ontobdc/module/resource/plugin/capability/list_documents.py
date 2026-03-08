@@ -1,9 +1,10 @@
 
 from typing import Any, Dict, Optional
-from ontobdc.module.resource.adapter.strategy.cli_file import ListFilesCliStrategy
+from ontobdc.module.resource.adapter.renderer.file_list import FileListRenderer
 from ontobdc.module.resource.audit.repository import HasReadPermission
 from ontobdc.module.resource.domain.port.repository import DocumentRepositoryPort
 from ontobdc.run.core.capability import Capability, CapabilityMetadata
+from ontobdc.run.core.port.contex import CliContextPort
 
 
 class ListDocumentsCapability(Capability):
@@ -21,21 +22,22 @@ class ListDocumentsCapability(Capability):
         input_schema={
             "type": "object",
             "properties": {
-                "org.ontobdc.domain.resource.document.repository.incoming": {
+                "repository": {
                     "type": DocumentRepositoryPort,
+                    "uri": "org.ontobdc.domain.resource.document.repository.incoming",
                     "required": True,
                     "description": "Repository instance (DocumentRepositoryPort)",
                     "check": [HasReadPermission]
                 },
                 "start": {
                     "type": "integer",
-                    "uri": "org.ontobdc.domain.resource.input.list.start",
+                    "uri": "org.ontobdc.domain.context.input.pagination.start",
                     "required": False,
                     "description": "Starting index for pagination (0 = first)",
                 },
                 "limit": {
                     "type": "integer",
-                    "uri": "org.ontobdc.domain.resource.input.list.limit",
+                    "uri": "org.ontobdc.domain.context.input.pagination.limit",
                     "required": False,
                     "description": "Maximum number of files to return (0 = no limit)",
                 },
@@ -63,15 +65,20 @@ class ListDocumentsCapability(Capability):
         ],
     )
 
-    def get_default_cli_strategy(self, **kwargs: Any) -> Optional[Any]:
-        return ListFilesCliStrategy(**kwargs)
+    def get_default_cli_renderer(self) -> Optional[Any]:
+        return FileListRenderer()
 
-    def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        repo: DocumentRepositoryPort = inputs.get("org.ontobdc.domain.resource.document.repository.incoming") or inputs.get("repository")
-        limit: int = inputs.get("limit", 0)
+    def execute(self, context: CliContextPort) -> Dict[str, Any]:
+        # Extract repository parameter value
+        repo: DocumentRepositoryPort = context.get_parameter_value("repository")
+
+        limit_param = context.get_parameter_value("limit")
+        limit = limit_param["value"] if limit_param else 0
+
+        start_param = context.get_parameter_value("start")
+        start = start_param["value"] if start_param else 0
 
         files = repo.get_all()
-        start: int = inputs.get("start", 0)
         if start > 0:
             files = files[start:]
 

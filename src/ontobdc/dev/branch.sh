@@ -271,7 +271,11 @@ process_repo() {
 # 1. Process Submodules explicitly detected via .gitmodules
 if [ -f "${ROOT_DIR}/.gitmodules" ]; then
     # Extract paths from .gitmodules
+<<<<<<< HEAD
+    # Format: 	path = ontobdc-wip
+=======
     # Format: 	path = core
+>>>>>>> master
     SUBMODULES=$(grep "path =" "${ROOT_DIR}/.gitmodules" | awk '{print $3}')
     
     for SUB in $SUBMODULES; do
@@ -294,6 +298,8 @@ if [ -d "${ROOT_DIR}/ontobdc-core" ]; then
     fi
 fi
 
+<<<<<<< HEAD
+=======
 # 4. Process core explicitly (new structure)
 if [ -d "${ROOT_DIR}/core" ]; then
     if [[ "$SUBMODULES" != *"core"* ]]; then
@@ -308,6 +314,7 @@ if [ -d "${ROOT_DIR}/wip" ]; then
     fi
 fi
 
+>>>>>>> master
 # 4. Process Root Repository (Last)
 # Note: git_branch handles entering the dir.
 # But git_branch expects the dir path.
