@@ -1,10 +1,81 @@
 
 import os
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Iterable
 from ontobdc.module.resource.adapter.folder import LocalFolderAdapter
 from ontobdc.module.resource.domain.port.entity import FilesystemPort, FolderPort
 from ontobdc.module.resource.domain.port.repository import DatasetRepositoryPort, FileRepositoryPort
+
+
+class SimpleFileRepository(FileRepositoryPort):
+    def __init__(self, root_path: str):
+        self._root_path = Path(root_path)
+
+    @property
+    def path(self) -> Path:
+        return self._root_path
+
+    def iter_file_paths(self) -> Iterable[Path]:
+        if not self._root_path.exists():
+            return []
+        if self._root_path.is_file():
+            yield self._root_path
+            return
+        for p in self._root_path.rglob("*"):
+            if p.is_file():
+                yield p
+
+    def get_all(self) -> List[Path]:
+        return list(self.iter_file_paths())
+
+    # Stub implementations for abstract methods required by FileRepositoryPort
+    @property
+    def filesystem(self) -> FilesystemPort:
+        raise NotImplementedError
+
+    @property
+    def path_folders(self) -> List[FolderPort]:
+        # Return a simple object that mocks a folder with a path to satisfy HasReadPermission
+        class MockFolder:
+            def __init__(self, p): self.path = p
+        return [MockFolder(self._root_path)]
+
+    def exists(self, path: str) -> bool:
+        return (self._root_path / path).exists()
+
+    def get_by_type(self, type_filter: str) -> List[Any]:
+        results = []
+        ext_filter = type_filter.lower()
+        if ext_filter.startswith("."):
+            ext_filter = ext_filter[1:]
+            
+        for path in self.iter_file_paths():
+            suffix = path.suffix.lower()
+            if suffix.startswith("."):
+                suffix = suffix[1:]
+                
+            if suffix == ext_filter:
+                results.append(path)
+                
+        return results
+
+    def get_by_media_types(self, media_types: List[str]) -> List[Any]:
+        return []
+
+    def get_by_mimetype(self, mimetype: str) -> List[Any]:
+        return []
+
+    def get_by_name(self, name: str) -> Any:
+        return None
+
+    def get_json(self, path: str) -> Any:
+        return None
+
+    def open_file(self, path: str, mode: str = "r") -> Any:
+        return open(self._root_path / path, mode)
+
+    def rename(self, src: str, dst: str) -> None:
+        pass
 
 
 class LocalObjectDatasetRepository(DatasetRepositoryPort):
@@ -99,13 +170,4 @@ class LocalObjectDatasetRepository(DatasetRepositoryPort):
             except (OSError, json.JSONDecodeError):
                 return None
         return None
-
-
-class SimpleFileRepository(LocalObjectDatasetRepository):
-    def __init__(self, root_path: str):
-        root_folder = LocalFolderAdapter(
-            path=root_path,
-            segment_separator="/",
-        )
-        super().__init__(root_folder, ensure_path=True)
 
