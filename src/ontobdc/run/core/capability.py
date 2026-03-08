@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Type
-
+from ontobdc.run.core.port.contex import CliContextPort
 from ontobdc.core.domain.port.verification import SelfVerifiablePort
 
 
@@ -26,14 +26,14 @@ class Capability(SelfVerifiablePort):
     def metadata(self) -> CapabilityMetadata:
         return self.METADATA
 
-    def check_inputs(self, inputs: Dict[str, Any]) -> None:
+    def check_inputs(self, context: CliContextPort) -> None:
         for prop, spec in self.metadata.input_schema.get("properties", {}).items():
             required = spec.get("required", False)
-            if required and prop not in inputs:
+            if required and prop not in context.parameters.keys():
                 raise ValueError(f"Missing required input: {prop}")
             
-            if prop in inputs:
-                input_value = inputs[prop]
+            if prop in context.parameters.keys():
+                input_value = context.get_parameter_value(prop)
                 prop_type = spec.get("type", None)
                 
                 if prop_type:
@@ -50,7 +50,7 @@ class Capability(SelfVerifiablePort):
                     elif prop_type == "boolean":
                         if not isinstance(input_value, bool):
                             valid = False
-                    
+
                     if not valid:
                         raise ValueError(f"Input {prop} has type {type(input_value)}, expected {prop_type}") 
 
@@ -59,31 +59,32 @@ class Capability(SelfVerifiablePort):
                     strategy = check
                     if isinstance(strategy, type):
                         strategy = strategy()
-                        
-                    if not strategy.verify(prop, input_value, inputs):
+
+                    if not strategy.verify(prop, input_value, context.parameters):
                         raise ValueError(f"Input {prop} failed verification strategy {strategy.__class__.__name__}")
 
     @abstractmethod
-    def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        pass
+    def execute(self, context: CliContextPort) -> Dict[str, Any]:
+        ...
 
     def get_default_cli_strategy(self, **kwargs: Any) -> Any:
         return None
 
 
 class CapabilityExecutor:
-    def execute(self, capability: Capability, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    @staticmethod
+    def execute(capability: Capability, context: CliContextPort) -> Dict[str, Any]:
         """
-        Execute the given capability with the provided inputs.
+        Execute the given capability with the provided context.
 
         :param capability: The capability to execute.
-        :param inputs: The inputs to pass to the capability.
+        :param context: The context to pass to the capability.
         :return: The output of the capability execution.
         """
         if isinstance(capability, SelfVerifiablePort):
-            capability.check_inputs(inputs)
+            capability.check_inputs(context)
 
-        return capability.execute(inputs)
+        return capability.execute(context)
 
 
 class CapabilityRegistry:

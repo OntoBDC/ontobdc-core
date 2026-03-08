@@ -3,11 +3,11 @@ from fnmatch import fnmatch
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
-from ontobdc.module.resource.adapter.strategy.cli_file import ListFilesCliStrategy
+from ontobdc.module.resource.adapter.renderer.file_list import FileListRenderer
 from ontobdc.module.resource.audit.repository import HasReadPermission
 from ontobdc.module.resource.domain.port.repository import DocumentRepositoryPort
 from ontobdc.run.core.capability import Capability, CapabilityMetadata
+from ontobdc.run.core.port.contex import CliContextPort
 
 
 class ListDocumentsByTypeCapability(Capability):
@@ -27,6 +27,7 @@ class ListDocumentsByTypeCapability(Capability):
             "properties": {
                 "repository": {
                     "type": DocumentRepositoryPort,
+                    "uri": "org.ontobdc.domain.resource.document.repository.incoming",
                     "required": True,
                     "description": "Repository instance (DocumentRepositoryPort)",
                     "check": [HasReadPermission]
@@ -84,15 +85,15 @@ class ListDocumentsByTypeCapability(Capability):
         ],
     )
 
-    def get_default_cli_strategy(self, **kwargs: Any) -> Optional[Any]:
-        return ListFilesCliStrategy(**kwargs)
+    def get_default_cli_renderer(self) -> Optional[Any]:
+        return FileListRenderer()
 
-    def execute(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        types: List[str] = inputs.get("file_type", [])
+    def execute(self, context: CliContextPort) -> Dict[str, Any]:
+        types: List[str] = context.get_parameter_value("file_type")
             
-        limit: int = inputs.get("limit", 0)
-        start: int = inputs.get("start", 0)
-        repository: DocumentRepositoryPort = inputs.get("repository")
+        limit: int = context.get_parameter_value("limit", 0)
+        start: int = context.get_parameter_value("start", 0)
+        repository: DocumentRepositoryPort = context.get_parameter_value("repository")
 
         if not types:
             raise ValueError("Types must be a non-empty list of strings")
@@ -104,7 +105,7 @@ class ListDocumentsByTypeCapability(Capability):
                 documents.extend(docs)
 
         # Apply name pattern filtering if provided
-        name_pattern: Optional[str] = inputs.get("file-name")
+        name_pattern: Optional[str] = context.get_parameter_value("file_name")
         if name_pattern:
             is_regex = False
             regex = None
