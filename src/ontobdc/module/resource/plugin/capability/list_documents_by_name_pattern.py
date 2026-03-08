@@ -2,7 +2,7 @@
 import re
 from fnmatch import fnmatch
 from typing import Any, Dict, List, Optional
-from ontobdc.module.resource.adapter.renderer.file_list import FileListRenderer
+from ontobdc.module.resource.adapter.renderer.document_list import DocumentListRenderer
 from ontobdc.module.resource.audit.repository import HasReadPermission
 from ontobdc.run.core.capability import Capability, CapabilityMetadata
 from ontobdc.module.resource.domain.port.repository import DocumentRepositoryPort
@@ -68,7 +68,7 @@ class ListDocumentsByNamePatternCapability(Capability):
     )
 
     def get_default_cli_renderer(self) -> Optional[Any]:
-        return FileListRenderer()
+        return DocumentListRenderer()
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         repo: DocumentRepositoryPort = context.get_parameter_value("repository")

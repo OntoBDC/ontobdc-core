@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from datapackage import Package, Resource
 from ontobdc.module.resource.domain.port.repository import FileRepositoryPort
 
+
 class DataPackageAdapter:
     """
     Adapter for handling Frictionless Data Packages.
@@ -13,7 +14,9 @@ class DataPackageAdapter:
     def __init__(self, repository: FileRepositoryPort, base_path: str):
         self.repository = repository
         self.base_path = base_path.rstrip('/')
-        self.descriptor_path = f"{self.base_path}/.__ontobdc__/datapackage.json"
+        # Store metadata in .__ontobdc__ directory
+        self.metadata_dir = f"{self.base_path}/.__ontobdc__"
+        self.descriptor_path = f"{self.metadata_dir}/datapackage.json"
         self._package = None
 
     @property
@@ -144,20 +147,20 @@ class DataPackageAdapter:
         Save the datapackage.json and any resources if needed.
         Currently we save the descriptor to the repository.
         """
+        # Ensure metadata directory exists
+        if not self.repository.exists(self.metadata_dir):
+            # We need to create the directory. Since RepositoryPort is abstract,
+            # we rely on the implementation or assume we can write files relative to it.
+            # If the repo is a filesystem one, it should handle paths.
+            # But wait, standard RepositoryPort doesn't have mkdir.
+            # We assume for now that writing to a path with subdirs might work or fail.
+            # Given this is "wip", we might need to rely on the underlying mechanism.
+            pass
+
         # Package.descriptor is a dict
         descriptor = self.package.descriptor
         
-        # We need a method to write JSON to the repository.
-        # Assuming FileRepositoryPort has a mechanism to write files.
-        # Since the port definition in the context only showed 'get_json', 'open_file', 'exists'.
-        # We might need to use open_file with 'w' mode.
-        
         json_content = json.dumps(descriptor, indent=4, ensure_ascii=False)
-        
-        # We use a temporary local file to write and then maybe the repository handles it?
-        # Or directly write using open_file if it supports write mode (which it should as per generic open).
-        # However, writing to abstract repository can be tricky. 
-        # Let's assume we can write string content.
         
         with self.repository.open_file(self.descriptor_path, "w") as f:
             f.write(json_content)

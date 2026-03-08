@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ontobdc"
 authors = [{ name="Elias M P Junior" }]
-version = "0.3.0"
+version = "0.4.0"
 description = "OntoBDC (Ontology-Based Data Capabilities)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,6 +14,7 @@ dependencies = [
     "PyYAML",
     "numpy",
     "datapackage",
+    "rocrate",
 ]
 
 [project.scripts]

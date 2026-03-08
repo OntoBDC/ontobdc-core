@@ -1,6 +1,6 @@
 
 from typing import Any, Dict, Optional
-from ontobdc.module.resource.adapter.renderer.file_list import FileListRenderer
+from ontobdc.module.resource.adapter.renderer.document_list import DocumentListRenderer
 from ontobdc.module.resource.audit.repository import HasReadPermission
 from ontobdc.module.resource.domain.port.repository import DocumentRepositoryPort
 from ontobdc.run.core.capability import Capability, CapabilityMetadata
@@ -66,7 +66,7 @@ class ListDocumentsCapability(Capability):
     )
 
     def get_default_cli_renderer(self) -> Optional[Any]:
-        return FileListRenderer()
+        return DocumentListRenderer()
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         # Extract repository parameter value
