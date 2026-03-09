@@ -59,7 +59,7 @@ class CliContextAdapter(CliContextPort):
 class CliContextResolver:
     def resolve(self, argv: List[str]) -> CliContextPort:
         context: CliContextPort = CliContextAdapter(argv)
-        print(context.unprocessed_args)
+
         # Scan and load strategies dynamically
         strategies: List[CliContextStrategyPort] = []
         
@@ -80,13 +80,13 @@ class CliContextResolver:
 
         # 2. Load custom strategies from config/context.yaml
         config_path = os.path.join(os.getcwd(), "config", "context.yaml")
-        print(config_path, os.path.exists(config_path))
+
         if os.path.exists(config_path):
             import yaml
             try:
                 with open(config_path, 'r') as f:
                     config = yaml.safe_load(f) or {}
-                print(config)
+
                 # Check for 'strategies' key or try to load from 'parameters' if it contains module definitions
                 custom_strategies = config.get('strategies', [])
                 if not custom_strategies and 'parameters' in config:
@@ -100,12 +100,10 @@ class CliContextResolver:
                                 custom_strategies.append(p['module'])
 
                 for module_name in custom_strategies:
-                    print(module_name, pkgutil.walk_packages(module_name))
                     try:
                         module = importlib.import_module(module_name)
-                        print(module.__path__)
+
                         for _, name, is_pkg in pkgutil.walk_packages(module.__path__):
-                            print(name)
                             try:
                                 submodule = importlib.import_module(f"{module.__name__}.{name}")
                                 for _, obj in inspect.getmembers(submodule):
