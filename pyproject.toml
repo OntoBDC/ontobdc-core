@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ontobdc"
-authors = [{ name="Elias M P Junior" }]
-version = "0.4.0"
+authors = [{ name="@eliasmpj" }]
+version = "0.4.1"
 description = "OntoBDC (Ontology-Based Data Capabilities)"
 readme = "README.md"
 requires-python = ">=3.10"
