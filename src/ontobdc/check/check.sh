@@ -13,18 +13,30 @@ MODULE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # 2. In installed package root: .../site-packages/ontobdc/message_box.sh
 
 # Check if we are in development mode (source tree)
-if [ -f "${MODULE_ROOT}/../../message_box.sh" ]; then
+# The message_box.sh is located in cli/message_box.sh
+if [ -f "${MODULE_ROOT}/cli/message_box.sh" ]; then
+    MESSAGE_BOX="${MODULE_ROOT}/cli/message_box.sh"
+elif [ -f "${MODULE_ROOT}/../../message_box.sh" ]; then
     MESSAGE_BOX="${MODULE_ROOT}/../../message_box.sh"
 elif [ -f "${MODULE_ROOT}/message_box.sh" ]; then
     # Installed package mode, or flat structure
     MESSAGE_BOX="${MODULE_ROOT}/message_box.sh"
 else
     # Fallback/Unknown
-    MESSAGE_BOX="${MODULE_ROOT}/message_box.sh"
+    MESSAGE_BOX="${MODULE_ROOT}/cli/message_box.sh"
 fi
 
 # Define paths
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+GRAY='\033[0;90m'
+WHITE='\033[1;37m'
+RESET='\033[0m'
 CONFIG_JSON="${SCRIPT_DIR}/config.json"
+FULL_HLINE="----------------------------------------"
 
 if [ -f "${MESSAGE_BOX}" ]; then
     source "${MESSAGE_BOX}"
@@ -35,15 +47,15 @@ else
         echo "[$1] $2: $3"
         echo -e "$4"
     }
-    # Define colors if not sourced
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    BLUE='\033[0;34m'
-    CYAN='\033[0;36m'
-    GRAY='\033[0;90m'
-    WHITE='\033[1;37m'
-    RESET='\033[0m'
+fi
+
+if [ -f "${MESSAGE_BOX}" ]; then
+    # Define FULL_HLINE if sourced from message_box (if it's not defined there)
+    # message_box.sh doesn't define FULL_HLINE, but it defines colors.
+    # We should ensure colors are available or redefined here if needed, 
+    # but sourcing message_box should provide them.
+    # However, message_box.sh defines colors as BOLD='\033[1m', etc.
+    # Let's just redefine FULL_HLINE here to be safe.
     FULL_HLINE="----------------------------------------"
 fi
 
@@ -59,7 +71,6 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-echo ""
 echo -e "${GRAY}${FULL_HLINE}${RESET}"
 echo -e "${CYAN}Running System Checks...${RESET}"
 echo -e "${GRAY}${FULL_HLINE}${RESET}"
@@ -187,9 +198,23 @@ except Exception as e: print(e, file=sys.stderr)")
 }
 
 # Determine Engine
-ENGINE="venv"
-# Heuristic for colab
-if [ -d "/content" ]; then
+# Try to load from .__ontobdc__/config.yaml
+CONFIG_YAML=".__ontobdc__/config.yaml"
+ENGINE="venv" # Default fallback
+
+if [ -f "$CONFIG_YAML" ]; then
+    # Parse engine from yaml using simple grep/awk if python yaml not avail, or python
+    # Using python for robustness
+    DETECTED_ENGINE=$(python3 -c "import yaml; 
+try: 
+    with open('$CONFIG_YAML') as f: c = yaml.safe_load(f); 
+    print(c.get('engine', 'venv'))
+except: print('venv')")
+    if [ ! -z "$DETECTED_ENGINE" ]; then
+        ENGINE="$DETECTED_ENGINE"
+    fi
+elif [ -d "/content" ]; then
+    # Heuristic for colab if config doesn't exist
     ENGINE="colab"
 fi
 
@@ -223,7 +248,8 @@ if [ ${#ERRORS[@]} -eq 0 ]; then
         done
     fi
     if type print_message_box &>/dev/null; then
-        print_message_box "$GREEN" "Success" "System Operational" "$MSG"
+        # Green message box for success
+        print_message_box "GREEN" "Success" "System Operational" "$MSG"
     else
         echo -e "${GREEN}Success: System Operational${RESET}\n$MSG"
     fi
@@ -241,7 +267,7 @@ else
     fi
     
     if type print_message_box &>/dev/null; then
-        print_message_box "$RED" "Error" "System Check Failed" "$MSG"
+        print_message_box "RED" "Error" "System Check Failed" "$MSG"
     else
         echo -e "${RED}Error: System Check Failed${RESET}\n$MSG"
     fi

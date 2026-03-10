@@ -12,13 +12,13 @@ check() {
     # Or is this check meant to verify we ARE in colab?
     
     if [ ! -d "/content" ]; then
-        # Not in colab, so we can't be "is_colab"
         return 1
     fi
 
-    # Check if config exists and has engine: colab
-    if [ -f "/content/config/ontobdc.yaml" ]; then
-        if grep -q "engine: colab" "/content/config/ontobdc.yaml"; then
+    # Check if config exists in .__ontobdc__ and has engine: colab
+    CONFIG_FILE=".__ontobdc__/config.yaml"
+    if [ -f "$CONFIG_FILE" ]; then
+        if grep -q "engine: colab" "$CONFIG_FILE"; then
             return 0
         fi
     fi
@@ -28,17 +28,14 @@ check() {
 
 hotfix() {
     if [ -d "/content" ]; then
-        mkdir -p /content/config
-        local config_file="/content/config/ontobdc.yaml"
+        mkdir -p .__ontobdc__
+        local config_file=".__ontobdc__/config.yaml"
         
         if [ -f "$config_file" ]; then
-            # Remove existing engine definition if any
-            # Using temporary file to avoid issues
             grep -v "engine:" "$config_file" > "${config_file}.tmp"
             mv "${config_file}.tmp" "$config_file"
         fi
         
-        # Append engine: colab
         echo "engine: colab" >> "$config_file"
         return 0
     fi

@@ -31,13 +31,36 @@ Install the package:
 pip install ontobdc
 ```
 
+
 After installation, the `ontobdc` CLI becomes available:
 
 ```sh
-ontobdc --help
+ontobdc --version
+```
+<img src="./docs/images/version.png" width="80%" />
+
+Initialize the project to create the local configuration:
+
+```bash
+ontobdc init
 ```
 
-From there, you can execute checks, run capabilities, and interact with registered use cases.
+The `init` command automatically detects the environment (e.g., `venv` or `Google Colab`) and creates the `.__ontobdc__` directory with the base configuration:
+
+<img src="./docs/images/init.png" width="80%" />
+
+Execute capabilities interactively:
+
+```bash
+ontobdc run
+```
+
+This command launches an interactive menu to discover and execute available capabilities:
+
+<img src="./docs/images/run.png" width="80%" />
+
+From there, you can run other capabilities, perform actions, and interact with registered use cases.
+
 
 ### Alternative: Google Colab
 

@@ -5,6 +5,7 @@ import sys
 from typing import List, Type
 from ontobdc.run.core.capability import Capability
 from ontobdc.run.core.action import Action
+from ontobdc.run.ui import print_message_box, YELLOW, RED
 
 class CapabilityLoader:
     @staticmethod
@@ -31,11 +32,14 @@ class CapabilityLoader:
                         if issubclass(obj, Capability):
                             capabilities.append(obj)
             except Exception as e:
-                # Ignore modules that fail to import
-                # import traceback
-                print(f"[CapabilityLoader] Error loading module {name}: {e}", file=sys.stderr)
-                # traceback.print_exc()
-                continue
+                # Treat module load errors as critical errors and exit
+                print_message_box(
+                    RED,
+                    "Error",
+                    "Module Load Error",
+                    f"Error loading module {name}:\n\n{e}"
+                )
+                sys.exit(1)
 
         return capabilities
 

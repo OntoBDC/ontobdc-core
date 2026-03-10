@@ -1,22 +1,17 @@
 DESCRIPTION="Infra: Engine Installed"
 
 check() {
-    # Check if we are in Colab, then check specific config path
-    if [ -d "/content" ]; then
-        CONFIG_FILE="/content/config/ontobdc.yaml"
-    else
-        # If local, try to find config relative to execution or script
-        if [ -f "config/ontobdc.yaml" ]; then
-            CONFIG_FILE="config/ontobdc.yaml"
-        elif [ -f "../config/ontobdc.yaml" ]; then
-             CONFIG_FILE="../config/ontobdc.yaml"
-        elif [ -f "../../config/ontobdc.yaml" ]; then
-             CONFIG_FILE="../../config/ontobdc.yaml"
-        else
-             # If we can't find config file in standard places
-             # This is a FATAL error because we don't know the engine
+    CONFIG_FILE=".__ontobdc__/config.yaml"
+    
+    # Try parent directory if not found in CWD (workspace support)
+    if [ ! -f "$CONFIG_FILE" ]; then
+         if [ -f "../.__ontobdc__/config.yaml" ]; then
+             CONFIG_FILE="../.__ontobdc__/config.yaml"
+         elif [ -f "../../.__ontobdc__/config.yaml" ]; then
+             CONFIG_FILE="../../.__ontobdc__/config.yaml"
+         else
              return 2
-        fi
+         fi
     fi
 
     if [ ! -f "$CONFIG_FILE" ]; then
@@ -82,36 +77,21 @@ hotfix() {
             if check; then
                 # If check passes (we are in a venv), we should configure engine: venv
                 
-                # Determine config file location (simplified logic from above)
-                if [ -f "config/ontobdc.yaml" ]; then
-                    CONFIG_FILE="config/ontobdc.yaml"
-                elif [ -f "../config/ontobdc.yaml" ]; then
-                    CONFIG_FILE="../config/ontobdc.yaml"
-                else
-                    # Create default if not exists? Or fail?
-                    # Let's assume we want to create/update local config
-                    mkdir -p config
-                    CONFIG_FILE="config/ontobdc.yaml"
-                fi
+                # Create config file
+                mkdir -p .__ontobdc__
+                CONFIG_FILE=".__ontobdc__/config.yaml"
                 
                 # Update config file
                 if [ -f "$CONFIG_FILE" ]; then
                     grep -v "engine:" "$CONFIG_FILE" > "${CONFIG_FILE}.tmp"
                     mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
-                else
-                    touch "$CONFIG_FILE"
                 fi
                 
                 echo "engine: venv" >> "$CONFIG_FILE"
-                exit 0
-            else
-                exit 1
+                return 0
             fi
         )
-        # If the subshell exited with 0, hotfix succeeded
-        if [ $? -eq 0 ]; then
-            return 0
-        fi
+        return $?
     fi
     
     # If not colab and not venv, we cannot hotfix automatically

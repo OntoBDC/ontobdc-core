@@ -14,6 +14,19 @@ WHITE = "white"
 BOLD = "bold"
 
 def print_message_box(color: str, title_type: str, title_text: str, msg_text: str):
+    # Map ANSI codes to rich styles if needed, or just assume valid rich style
+    # If color starts with \033, we have a problem.
+    # Simple heuristic mapping for safety:
+    if "\033" in color:
+        if "31" in color: color = "red"
+        elif "32" in color: color = "green"
+        elif "33" in color: color = "yellow"
+        elif "34" in color: color = "blue"
+        elif "36" in color: color = "cyan"
+        elif "90" in color: color = "bright_black"
+        elif "37" in color: color = "white"
+        else: color = "white" # fallback
+
     console.print("")
     term_width = shutil.get_terminal_size().columns
     inner_width = term_width - 2
