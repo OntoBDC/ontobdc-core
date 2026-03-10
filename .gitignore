@@ -1,5 +1,4 @@
 # Byte-compiled / optimized / DLL files
-__pycache__
 __pycache__/
 *.py[codz]
 *$py.class
@@ -85,4 +84,5 @@ ipython_config.py
 # InfoBIM specific
 data/
 venv/
+.venv/
 .env
