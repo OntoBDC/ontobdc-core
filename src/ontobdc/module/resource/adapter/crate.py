@@ -23,7 +23,7 @@ class RoCrateDatasetAdapter:
         """
         self.repository = repository
 
-    def create_ro_crate(self, output_dir: Optional[str] = None) -> Dict[str, Any]:
+    def create_ro_crate(self, output_dir: Optional[str] = None, include_payload: bool = False) -> Dict[str, Any]:
         """
         Create an RO-Crate metadata file (ro-crate-metadata.json) for the dataset.
         
@@ -70,66 +70,49 @@ class RoCrateDatasetAdapter:
         crate.name = f"Dataset from {base_path.name}"
         crate.datePublished = datetime.now().isoformat()
 
-        # 4. Add files to the crate
-        # Iterate over all folders in the repository
         for folder in self.repository.path_folders:
             if isinstance(folder, LocalFolderAdapter) and hasattr(folder, "path"):
                 folder_path = Path(folder.path)
                 if folder_path.exists():
-                    # Walk through directory using os.walk for better control over recursion
-                    # We need to detect "datapackage roots" and skip their contents
                     for root, dirs, files in os.walk(folder_path):
                         root_path = Path(root)
-                        
-                        # Optimization: Always ignore .__ontobdc__ directory traversal in general
-                        # We handle looking into it specifically for datapackage.json below
                         if ".__ontobdc__" in dirs:
                             dirs.remove(".__ontobdc__")
-                        
-                        # Check for datapackage.json marker
+
                         datapackage_path = root_path / ".__ontobdc__" / "datapackage.json"
-                        
                         if datapackage_path.exists():
-                            # This directory is a DataPackage root.
-                            # 1. Add ONLY the datapackage.json to the crate
                             try:
                                 rel_path = datapackage_path.relative_to(base_path)
-                                # Add file to crate
-                                crate.add_file(source=datapackage_path, dest_path=rel_path)
+                                crate.add_file(
+                                    source=(datapackage_path if include_payload else None),
+                                    dest_path=rel_path,
+                                )
                             except ValueError:
-                                # Should not happen if walking inside base_path
                                 pass
-                                
-                            # 2. Stop recursion into subdirectories
-                            # Clearing dirs list stops os.walk from visiting subdirectories of current root
                             dirs[:] = []
-                            
-                            # 3. Skip adding files from this directory (except the datapackage we just added)
-                            # We continue to next iteration (which will stop because dirs is empty)
                             continue
-                        
-                        # Normal processing: Add files in this directory
+
                         for filename in files:
                             file_path = root_path / filename
-                            
-                            # Skip hidden files/dirs (including .__ontobdc__ content if somehow reached)
                             if filename.startswith("."):
                                 continue
-                                
                             if file_path.name == "ro-crate-metadata.json":
                                 continue
-
                             try:
                                 rel_path = file_path.relative_to(base_path)
-                                # Add file to crate
-                                crate.add_file(source=file_path, dest_path=rel_path)
+                                crate.add_file(
+                                    source=(file_path if include_payload else None),
+                                    dest_path=rel_path,
+                                )
                             except ValueError:
-                                # File is outside base_path. 
                                 pass
 
         # 5. Write the crate to the hidden metadata directory
         # The ROCrate library writes ro-crate-metadata.json into the provided directory.
-        crate.write(metadata_path)
+        import warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=r"No source for .*")
+            crate.write(metadata_path)
 
         # 6. Read back the generated metadata to return it
         ro_crate_file = metadata_path / "ro-crate-metadata.json"
