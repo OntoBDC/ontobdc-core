@@ -83,8 +83,7 @@ def print_help():
     {CYAN}check{RESET}     {GRAY}Run infrastructure checks{RESET}
     {CYAN}run{RESET}       {GRAY}Run a capability via ontobdc/run{RESET}
     {CYAN}list{RESET}      {GRAY}List all available capabilities{RESET}
-    {CYAN}commit{RESET}    {GRAY}Git workflow for ontobdc and related modules{RESET}
-    {CYAN}branch{RESET}    {GRAY}Branch workflow for ontobdc and related modules{RESET}
+    {CYAN}dev{RESET}       {GRAY}Developer tools (e.g., ontobdc dev commit){RESET}
 """
 
     if os.path.exists(msg_box_script):
@@ -168,12 +167,6 @@ def main():
         args, unknown = parser.parse_known_args(sys.argv[2:])
         check_main(args)
 
-    elif cmd == "commit":
-        dev_command("commit", None)
-
-    elif cmd == "branch":
-        dev_command("branch", None)
-
     elif cmd == "plan":
         current_dir = os.path.dirname(os.path.abspath(__file__))
         msg_box_script = os.path.join(current_dir, "message_box.sh")
@@ -183,7 +176,10 @@ def main():
         else:
              print("Error: Not Implemented Yet (message_box.sh not found)")
         sys.exit(1)
-        
+
+    elif cmd == "dev":
+        dev_command("dev", None)
+
     else:
         print(f"Unknown command: {cmd}")
         print_help()
