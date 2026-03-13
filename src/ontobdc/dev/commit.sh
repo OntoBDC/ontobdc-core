@@ -81,9 +81,16 @@ fi
 
 MSG="$1"
 
-echo -e "${CYAN}Starting commit process...${RESET}"
-echo -e "${GRAY}Root Directory: ${ROOT_DIR}${RESET}"
-echo -e "${GRAY}Message: ${WHITE}\"$MSG\"${RESET}"
+LOG_SCRIPT="${SCRIPT_DIR}/../cli/print_log.sh"
+if [ -f "$LOG_SCRIPT" ]; then
+    bash "$LOG_SCRIPT" "INFO" "Starting commit process..."
+    bash "$LOG_SCRIPT" "INFO" "Root Directory: ${ROOT_DIR}"
+    bash "$LOG_SCRIPT" "INFO" "Message: ${MSG}"
+else
+    echo -e "${CYAN}Starting commit process...${RESET}"
+    echo -e "${GRAY}Root Directory: ${ROOT_DIR}${RESET}"
+    echo -e "${GRAY}Message: ${WHITE}\"$MSG\"${RESET}"
+fi
 echo ""
 
 # Function to perform git operations in a directory
@@ -104,37 +111,81 @@ process_repo() {
     # Get current branch name
     local BRANCH=$(cd "$REPO_PATH" && (git branch --show-current 2>/dev/null || git rev-parse --abbrev-ref HEAD))
 
+    echo ""
     echo -e "${WHITE}❯ Processing ${REPO_NAME} ${CYAN}(${BRANCH})${RESET}"
-    
+
     # Run in subshell to preserve CWD
     (
         cd "$REPO_PATH" || exit
         
         # Add all changes
         git add . > /dev/null 2>&1
+        bash "$LOG_SCRIPT" "SUCCESS" "   • Added all changes"
         
         # Check for changes
         if ! git diff-index --quiet HEAD --; then
             git commit -m "$MSG" > /dev/null 2>&1
-            echo -e "  ${GREEN}✓ Committed changes${RESET}"
+            bash "$LOG_SCRIPT" "SUCCESS" "   • Committed changes"
             
             # Push if remote exists
             if git remote | grep -q "."; then
-                if git push > /dev/null 2>&1; then
-                    echo -e "  ${GREEN}✓ Pushed to remote${RESET}"
+                PUSH_CMD=(git push)
+                REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
+                SSH_KEY_PATH=$(python3 -c "import os, sys
+try:
+    import yaml
+except Exception:
+    print('')
+    sys.exit(0)
+path='${ROOT_DIR}/.__ontobdc__/config.yaml'
+try:
+    with open(path, 'r') as f:
+        cfg = yaml.safe_load(f) or {}
+    dev = cfg.get('dev') or {}
+    key = (((dev.get('repo') or {}).get('ssh') or {}).get('key_path') or '')
+    if not key:
+        key = ((((cfg.get('repo') or {}).get('ssh') or {}).get('key_path')) or '')
+    print(key if isinstance(key, str) else '')
+except Exception:
+    print('')
+")
+                USE_SSH_KEY=false
+                if [ -n "$SSH_KEY_PATH" ]; then
+                    if [ -f "$SSH_KEY_PATH" ]; then
+                        if [[ "$REMOTE_URL" == git@* || "$REMOTE_URL" == ssh://* ]]; then
+                            USE_SSH_KEY=true
+                        fi
+                    else
+                        bash "$LOG_SCRIPT" "WARN" "  ${YELLOW}!${RESET} SSH key not found at ${SSH_KEY_PATH}"
+                    fi
+                fi
+
+                if [ "$USE_SSH_KEY" = true ]; then
+                    GIT_SSH_COMMAND="ssh -i ${SSH_KEY_PATH} -o IdentitiesOnly=yes" "${PUSH_CMD[@]}" > /dev/null 2>&1
+                else
+                    "${PUSH_CMD[@]}" > /dev/null 2>&1
+                fi
+
+                if [ $? -eq 0 ]; then
+                    bash "$LOG_SCRIPT" "SUCCESS" "   • Pushed to remote"
                 else
                      # Try setting upstream
-                     if git push --set-upstream origin "$BRANCH" > /dev/null 2>&1; then
-                        echo -e "  ${GREEN}✓ Pushed to remote (set upstream)${RESET}"
+                     if [ "$USE_SSH_KEY" = true ]; then
+                        GIT_SSH_COMMAND="ssh -i ${SSH_KEY_PATH} -o IdentitiesOnly=yes" "${PUSH_CMD[@]}" --set-upstream origin "$BRANCH" > /dev/null 2>&1
                      else
-                        echo -e "  ${RED}✗ Push failed${RESET}"
+                        "${PUSH_CMD[@]}" --set-upstream origin "$BRANCH" > /dev/null 2>&1
+                     fi
+                     if [ $? -eq 0 ]; then
+                        bash "$LOG_SCRIPT" "SUCCESS" "   • Pushed to remote (set upstream)"
+                     else
+                        bash "$LOG_SCRIPT" "ERROR" "  ${RED}✗${RESET} Push failed"
                      fi
                 fi
             else
-                echo -e "  ${GRAY}• No remote repository found (skipping push)${RESET}"
+                bash "$LOG_SCRIPT" "INFO" "  ${GRAY}• No remote repository found (skipping push)${RESET}"
             fi
         else
-            echo -e "  ${GRAY}• No changes to commit${RESET}"
+            bash "$LOG_SCRIPT" "INFO" "  ${GRAY}• No changes to commit${RESET}"
         fi
     )
 }
@@ -152,17 +203,17 @@ if [ -f "${ROOT_DIR}/.gitmodules" ]; then
 fi
 
 # 2. Process ontobdc-wip explicitly if not in .gitmodules (development fallback)
-if [ -d "${ROOT_DIR}/ontobdc-wip" ]; then
+if [ -d "${ROOT_DIR}/wip" ]; then
     # Check if we already processed it (simple string check)
-    if [[ "$SUBMODULES" != *"ontobdc-wip"* ]]; then
-        process_repo "${ROOT_DIR}/ontobdc-wip"
+    if [[ "$SUBMODULES" != *"wip"* ]]; then
+        process_repo "${ROOT_DIR}/wip"
     fi
 fi
 
-# 3. Process ontobdc-core explicitly (core distribution)
-if [ -d "${ROOT_DIR}/ontobdc-core" ]; then
-    if [[ "$SUBMODULES" != *"ontobdc-core"* ]]; then
-        process_repo "${ROOT_DIR}/ontobdc-core"
+# 3. Process core explicitly (core distribution)
+if [ -d "${ROOT_DIR}/core" ]; then
+    if [[ "$SUBMODULES" != *"core"* ]]; then
+        process_repo "${ROOT_DIR}/core"
     fi
 fi
 
@@ -170,4 +221,9 @@ fi
 process_repo "${ROOT_DIR}"
 
 echo ""
-echo -e "${GREEN}Success! Commit finished.${RESET}"
+LOG_SCRIPT="${SCRIPT_DIR}/../cli/print_log.sh"
+if [ -f "$LOG_SCRIPT" ]; then
+    bash "$LOG_SCRIPT" "SUCCESS" "Commit finished."
+else
+    echo -e "${GREEN}Success! Commit finished.${RESET}"
+fi
