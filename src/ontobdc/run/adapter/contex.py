@@ -37,6 +37,24 @@ class CliContextAdapter(CliContextPort):
             return self._parameters["capability_id"].get("value")
         return None
 
+    @property
+    def root_path(self) -> str:
+        """
+        Returns the root path of the repository.
+        """
+        current = os.path.abspath(os.getcwd())
+        while True:
+            config_path = os.path.join(current, ".__ontobdc__", "config.yaml")
+            if os.path.isfile(config_path):
+                return current
+
+            parent = os.path.dirname(current)
+            if parent == current:
+                break
+            current = parent
+
+        return os.getcwd()
+
     def add_parameter(self, param_key: str, param_value: Dict[str, Any]):
         if param_key not in self._parameters:
             self._parameters[param_key] = {}

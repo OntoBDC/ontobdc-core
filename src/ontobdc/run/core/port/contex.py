@@ -36,6 +36,14 @@ class CliContextPort(ABC):
         """
         ...
 
+    @property
+    @abstractmethod
+    def root_path(self) -> str:
+        """
+        Returns the root path of the repository.
+        """
+        ...
+
     @abstractmethod
     def add_parameter(self, param_key: str, param_value: Dict[str, Any]):
         ...

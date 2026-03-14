@@ -5,6 +5,7 @@ import json
 import yaml
 import subprocess
 
+
 def log(level, message, *args):
     """Wrapper to call print_log.sh"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,6 +18,7 @@ def log(level, message, *args):
         # Fallback
         print(f"[{level}] {message} {' '.join(args)}")
 
+
 def message_box(color, title_type, title_text, message):
     """Wrapper to call message_box.sh"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -28,31 +30,8 @@ def message_box(color, title_type, title_text, message):
         # Fallback
         print(f"[{title_type}] {message}")
 
+
 def _confirm_context_creation(path: str) -> bool:
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    msg_box_script = os.path.join(current_dir, "message_box.sh")
-    if os.path.exists(msg_box_script):
-        subprocess.run(
-            [
-                "bash",
-                msg_box_script,
-                "GRAY",
-                "OntoBDC",
-                "Init Context",
-                f"Confirm context creation in this directory?\n\nPath:\n{path}",
-            ],
-            check=False,
-        )
-    else:
-        print(f"Confirm context creation in this directory?\n\nPath:\n{path}\n")
-
-    if not sys.stdin.isatty() or not sys.stdout.isatty():
-        try:
-            answer = input("Confirm? [y/N]: ").strip().lower()
-        except EOFError:
-            return False
-        return answer in {"y", "yes"}
-
     import termios
     import tty
 
@@ -61,19 +40,27 @@ def _confirm_context_creation(path: str) -> bool:
     white = "\033[37m"
     reset = "\033[0m"
 
+    print(f"\n{white}Confirm context creation in this directory?{reset}")
+
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        try:
+            answer = input("Confirm? [y/N]: ").strip().lower()
+        except EOFError:
+            return False
+        return answer in {"y", "yes"}
+
     options = ["Yes", "No"]
     selected = 0
+    menu_height = 3
 
     def render() -> None:
-        sys.stdout.write("\033[2K\r")
         pointer = f"{cyan}➜{reset}"
-        line1 = f"  {pointer} {white}{options[0]}{reset}" if selected == 0 else f"    {gray}{options[0]}{reset}"
-        sys.stdout.write(line1 + "\n")
-        sys.stdout.write("\033[2K\r")
-        line2 = f"  {pointer} {white}{options[1]}{reset}" if selected == 1 else f"    {gray}{options[1]}{reset}"
-        sys.stdout.write(line2 + "\n")
-        sys.stdout.write("\033[2K\r")
-        sys.stdout.write(f"  {gray}Use ↑/↓ and Enter (Esc cancels){reset}\n")
+        line1 = f"  {pointer} {cyan}{options[0]}{reset}" if selected == 0 else f"    {gray}{options[0]}{reset}"
+        line2 = f"  {pointer} {cyan}{options[1]}{reset}" if selected == 1 else f"    {gray}{options[1]}{reset}"
+        line3 = f"  {gray}Use ↑/↓ and Enter (Esc cancels){reset}"
+        for line in (line1, line2, line3):
+            sys.stdout.write("\033[2K\r")
+            sys.stdout.write(line + "\n")
         sys.stdout.flush()
 
     fd = sys.stdin.fileno()
@@ -102,20 +89,39 @@ def _confirm_context_creation(path: str) -> bool:
                 else:
                     return False
 
-                sys.stdout.write("\033[3A")
+                sys.stdout.write(f"\033[{menu_height}A")
                 render()
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old)
 
 
 def init_context_main() -> None:
-    parser = argparse.ArgumentParser(description="Initialize OntoBDC context (RO-Crate)")
-    args, unknown = parser.parse_known_args(sys.argv[3:])
+    # parser = argparse.ArgumentParser(description="Initialize OntoBDC context (RO-Crate)")
+    # args, unknown = parser.parse_known_args(sys.argv[3:])
+    print("")
+    log("INFO", "Initializing OntoBDC context creation.")
 
     cwd = os.getcwd()
+    log("INFO", "Found current directory...", f"path={cwd}")
+
+    existing_context_path = os.path.join(cwd, ".__ontobdc__", "ro-crate-metadata.json")
+    if os.path.exists(existing_context_path):
+        message_box(
+            "RED",
+            "Error",
+            "Context Already Declared",
+            f"Context already exists in this directory.\n\nPath: {existing_context_path}",
+        )
+        sys.exit(1)
+
     confirmed = _confirm_context_creation(cwd)
     if not confirmed:
-        log("INFO", "Context creation cancelled.", f"path={cwd}")
+        message_box(
+            "YELLOW",
+            "Warning",
+            "Context Creation Cancelled",
+            f"Operation cancelled.\n\npath={cwd}",
+        )
         return
 
     try:

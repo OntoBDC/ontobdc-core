@@ -149,33 +149,36 @@ try:
 except Exception:
     print('')
 ")
-                USE_SSH_KEY=false
+                CAN_USE_SSH_KEY=false
                 if [ -n "$SSH_KEY_PATH" ]; then
                     if [ -f "$SSH_KEY_PATH" ]; then
                         if [[ "$REMOTE_URL" == git@* || "$REMOTE_URL" == ssh://* ]]; then
-                            USE_SSH_KEY=true
+                            CAN_USE_SSH_KEY=true
                         fi
                     else
                         bash "$LOG_SCRIPT" "WARN" "  ${YELLOW}!${RESET} SSH key not found at ${SSH_KEY_PATH}"
                     fi
                 fi
 
-                if [ "$USE_SSH_KEY" = true ]; then
-                    GIT_SSH_COMMAND="ssh -i ${SSH_KEY_PATH} -o IdentitiesOnly=yes" "${PUSH_CMD[@]}" > /dev/null 2>&1
-                else
-                    "${PUSH_CMD[@]}" > /dev/null 2>&1
+                PUSH_OUTPUT=$("${PUSH_CMD[@]}" 2>&1)
+                PUSH_EXIT=$?
+                if [ $PUSH_EXIT -ne 0 ] && [ "$CAN_USE_SSH_KEY" = true ]; then
+                    PUSH_OUTPUT=$(GIT_SSH_COMMAND="ssh -i ${SSH_KEY_PATH} -o IdentitiesOnly=yes" "${PUSH_CMD[@]}" 2>&1)
+                    PUSH_EXIT=$?
                 fi
 
-                if [ $? -eq 0 ]; then
+                if [ $PUSH_EXIT -eq 0 ]; then
                     bash "$LOG_SCRIPT" "SUCCESS" "   • Pushed to remote"
                 else
                      # Try setting upstream
-                     if [ "$USE_SSH_KEY" = true ]; then
-                        GIT_SSH_COMMAND="ssh -i ${SSH_KEY_PATH} -o IdentitiesOnly=yes" "${PUSH_CMD[@]}" --set-upstream origin "$BRANCH" > /dev/null 2>&1
-                     else
-                        "${PUSH_CMD[@]}" --set-upstream origin "$BRANCH" > /dev/null 2>&1
+                     UPSTREAM_OUTPUT=$("${PUSH_CMD[@]}" --set-upstream origin "$BRANCH" 2>&1)
+                     UPSTREAM_EXIT=$?
+                     if [ $UPSTREAM_EXIT -ne 0 ] && [ "$CAN_USE_SSH_KEY" = true ]; then
+                        UPSTREAM_OUTPUT=$(GIT_SSH_COMMAND="ssh -i ${SSH_KEY_PATH} -o IdentitiesOnly=yes" "${PUSH_CMD[@]}" --set-upstream origin "$BRANCH" 2>&1)
+                        UPSTREAM_EXIT=$?
                      fi
-                     if [ $? -eq 0 ]; then
+
+                     if [ $UPSTREAM_EXIT -eq 0 ]; then
                         bash "$LOG_SCRIPT" "SUCCESS" "   • Pushed to remote (set upstream)"
                      else
                         bash "$LOG_SCRIPT" "ERROR" "  ${RED}✗${RESET} Push failed"
