@@ -72,11 +72,8 @@ class ListDocumentsCapability(Capability):
         # Extract repository parameter value
         repo: DocumentRepositoryPort = context.get_parameter_value("repository")
 
-        limit_param = context.get_parameter_value("limit")
-        limit = limit_param["value"] if limit_param else 0
-
-        start_param = context.get_parameter_value("start")
-        start = start_param["value"] if start_param else 0
+        limit = context.get_parameter_value("limit") or 0
+        start = context.get_parameter_value("start") or 0
 
         files = repo.get_all()
         if start > 0:
