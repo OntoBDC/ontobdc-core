@@ -7,7 +7,7 @@ class DocumentListRenderer:
         
         if format == "json":
             import json
-            console.print(json.dumps(files, indent=4))
+            print(json.dumps([str(f) for f in files], indent=4))
         else:
             table = Table(title="Documents")
             table.add_column("Path", style="cyan", no_wrap=True)
