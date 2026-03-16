@@ -33,6 +33,7 @@ log() {
             LEVEL_ICON="▶"
             ;;
         "WARN"|"WARNING")
+            LEVEL="WARNING"
             LEVEL_COLOR="$YELLOW"
             LEVEL_ICON="▶"
             ;;

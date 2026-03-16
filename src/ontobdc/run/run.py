@@ -6,8 +6,10 @@ import argparse
 from typing import Any, Dict, List, Optional, Type
 import yaml
 from rich.console import Console
-from ontobdc.run.core.capability import Capability, CapabilityExecutor
+from ontobdc.run.adapter.loader import CapabilityLoader
 from ontobdc.run.core.port.contex import CliContextPort
+from ontobdc.run.adapter.contex import CliContextResolver
+from ontobdc.run.core.capability import Capability, CapabilityExecutor
 from ontobdc.run.ui import YELLOW, RED, print_message_box, GRAY, CYAN
 
 # Bootstrap: Setup project root first to allow ontobdc imports
@@ -21,9 +23,31 @@ except ImportError:
 
 setup_project_root()
 
-from ontobdc.run.adapter.loader import CapabilityLoader, ActionLoader
-from ontobdc.run.adapter.contex import CliContextResolver
-from ontobdc.run.adapter.selector import SimpleMenuSelector
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+GRAY='\033[0;90m'
+WHITE='\033[1;37m'
+RESET='\033[0m'
+CONFIG_JSON="${SCRIPT_DIR}/config.json"
+FULL_HLINE="----------------------------------------"
+
+def log(level, message, *args):
+    """Wrapper to call print_log.sh"""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Assuming run.py is in src/ontobdc/run/
+    # print_log.sh is in src/ontobdc/cli/
+    log_script = os.path.join(current_dir, "..", "cli", "print_log.sh")
+    
+    if os.path.exists(log_script):
+        import subprocess
+        cmd = ["bash", log_script, level, message] + list(args)
+        subprocess.run(cmd, check=False)
+    else:
+        # Fallback
+        print(f"[{level}] {message} {' '.join(args)}")
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -184,7 +208,6 @@ def main():
         print_message_box(RED, "Error", f"Capability Discovery Error", "No capabilities found matching the criteria.")
         sys.exit(0)
 
-    selector = SimpleMenuSelector()
     options = [
         {"label": f"{cap.METADATA.name} ({cap.METADATA.id})", "value": cap}
         for cap in selected_capabilities
@@ -220,20 +243,107 @@ def main():
 
     footer_text = f"{RAW_CYAN}0{RAW_RESET} {RAW_GRAY}Exit{RAW_RESET}"
 
-    if os.path.exists(msg_box_script):
-        import subprocess
-        # We need to pass arguments carefully. 
-        subprocess.run(["bash", msg_box_script, "GRAY", "OntoBDC", "Select Capability", menu_content, "", footer_text], check=False)
-    else:
-        # Fallback to python implementation if script not found
-        print_message_box(
-            GRAY,
-            "OntoBDC",
-            "Select Capability",
-            menu_content
-        )
-    
-    selected_cap = selector.select_option(options, title="", print_menu=False)
+    def _select_capability_option(options):
+        if not options:
+            return None
+
+        items = []
+        for opt in options:
+            cap = opt["value"]
+            items.append(
+                {
+                    "name": cap.METADATA.name,
+                    "id": cap.METADATA.id,
+                    "value": cap,
+                }
+            )
+
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            for idx, item in enumerate(items, 1):
+                print(f"{idx}. {item['name']} ({item['id']})")
+            try:
+                answer = input("Select a capability [1..N] (Enter to cancel): ").strip()
+            except EOFError:
+                return None
+            if not answer:
+                return None
+            if not answer.isdigit():
+                return None
+            choice = int(answer)
+            if choice < 1 or choice > len(items):
+                return None
+            return items[choice - 1]["value"]
+
+        import termios
+        import tty
+        import select
+
+        cyan = "\033[36m"
+        gray = "\033[90m"
+        reset = "\033[0m"
+
+        selected = 0
+        menu_height = len(items) + 1
+
+        def render() -> None:
+            pointer = f"{cyan}➜{reset}"
+            for i, item in enumerate(items):
+                name = item["name"]
+                cap_id = item["id"]
+                if i == selected:
+                    line = f"  {pointer} {cyan}{name}{reset} {gray}({cap_id}){reset}"
+                else:
+                    line = f"    {gray}{name} ({cap_id}){reset}"
+                sys.stdout.write("\033[2K\r")
+                sys.stdout.write(line + "\n")
+            sys.stdout.write("\033[2K\r")
+            sys.stdout.write(f"  {gray}Use ↑/↓ and Enter (Esc cancels){reset}\n")
+            sys.stdout.flush()
+
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setcbreak(fd)
+            sys.stdout.write("\n")
+            render()
+            while True:
+                ch = os.read(fd, 1)
+                if not ch:
+                    continue
+                if ch in (b"\n", b"\r"):
+                    return items[selected]["value"]
+                if ch == b"\x1b":
+                    r, _, _ = select.select([fd], [], [], 1.0)
+                    if not r:
+                        return None
+
+                    nxt = os.read(fd, 1)
+                    if nxt not in (b"[", b"O"):
+                        continue
+
+                    seq = b""
+                    for _ in range(16):
+                        r, _, _ = select.select([fd], [], [], 0.02)
+                        if not r:
+                            break
+                        seq += os.read(fd, 1)
+
+                    if not seq:
+                        continue
+
+                    code = seq[-1:]
+                    if code == b"A":
+                        selected = (selected - 1) % len(items)
+                    elif code == b"B":
+                        selected = (selected + 1) % len(items)
+                    else:
+                        continue
+                    sys.stdout.write(f"\033[{menu_height}A")
+                    render()
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+    selected_cap = _select_capability_option(options)
     
     if selected_cap:
         run_capability(selected_cap(), context)
@@ -244,4 +354,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

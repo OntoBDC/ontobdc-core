@@ -1,7 +1,8 @@
+
+import os
 import sys
 import argparse
 import subprocess
-import os
 from ontobdc.run.run import main as run_main
 
 try:
@@ -114,6 +115,7 @@ def main():
         except Exception:
             ver = "unknown"
             
+
         current_dir = os.path.dirname(os.path.abspath(__file__))
         msg_box_script = os.path.join(current_dir, "message_box.sh")
         
@@ -182,7 +184,10 @@ def main():
         dev_command("dev", None)
 
     else:
-        print(f"Unknown command: {cmd}")
+        print_log_script = os.path.join(current_dir, "print_log.sh")
+        print("")
+        subprocess.run(["bash", print_log_script, "ERROR", f"The '{cmd}' command was not found."], check=False)
+        print("")
         print_help()
         sys.exit(1)
 
