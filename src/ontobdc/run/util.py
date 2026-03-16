@@ -10,6 +10,7 @@ def print_message_box(color, title, subtitle, message):
     # Minimal implementation to avoid dependencies if rich is not available or just simple text
     print(f"[{color.upper()}] {title} - {subtitle}: {message}")
 
+
 def setup_project_root():
     """
     Sets up the project root in sys.path to ensure modules can be imported correctly
@@ -27,6 +28,7 @@ def setup_project_root():
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
     return project_root
+
 
 def load_capability_packages():
     """
