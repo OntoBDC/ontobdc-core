@@ -50,12 +50,6 @@ else
 fi
 
 if [ -f "${MESSAGE_BOX}" ]; then
-    # Define FULL_HLINE if sourced from message_box (if it's not defined there)
-    # message_box.sh doesn't define FULL_HLINE, but it defines colors.
-    # We should ensure colors are available or redefined here if needed, 
-    # but sourcing message_box should provide them.
-    # However, message_box.sh defines colors as BOLD='\033[1m', etc.
-    # Let's just redefine FULL_HLINE here to be safe.
     FULL_HLINE="----------------------------------------"
 fi
 
@@ -83,9 +77,9 @@ run_checks() {
     local DIR="$1"
     local NAME="$2"
     local ENGINE="$3"
-    
+
     echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}${NAME}${RESET}"
-    
+
     if [ ! -f "$CONFIG_JSON" ]; then
          echo -e "  ${RED}✗ Config file not found: ${CONFIG_JSON}${RESET}"
          ERRORS+=("Config file missing")

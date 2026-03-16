@@ -1,15 +1,14 @@
+
+import os
 import sys
 import argparse
 import subprocess
-import os
 from ontobdc.run.run import main as run_main
-from ontobdc.cli.init import init_main
 
 try:
     from ontobdc.list.list import main as list_main
 except ImportError:
     list_main = None
-
 
 
 def check_main(args):
@@ -37,6 +36,7 @@ def check_main(args):
         print(f"Error executing check script: {e}")
         sys.exit(1)
 
+
 def dev_command(action, args):
     # Map dev commands to their scripts in src/ontobdc/dev
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -62,6 +62,7 @@ def dev_command(action, args):
     except Exception as e:
         print(f"Error executing {action} script: {e}")
         sys.exit(1)
+
 
 def print_help():
     # Colors
@@ -93,6 +94,7 @@ def print_help():
         print(f"{WHITE}OntoBDC CLI{RESET}")
         print(help_content)
         print("")
+
 
 def main():
     # If no args, print help
