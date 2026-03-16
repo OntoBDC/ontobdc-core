@@ -60,6 +60,7 @@ RESET='\033[0m'
 CONFIG_JSON="${SCRIPT_DIR}/config.json"
 FULL_HLINE="----------------------------------------"
 
+
 def log(level, message, *args):
     """Wrapper to call print_log.sh"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -74,6 +75,7 @@ def log(level, message, *args):
     else:
         # Fallback
         print(f"[{level}] {message} {' '.join(args)}")
+
 
 def get_all_capabilities() -> List[type[Capability]]:
     all_capabilities: List[type[Capability]] = []
@@ -166,13 +168,9 @@ def main():
 
     # Check for unknown/unprocessed arguments
     if context.unprocessed_args:
+        print("")
         unknown_args = " ".join(context.unprocessed_args)
-        print_message_box(
-            YELLOW,
-            "Warning",
-            "Unknown Arguments",
-            f"The following arguments were not recognized and will be ignored:\n\n{unknown_args}"
-        )
+        log('WARN', f"The following arguments were not recognized and will be ignored: {CYAN}{unknown_args}{RESET}")
 
     all_capabilities: List[type[Capability]] = get_all_capabilities()
 
