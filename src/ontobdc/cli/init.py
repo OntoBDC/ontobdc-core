@@ -242,7 +242,7 @@ def init_engine_main():
         log("ERROR", f"Error writing config file: {e}")
         sys.exit(1)
 
-    # 4. Run Check Repair (optional but recommended)
+    # 4. Run Check Repair (optional but recommended in setup.sh logic)
     # We delegate to check command
     print("")
     from ontobdc.cli import check_main

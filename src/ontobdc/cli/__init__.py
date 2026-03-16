@@ -1,8 +1,7 @@
-
-import os
 import sys
 import argparse
 import subprocess
+import os
 from ontobdc.run.run import main as run_main
 
 try:

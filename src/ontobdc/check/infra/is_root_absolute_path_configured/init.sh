@@ -21,7 +21,7 @@ check() {
 
     if [ -z "$CONFIG_PATH" ]; then
         if type print_message_box &>/dev/null; then
-            print_message_box "RED" "Error" "Root Directory Not Configured" "Missing .__ontobdc__/config.yaml.\n\nRun this from the project root:\n\n  ontobdc check --repair"
+            bash "/Users/eliasmpjunior/infobim/deploy/ontobdc-stack/core/src/ontobdc/cli/print_log.sh" "ERROR" "Root Directory Not Configured" "reason=missing .__ontobdc__/config.yaml" "hint=run 'ontobdc check --repair' from project root"
         else
             echo "Error: Missing .__ontobdc__/config.yaml. Run 'ontobdc check --repair' from the project root."
         fi
@@ -101,4 +101,3 @@ with open(path, 'w') as f:
     fi
     return 1
 }
-
