@@ -53,9 +53,9 @@ def load_capability_packages():
         try:
             with open(found_config, 'r') as f:
                 data = yaml.safe_load(f)
-                if data and 'capability' in data and isinstance(data['capability'], list):
-                    if data and 'packages' in data and isinstance(data['packages'], list):
-                        raw_packages = data['packages']
+                if data and 'capability' in data and isinstance(data['capability'], dict):
+                    if data['capability'] and 'package' in data['capability'] and isinstance(data['capability']['package'], list):
+                        raw_packages = data['capability']['package']
                         processed_packages = []
 
                         config_dir = os.path.dirname(os.path.abspath(found_config))
