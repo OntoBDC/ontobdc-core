@@ -2,8 +2,7 @@ from rich.console import Console
 from rich.table import Table
 
 class DocumentListRenderer:
-    def render(self, result: dict, format: str = "text"):
-        console = Console()
+    def render(self, console: Console, result: dict, format: str = "rich"):
         files = result.get("org.ontobdc.domain.resource.document.list.content", [])
         
         if format == "json":
