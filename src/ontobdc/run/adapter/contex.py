@@ -97,7 +97,7 @@ class CliContextResolver:
                 continue
 
         # 2. Load custom strategies from config/context.yaml
-        config_path = os.path.join(os.getcwd(), "config", "context.yaml")
+        config_path = os.path.join(os.getcwd(), ".__ontobdc__", "config.yaml")
 
         if os.path.exists(config_path):
             import yaml
@@ -105,17 +105,9 @@ class CliContextResolver:
                 with open(config_path, 'r') as f:
                     config = yaml.safe_load(f) or {}
 
-                # Check for 'strategies' key or try to load from 'parameters' if it contains module definitions
-                custom_strategies = config.get('strategies', [])
-                if not custom_strategies and 'parameters' in config:
-                    # Fallback if user puts strategies in parameters list
-                    params = config['parameters']
-                    if isinstance(params, list):
-                        for p in params:
-                            if isinstance(p, str) and '.' in p: # Simple heuristic
-                                custom_strategies.append(p)
-                            elif isinstance(p, dict) and 'module' in p:
-                                custom_strategies.append(p['module'])
+                custom_strategies: List[str] = []
+                if config and 'capability' in config and isinstance(config['capability'], dict):
+                    custom_strategies = config.get('capability', {}).get('parameter', [])
 
                 for module_name in custom_strategies:
                     try:
