@@ -262,4 +262,5 @@ def init_main():
     if len(sys.argv) >= 3 and sys.argv[2] == "context":
         init_context_main()
         return
+
     init_engine_main()
