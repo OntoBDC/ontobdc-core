@@ -5,7 +5,6 @@ clear
 # clear
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 
 MESSAGE_BOX_SCRIPT="${SCRIPT_DIR}/../cli/message_box.sh"
 if [ -f "$MESSAGE_BOX_SCRIPT" ]; then
@@ -18,6 +17,17 @@ if [ "$#" -gt 0 ]; then
         ontobdc_help_dev
         exit 0
     fi
+fi
+
+if [ -n "${ONTOBDC_PROJECT_ROOT:-}" ]; then
+    PROJECT_ROOT="$ONTOBDC_PROJECT_ROOT"
+else
+    if type print_message_box &>/dev/null; then
+        print_message_box "RED" "Error" "Project Root Not Set" "ONTOBDC_PROJECT_ROOT environment variable is not set."
+    else
+        echo "Error: ONTOBDC_PROJECT_ROOT environment variable is not set."
+    fi
+    exit 1
 fi
 
 (

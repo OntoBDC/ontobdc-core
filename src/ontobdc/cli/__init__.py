@@ -1,6 +1,8 @@
 
 import os
 import sys
+from typing import Any, Dict, Optional
+import yaml
 import argparse
 import subprocess
 from ontobdc.run.run import main as run_main
@@ -9,6 +11,44 @@ try:
     from ontobdc.list.list import main as list_main
 except ImportError:
     list_main = None
+
+
+def config_data() -> Optional[Dict[str, Any]]:
+    # Get the directory of the config file (.__ontobdc__/config.yaml)
+    current_dir: str = os.path.abspath(os.getcwd())
+    while True:
+        config_file: str = os.path.join(current_dir, ".__ontobdc__", "config.yaml")
+        if os.path.isfile(config_file):
+            try:
+                with open(config_file, "r") as f:
+                    cfg = yaml.safe_load(f) or {}
+                    if cfg.get("directory", {}).get("root", {}).get("absolute_path", None) is None:
+                        return None
+
+                    if cfg.get("engine", None) is None or cfg.get("engine") not in ["venv", "docker"]:
+                        return None
+
+                    return cfg
+            except Exception:
+                return None
+
+        parent_dir = os.path.dirname(current_dir)
+        if parent_dir == current_dir:
+            return None
+
+        current_dir = parent_dir
+
+
+
+
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Path to config.sh (src/ontobdc/config/config.sh)
+    # cli/.. -> src/ontobdc -> config -> config.sh
+    # config_script = os.path.join(current_dir, "..", "config", "config.sh")
+    
+    # if not os.path.exists(config_script):
+    #     print(f"Error: config.sh not found at {config_script}")
+    #     sys.exit(1)
 
 
 def check_main(args):
@@ -37,7 +77,7 @@ def check_main(args):
         sys.exit(1)
 
 
-def dev_command(action, args):
+def dev_command(action, args, project_root: str):
     # Map dev commands to their scripts in src/ontobdc/dev
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # cli/.. -> src/ontobdc -> dev -> action.sh
@@ -56,7 +96,9 @@ def dev_command(action, args):
     cmd = [script_path] + sys.argv[2:]
     
     try:
-        subprocess.run(cmd, check=True)
+        env = os.environ.copy()
+        env["ONTOBDC_PROJECT_ROOT"] = project_root
+        subprocess.run(cmd, check=True, env=env)
     except subprocess.CalledProcessError as e:
         sys.exit(e.returncode)
     except Exception as e:
@@ -114,7 +156,6 @@ def main():
             ver = version("ontobdc")
         except Exception:
             ver = "unknown"
-            
 
         current_dir = os.path.dirname(os.path.abspath(__file__))
         msg_box_script = os.path.join(current_dir, "message_box.sh")
@@ -133,23 +174,62 @@ def main():
     else:
         # Check if engine is installed/initialized
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        is_engine_installed_script = os.path.join(current_dir, "..", "check", "infra", "is_engine_installed", "init.sh")
         msg_box_script = os.path.join(current_dir, "message_box.sh")
 
-        if os.path.exists(is_engine_installed_script):
-            # We need to source the script and run the check function.
-            # Since subprocess.run creates a new shell, we can just run a small bash snippet
-            check_cmd = f"source {is_engine_installed_script} && check"
-            try:
-                subprocess.run(check_cmd, shell=True, check=True, executable="/bin/bash", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            except subprocess.CalledProcessError:
-                # Check failed (exit code != 0)
-                if os.path.exists(msg_box_script):
-                     msg = "OntoBDC is not initialized in this directory.\n\nPlease run \033[1;37montobdc init\033[0;90m to setup the project configuration."
-                     subprocess.run(["bash", msg_box_script, "RED", "Error", "Not Initialized", msg], check=False)
-                else:
-                     print("Error: OntoBDC is not initialized. Run 'ontobdc init'.")
-                sys.exit(1)
+        cfg = config_data()
+
+        if not cfg:
+            if os.path.exists(msg_box_script):
+                msg = "OntoBDC is not initialized.\n\nPlease run \033[1;37montobdc init\033[0;90m to setup the project configuration."
+                subprocess.run(["bash", msg_box_script, "RED", "Error", "Not Initialized", msg], check=False)
+            else:
+                print("Error: OntoBDC is not initialized. Run 'ontobdc init'.")
+            sys.exit(1)
+
+        project_root: str = cfg.get("directory").get("root").get("absolute_path")
+
+        # is_engine_installed_script = os.path.join(current_dir, "..", "check", "infra", "is_engine_installed", "init.sh")
+
+        # probe = os.getcwd()
+        # for _ in range(12):
+        #     if os.path.exists(os.path.join(probe, ".__ontobdc__", "config.yaml")):
+        #         project_root = probe
+        #         break
+        #     parent = os.path.dirname(probe)
+        #     if parent == probe:
+        #         break
+        #     probe = parent
+
+        # if not project_root:
+        #     if os.path.exists(msg_box_script):
+        #         msg = "OntoBDC is not initialized.\n\nPlease run \033[1;37montobdc init\033[0;90m to setup the project configuration."
+        #         subprocess.run(["bash", msg_box_script, "RED", "Error", "Not Initialized", msg], check=False)
+        #     else:
+        #         print("Error: OntoBDC is not initialized. Run 'ontobdc init'.")
+        #     sys.exit(1)
+
+        # if os.path.exists(is_engine_installed_script):
+        #     # We need to source the script and run the check function.
+        #     # Since subprocess.run creates a new shell, we can just run a small bash snippet
+        #     check_cmd = f"source {is_engine_installed_script} && check"
+        #     try:
+        #         subprocess.run(
+        #             check_cmd,
+        #             shell=True,
+        #             check=True,
+        #             executable="/bin/bash",
+        #             stdout=subprocess.DEVNULL,
+        #             stderr=subprocess.DEVNULL,
+        #             cwd=project_root,
+        #         )
+        #     except subprocess.CalledProcessError:
+        #         # Check failed (exit code != 0)
+        #         if os.path.exists(msg_box_script):
+        #              msg = "OntoBDC is not initialized.\n\nPlease run \033[1;37montobdc init\033[0;90m to setup the project configuration."
+        #              subprocess.run(["bash", msg_box_script, "RED", "Error", "Not Initialized", msg], check=False)
+        #         else:
+        #              print("Error: OntoBDC is not initialized. Run 'ontobdc init'.")
+        #         sys.exit(1)
         
     if cmd == "run":
         sys.argv = [sys.argv[0]] + sys.argv[2:]
@@ -170,18 +250,18 @@ def main():
         args, unknown = parser.parse_known_args(sys.argv[2:])
         check_main(args)
 
-    elif cmd == "plan":
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        msg_box_script = os.path.join(current_dir, "message_box.sh")
+    # elif cmd == "plan":
+    #     current_dir = os.path.dirname(os.path.abspath(__file__))
+    #     msg_box_script = os.path.join(current_dir, "message_box.sh")
         
-        if os.path.exists(msg_box_script):
-             subprocess.run(["bash", msg_box_script, "RED", "Error", "Not Implemented Yet", "The 'plan' command is currently under development."], check=False)
-        else:
-             print("Error: Not Implemented Yet (message_box.sh not found)")
-        sys.exit(1)
+    #     if os.path.exists(msg_box_script):
+    #          subprocess.run(["bash", msg_box_script, "RED", "Error", "Not Implemented Yet", "The 'plan' command is currently under development."], check=False)
+    #     else:
+    #          print("Error: Not Implemented Yet (message_box.sh not found)")
+    #     sys.exit(1)
 
     elif cmd == "dev":
-        dev_command("dev", None)
+        dev_command("dev", None, project_root)
 
     else:
         print_log_script = os.path.join(current_dir, "print_log.sh")
