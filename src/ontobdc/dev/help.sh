@@ -8,7 +8,7 @@ ontobdc_help_dev() {
   CONTENT="${CONTENT}    \033[36m--help\033[0m                               \033[90mShow this help\033[0m\n"
   CONTENT="${CONTENT}    \033[36m--enable-dev-tool\033[0m                    \033[90mEnable dev.tool in .__ontobdc__/config.yaml (must be passed alone)\033[0m\n"
   CONTENT="${CONTENT}    \033[36mcommit <message>\033[0m                     \033[90mCommit and push changes across repos\033[0m\n"
-  CONTENT="${CONTENT}    \033[36mbranch <create|checkout|changelog>\033[0m   \033[90mBranch workflow across repos\033[0m\n"
+  CONTENT="${CONTENT}    \033[36m<branch-create|checkout|changelog>\033[0m   \033[90mBranch workflow across repos\033[0m\n"
   CONTENT="${CONTENT}    \033[36mrepo --add-ssh-key <path>\033[0m            \033[90mPersist SSH key path into .__ontobdc__/config.yaml (dev.repo.ssh.key_path)\033[0m\n"
   CONTENT="${CONTENT}    \033[36mrepo --rm-ssh-key <path>\033[0m             \033[90mRemove SSH key path from .__ontobdc__/config.yaml\033[0m\n\n"
   CONTENT="${CONTENT}  \033[37mNotes:\033[0m\n"

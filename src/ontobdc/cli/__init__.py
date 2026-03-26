@@ -13,42 +13,57 @@ except ImportError:
     list_main = None
 
 
-def config_data() -> Optional[Dict[str, Any]]:
-    # Get the directory of the config file (.__ontobdc__/config.yaml)
-    current_dir: str = os.path.abspath(os.getcwd())
-    while True:
+def get_root_dir() -> Optional[str]:
+    """
+    Find the root directory of the project by looking for the .__ontobdc__ directory.
+    """
+    def _check_local(current_dir: str) -> Optional[str]:
         config_file: str = os.path.join(current_dir, ".__ontobdc__", "config.yaml")
         if os.path.isfile(config_file):
-            try:
-                with open(config_file, "r") as f:
-                    cfg = yaml.safe_load(f) or {}
-                    if cfg.get("directory", {}).get("root", {}).get("absolute_path", None) is None:
-                        return None
-
-                    if cfg.get("engine", None) is None or cfg.get("engine") not in ["venv", "docker"]:
-                        return None
-
-                    return cfg
-            except Exception:
-                return None
+            return current_dir
 
         parent_dir = os.path.dirname(current_dir)
         if parent_dir == current_dir:
             return None
 
-        current_dir = parent_dir
+        return _check_local(parent_dir)
+
+    def _check_other(current_dir: str) -> Optional[str]:
+        pass
+
+    current_dir: str = _check_local(os.path.abspath(os.getcwd()))
+    if not current_dir:
+        current_dir = _check_other(current_dir)
+        if not current_dir:
+            return None
+
+    return current_dir
 
 
+def config_data() -> Optional[Dict[str, Any]]:
+    root_dir: Optional[str] = get_root_dir()
+    if root_dir is None:
+        return None
 
+    # Get the directory of the config file (.__ontobdc__/config.yaml)
+    config_file: str = os.path.join(root_dir, ".__ontobdc__", "config.yaml")
 
-    # current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Path to config.sh (src/ontobdc/config/config.sh)
-    # cli/.. -> src/ontobdc -> config -> config.sh
-    # config_script = os.path.join(current_dir, "..", "config", "config.sh")
-    
-    # if not os.path.exists(config_script):
-    #     print(f"Error: config.sh not found at {config_script}")
-    #     sys.exit(1)
+    if not os.path.isfile(config_file):
+        return None
+
+    try:
+        with open(config_file, "r") as f:
+            cfg = yaml.safe_load(f) or {}
+            if not cfg.get("directory", {}).get("root", {}).get("absolute_path"):
+                return None
+
+            engine = cfg.get("engine")
+            if not engine or engine not in ["venv", "colab", "docker"]:
+                return None
+
+            return cfg
+    except Exception:
+        return None
 
 
 def check_main(args):
@@ -165,7 +180,9 @@ def main():
         else:
              print(f"OntoBDC Version: {ver}")
         sys.exit(0)
-    
+
+    project_root: Optional[str] = get_root_dir()
+
     if cmd == "init":
         from ontobdc.cli.init import init_main
         init_main()
@@ -186,50 +203,7 @@ def main():
                 print("Error: OntoBDC is not initialized. Run 'ontobdc init'.")
             sys.exit(1)
 
-        project_root: str = cfg.get("directory").get("root").get("absolute_path")
-
-        # is_engine_installed_script = os.path.join(current_dir, "..", "check", "infra", "is_engine_installed", "init.sh")
-
-        # probe = os.getcwd()
-        # for _ in range(12):
-        #     if os.path.exists(os.path.join(probe, ".__ontobdc__", "config.yaml")):
-        #         project_root = probe
-        #         break
-        #     parent = os.path.dirname(probe)
-        #     if parent == probe:
-        #         break
-        #     probe = parent
-
-        # if not project_root:
-        #     if os.path.exists(msg_box_script):
-        #         msg = "OntoBDC is not initialized.\n\nPlease run \033[1;37montobdc init\033[0;90m to setup the project configuration."
-        #         subprocess.run(["bash", msg_box_script, "RED", "Error", "Not Initialized", msg], check=False)
-        #     else:
-        #         print("Error: OntoBDC is not initialized. Run 'ontobdc init'.")
-        #     sys.exit(1)
-
-        # if os.path.exists(is_engine_installed_script):
-        #     # We need to source the script and run the check function.
-        #     # Since subprocess.run creates a new shell, we can just run a small bash snippet
-        #     check_cmd = f"source {is_engine_installed_script} && check"
-        #     try:
-        #         subprocess.run(
-        #             check_cmd,
-        #             shell=True,
-        #             check=True,
-        #             executable="/bin/bash",
-        #             stdout=subprocess.DEVNULL,
-        #             stderr=subprocess.DEVNULL,
-        #             cwd=project_root,
-        #         )
-        #     except subprocess.CalledProcessError:
-        #         # Check failed (exit code != 0)
-        #         if os.path.exists(msg_box_script):
-        #              msg = "OntoBDC is not initialized.\n\nPlease run \033[1;37montobdc init\033[0;90m to setup the project configuration."
-        #              subprocess.run(["bash", msg_box_script, "RED", "Error", "Not Initialized", msg], check=False)
-        #         else:
-        #              print("Error: OntoBDC is not initialized. Run 'ontobdc init'.")
-        #         sys.exit(1)
+        project_root = cfg.get("directory").get("root").get("absolute_path")
         
     if cmd == "run":
         sys.argv = [sys.argv[0]] + sys.argv[2:]

@@ -97,7 +97,7 @@ class CliContextResolver:
                 continue
 
         # 2. Load custom strategies from config/context.yaml
-        config_path = os.path.join(os.getcwd(), ".__ontobdc__", "config.yaml")
+        config_path = os.path.join(context.root_path, ".__ontobdc__", "config.yaml")
 
         if os.path.exists(config_path):
             import yaml

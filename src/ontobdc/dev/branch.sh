@@ -94,11 +94,11 @@ print_message_box() {
 
 # Script to automate branch creation and checkout
 # Usage: ./branch.sh <action> <branch_name>
-# Actions: create, checkout
+# Actions: branch-create, checkout, changelog
 
 if [ -z "$1" ]; then
     echo ""
-    print_message_box "$RED" "Error" "Missing arguments" "Usage: $0 <create|checkout|changelog> [branch_name]"
+    print_message_box "$RED" "Error" "Missing arguments" "Usage: ontobdc dev <branch-create|checkout|changelog> [branch_name]"
     echo ""
     exit 1
 fi
@@ -107,10 +107,10 @@ ACTION="$1"
 BRANCH_NAME="$2"
 
 # Validation for create/checkout
-if [[ "$ACTION" == "create" || "$ACTION" == "checkout" ]]; then
+if [[ "$ACTION" == "branch-create" || "$ACTION" == "checkout" ]]; then
     if [ -z "$BRANCH_NAME" ]; then
          echo ""
-         print_message_box "$RED" "Error" "Missing branch name" "Usage: $0 $ACTION <branch_name>"
+         print_message_box "$RED" "Error" "Missing branch name" "Usage: ontobdc dev $ACTION <branch_name>"
          echo ""
          exit 1
     fi
@@ -137,7 +137,7 @@ git_branch() {
         if [ -d ".git" ] || git rev-parse --git-dir > /dev/null 2>&1; then
             echo -e "${YELLOW}❯ ${WHITE}Processing ${CYAN}${DIR}${RESET}"
             
-            if [ "$ACTION" == "create" ]; then
+            if [ "$ACTION" == "branch-create" ]; then
                 # Create branch (checks if it already exists to avoid error)
                 if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
                     echo -e "  ${YELLOW}! Branch '$BRANCH_NAME' already exists${RESET}"
@@ -240,7 +240,7 @@ git_branch() {
                     echo -e "  ${YELLOW}! Could not determine base branch (main/master)${RESET}"
                 fi
             else
-                echo -e "  ${RED}Invalid action: $ACTION. Use 'create', 'checkout', or 'changelog'.${RESET}"
+                echo -e "  ${RED}Invalid action: $ACTION. Use 'branch-create', 'checkout', or 'changelog'.${RESET}"
             fi
         fi
         
