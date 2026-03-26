@@ -2,7 +2,10 @@
 import os
 import sys
 from typing import Any, Dict, Optional
-import yaml
+try:
+    import yaml
+except Exception:
+    yaml = None
 import argparse
 import subprocess
 from ontobdc.run.run import main as run_main
@@ -14,19 +17,29 @@ except ImportError:
 
 
 def config_data() -> Optional[Dict[str, Any]]:
-    # Get the directory of the config file (.__ontobdc__/config.yaml)
     current_dir: str = os.path.abspath(os.getcwd())
     while True:
         config_file: str = os.path.join(current_dir, ".__ontobdc__", "config.yaml")
         if os.path.isfile(config_file):
             try:
                 with open(config_file, "r") as f:
-                    cfg = yaml.safe_load(f) or {}
-                    if cfg.get("directory", {}).get("root", {}).get("absolute_path", None) is None:
+                    if yaml is not None:
+                        cfg = yaml.safe_load(f) or {}
+                    else:
+                        cfg = {}
+                        for raw_line in f.read().splitlines():
+                            line = raw_line.strip()
+                            if not line or line.startswith("#"):
+                                continue
+                            if line.startswith("engine:"):
+                                cfg["engine"] = line.split("engine:", 1)[1].strip()
+                    engine = cfg.get("engine", None)
+                    if engine is None or engine not in ["venv", "docker", "colab"]:
                         return None
 
-                    if cfg.get("engine", None) is None or cfg.get("engine") not in ["venv", "docker"]:
-                        return None
+                    root_dir = cfg.get("directory", {}).get("root", {}).get("absolute_path", None)
+                    if root_dir is None:
+                        cfg.setdefault("directory", {}).setdefault("root", {})["absolute_path"] = current_dir
 
                     return cfg
             except Exception:
@@ -187,6 +200,8 @@ def main():
             sys.exit(1)
 
         project_root: str = cfg.get("directory").get("root").get("absolute_path")
+        if not project_root:
+            project_root = os.getcwd()
 
         # is_engine_installed_script = os.path.join(current_dir, "..", "check", "infra", "is_engine_installed", "init.sh")
 
