@@ -2,10 +2,12 @@
 import os
 import sys
 from typing import Any, Dict, Optional
-import yaml
+try:
+    import yaml
+except Exception:
+    yaml = None
 import argparse
 import subprocess
-from ontobdc.run.run import main as run_main
 
 try:
     from ontobdc.list.list import main as list_main
@@ -33,7 +35,7 @@ def get_root_dir() -> Optional[str]:
 
     current_dir: str = _check_local(os.path.abspath(os.getcwd()))
     if not current_dir:
-        current_dir = _check_other(current_dir)
+        current_dir = _check_other(os.path.abspath(os.getcwd()))
         if not current_dir:
             return None
 
@@ -53,9 +55,18 @@ def config_data() -> Optional[Dict[str, Any]]:
 
     try:
         with open(config_file, "r") as f:
-            cfg = yaml.safe_load(f) or {}
+            if yaml is not None:
+                cfg = yaml.safe_load(f) or {}
+            else:
+                cfg = {}
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith("engine:"):
+                        cfg["engine"] = stripped.split(":", 1)[1].strip()
+                        break
+
             if not cfg.get("directory", {}).get("root", {}).get("absolute_path"):
-                return None
+                cfg["directory"] = {"root": {"absolute_path": root_dir}}
 
             engine = cfg.get("engine")
             if not engine or engine not in ["venv", "colab", "docker"]:
@@ -206,6 +217,7 @@ def main():
         project_root = cfg.get("directory").get("root").get("absolute_path")
         
     if cmd == "run":
+        from ontobdc.run.run import main as run_main
         sys.argv = [sys.argv[0]] + sys.argv[2:]
         run_main()
         

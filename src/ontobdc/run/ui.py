@@ -1,9 +1,13 @@
 import shutil
 import textwrap
-from rich.console import Console
-from rich.text import Text
-
-console = Console()
+try:
+    from rich.console import Console
+    from rich.text import Text
+    console = Console()
+except Exception:
+    Console = None
+    Text = None
+    console = None
 
 GRAY = "bright_black"
 CYAN = "cyan"
@@ -14,6 +18,12 @@ WHITE = "white"
 BOLD = "bold"
 
 def print_message_box(color: str, title_type: str, title_text: str, msg_text: str):
+    if console is None or Text is None:
+        print("")
+        print(f"{title_type} {title_text}".strip())
+        print(msg_text)
+        print("")
+        return
     # Map ANSI codes to rich styles if needed, or just assume valid rich style
     # If color starts with \033, we have a problem.
     # Simple heuristic mapping for safety:
