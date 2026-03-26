@@ -3,7 +3,7 @@ import os
 import pkgutil
 import inspect
 import importlib
-from typing import List, Dict, Any, Type, Optional
+from typing import List, Dict, Any, Type
 import ontobdc.run.core.strategy as strategy_pkg
 from ontobdc.run.core.capability import Capability
 from ontobdc.run.core.port.contex import CliContextPort, CliContextStrategyPort
@@ -32,7 +32,7 @@ class CliContextAdapter(CliContextPort):
         return self.target_capability_id is not None
 
     @property
-    def target_capability_id(self) -> Optional[str]:
+    def target_capability_id(self) -> str | None:
         if "capability_id" in self._parameters:
             return self._parameters["capability_id"].get("value")
         return None
@@ -100,17 +100,10 @@ class CliContextResolver:
         config_path = os.path.join(context.root_path, ".__ontobdc__", "config.yaml")
 
         if os.path.exists(config_path):
+            import yaml
             try:
-                try:
-                    import yaml
-                except Exception:
-                    yaml = None
-
-                if yaml is not None:
-                    with open(config_path, 'r') as f:
-                        config = yaml.safe_load(f) or {}
-                else:
-                    config = None
+                with open(config_path, 'r') as f:
+                    config = yaml.safe_load(f) or {}
 
                 custom_strategies: List[str] = []
                 if config and 'capability' in config and isinstance(config['capability'], dict):

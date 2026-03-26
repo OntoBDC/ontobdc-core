@@ -1,5 +1,5 @@
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from abc import ABC, abstractmethod
 
 
@@ -30,7 +30,7 @@ class CliContextPort(ABC):
 
     @property
     @abstractmethod
-    def target_capability_id(self) -> Optional[str]:
+    def target_capability_id(self) -> str | None:
         """
         Returns the targeted capability ID if specified, None otherwise.
         """

@@ -1,9 +1,6 @@
 import os
 import sys
-try:
-    import yaml
-except Exception:
-    yaml = None
+import yaml
 
 RED = "red"
 YELLOW = "yellow"
@@ -39,8 +36,6 @@ def load_capability_packages():
     Returns a list of package names.
     """
     default_packages = ["ontobdc.module"]
-    if yaml is None:
-        return default_packages
     
     # Try to locate config/capability.yaml
     # We look in CWD and typical project structure
