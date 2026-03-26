@@ -33,7 +33,7 @@ def get_root_dir() -> Optional[str]:
 
     current_dir: str = _check_local(os.path.abspath(os.getcwd()))
     if not current_dir:
-        current_dir = _check_other(os.path.abspath(os.getcwd()))
+        current_dir = _check_other(current_dir)
         if not current_dir:
             return None
 
