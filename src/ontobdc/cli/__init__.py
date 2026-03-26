@@ -37,7 +37,7 @@ def get_root_dir() -> Optional[str]:
         if not current_dir:
             return None
 
-    return current_dir
+    return None
 
 
 def config_data() -> Optional[Dict[str, Any]]:
@@ -54,14 +54,10 @@ def config_data() -> Optional[Dict[str, Any]]:
     try:
         with open(config_file, "r") as f:
             cfg = yaml.safe_load(f) or {}
-            
-            # directory.root.absolute_path is required
-            if not cfg.get("directory", {}).get("root", {}).get("absolute_path"):
+            if cfg.get("directory", {}).get("root", {}).get("absolute_path", None) is None:
                 return None
 
-            # engine is required and must be valid
-            engine = cfg.get("engine")
-            if not engine or engine not in ["venv", "colab", "docker"]:
+            if cfg.get("engine", None) is None or cfg.get("engine") not in ["venv", "docker"]:
                 return None
 
             return cfg
