@@ -2,7 +2,10 @@
 import os
 import sys
 from typing import Any, Dict, Optional
-import yaml
+try:
+    import yaml
+except Exception:
+    yaml = None
 import argparse
 import subprocess
 from ontobdc.run.run import main as run_main
@@ -53,9 +56,18 @@ def config_data() -> Optional[Dict[str, Any]]:
 
     try:
         with open(config_file, "r") as f:
-            cfg = yaml.safe_load(f) or {}
+            if yaml is not None:
+                cfg = yaml.safe_load(f) or {}
+            else:
+                cfg = {}
+                for line in f:
+                    stripped = line.strip()
+                    if stripped.startswith("engine:"):
+                        cfg["engine"] = stripped.split(":", 1)[1].strip()
+                        break
+
             if not cfg.get("directory", {}).get("root", {}).get("absolute_path"):
-                return None
+                cfg["directory"] = {"root": {"absolute_path": root_dir}}
 
             engine = cfg.get("engine")
             if not engine or engine not in ["venv", "colab", "docker"]:

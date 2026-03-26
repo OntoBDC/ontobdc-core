@@ -1,9 +1,13 @@
 import shutil
 import textwrap
-from rich.console import Console
-from rich.text import Text
-
-console = Console()
+try:
+    from rich.console import Console
+    from rich.text import Text
+    console = Console()
+except Exception:
+    Console = None
+    Text = None
+    console = None
 
 GRAY = "bright_black"
 CYAN = "cyan"
@@ -26,6 +30,13 @@ def print_message_box(color: str, title_type: str, title_text: str, msg_text: st
         elif "90" in color: color = "bright_black"
         elif "37" in color: color = "white"
         else: color = "white" # fallback
+
+    if console is None or Text is None:
+        print("")
+        print(f"{title_type} {title_text}".strip())
+        print(msg_text)
+        print("")
+        return
 
     console.print("")
     term_width = shutil.get_terminal_size().columns

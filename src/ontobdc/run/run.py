@@ -4,8 +4,14 @@ import os
 import sys
 import argparse
 from typing import Any, Dict, List, Optional, Type
-import yaml
-from rich.console import Console
+try:
+    import yaml
+except Exception:
+    yaml = None
+try:
+    from rich.console import Console
+except Exception:
+    Console = None
 from ontobdc.run.adapter.loader import CapabilityLoader
 from ontobdc.run.core.port.contex import CliContextPort
 from ontobdc.run.adapter.contex import CliContextResolver
@@ -98,7 +104,8 @@ def run_capability(capability: Capability, context: CliContextPort):
                 export_param = context.parameters.get("export")
                 fmt = export_param["value"] if export_param else "rich"
 
-                renderer.render(Console(), result, format=fmt)
+                console = Console() if Console is not None else None
+                renderer.render(console, result, format=fmt)
             else:
                 print(result)
         else:
