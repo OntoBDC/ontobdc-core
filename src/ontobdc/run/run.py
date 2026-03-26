@@ -4,15 +4,8 @@ import os
 import sys
 import argparse
 from typing import Any, Dict, List, Optional, Type
-try:
-    from rich.console import Console
-except Exception:
-    class Console:
-        def print(self, *args, **kwargs):
-            print(*args)
-
-        def input(self, prompt=""):
-            return input(prompt)
+import yaml
+from rich.console import Console
 from ontobdc.run.adapter.loader import CapabilityLoader
 from ontobdc.run.core.port.contex import CliContextPort
 from ontobdc.run.adapter.contex import CliContextResolver

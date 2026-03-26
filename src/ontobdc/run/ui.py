@@ -1,31 +1,19 @@
 import shutil
 import textwrap
-try:
-    from rich.console import Console
-    from rich.text import Text
-except Exception:
-    Console = None
-    Text = None
+from rich.console import Console
+from rich.text import Text
 
-console = Console() if Console is not None else None
+console = Console()
 
-GRAY = "bright_black" if console is not None else "\033[0;90m"
-CYAN = "cyan" if console is not None else "\033[0;36m"
-YELLOW = "yellow" if console is not None else "\033[1;33m"
-GREEN = "green" if console is not None else "\033[0;32m"
-RED = "red" if console is not None else "\033[0;31m"
-WHITE = "white" if console is not None else "\033[1;37m"
-BOLD = "bold" if console is not None else "\033[1m"
-RESET = "" if console is not None else "\033[0m"
+GRAY = "bright_black"
+CYAN = "cyan"
+YELLOW = "yellow"
+GREEN = "green"
+RED = "red"
+WHITE = "white"
+BOLD = "bold"
 
 def print_message_box(color: str, title_type: str, title_text: str, msg_text: str):
-    if console is None or Text is None:
-        print("")
-        print(f"{title_type} - {title_text}")
-        print(msg_text)
-        print("")
-        return
-
     # Map ANSI codes to rich styles if needed, or just assume valid rich style
     # If color starts with \033, we have a problem.
     # Simple heuristic mapping for safety:

@@ -7,7 +7,7 @@ name = "ontobdc"
 authors = [
     { name = "Elias Magalhães", email = "elias@brasidata.com" }
 ]
-version = "0.6.5"
+version = "0.6.6"
 description = "OntoBDC (Ontology-Based Data Capabilities)"
 readme = "README.md"
 requires-python = ">=3.10"

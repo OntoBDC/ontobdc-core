@@ -155,18 +155,7 @@ if [ "$#" -gt 0 ]; then
         exit $?
     fi
 
-    if [ "$1" = "branch" ]; then
-        shift
-        if [ "$#" -lt 1 ]; then
-            if type print_message_box &>/dev/null; then
-                print_message_box "RED" "Error" "Missing Arguments" "Usage:\n  ontobdc dev branch <create|checkout|changelog> [branch_name]"
-            else
-                echo "Error: Missing arguments"
-                echo "Usage: ontobdc dev branch <create|checkout|changelog> [branch_name]"
-            fi
-            exit 1
-        fi
-
+    if [ "$1" = "branch-create" ] || [ "$1" = "checkout" ] || [ "$1" = "changelog" ]; then
         bash "${SCRIPT_DIR}/branch.sh" "$@"
         exit $?
     fi
