@@ -108,7 +108,7 @@ except Exception as e: print(e, file=sys.stderr)")
     ENGINE_CHECKS=$(python3 -c "import json; import sys; 
 try:
     with open('$CONFIG_JSON') as f: data = json.load(f);
-    print(' '.join(data.get('engines', {}).get('$ENGINE', {}).get('$NAME', [])))
+    print(' '.join(data.get('engine', {}).get('$ENGINE', {}).get('$NAME', [])))
 except Exception as e: print(e, file=sys.stderr)")
 
     if [ -z "$BASE_CHECKS" ] && [ -z "$ENGINE_CHECKS" ]; then
@@ -255,7 +255,7 @@ fi
 
 CONFIG_ENGINES=$(python3 -c "import json; 
 with open('$CONFIG_JSON') as f: data = json.load(f); 
-print(' '.join((data.get('config', {}) or {}).get('engines', [])))" 2>/dev/null)
+print(' '.join((data.get('config', {}) or {}).get('engine', [])))" 2>/dev/null)
 
 if [ -n "$CONFIG_ENGINES" ]; then
     ENGINE_ALLOWED=false

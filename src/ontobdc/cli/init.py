@@ -195,13 +195,13 @@ def init_engine_main():
         try:
             with open(config_json_path, 'r') as f:
                 data = json.load(f)
-                valid_engines = data.get('config', {}).get('engines', [])
+                valid_engines = data.get('config', {}).get('engine', [])
         except Exception as e:
             log("WARN", f"Failed to load config.json validation: {e}")
     
     if valid_engines and engine not in valid_engines:
         log("ERROR", f"Invalid engine '{engine}'.")
-        print(f"Valid engines are: {', '.join(valid_engines)}")
+        print(f"Valid engine are: {', '.join(valid_engines)}")
         sys.exit(1)
 
     # 2. Create .__ontobdc__ directory in current working directory

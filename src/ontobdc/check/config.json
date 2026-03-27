@@ -1,6 +1,6 @@
 {
     "config": {
-        "engines": [
+        "engine": [
             "venv",
             "colab"
         ]
@@ -12,7 +12,7 @@
             "is_engine_installed"
         ]
     },
-    "engines": {
+    "engine": {
         "venv": {
             "infra": [
                 "is_venv_active",
