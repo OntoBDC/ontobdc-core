@@ -26,7 +26,7 @@ check() {
         return 2
     fi
     
-    # Validate against allowed engines in config.json
+    # Validate against allowed engine in config.json
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     # .../infra/is_engine_installed/../../config.json -> .../check/config.json
     CHECK_CONFIG="${SCRIPT_DIR}/../../config.json"
@@ -35,13 +35,13 @@ check() {
         return 2
     fi
     
-    # Check if engine is in allowed list (config.engines list in json)
+    # Check if engine is in allowed list (config.engine list in json)
     IS_VALID=$(python3 -c "import json; import sys; 
 try:
     with open('$CHECK_CONFIG') as f: data = json.load(f);
-    # Access config -> engines list
-    engines = data.get('config', {}).get('engines', [])
-    if '$ENGINE' in engines: print('true')
+    # Access config -> engine list
+    engine = data.get('config', {}).get('engine', [])
+    if '$ENGINE' in engine: print('true')
     else: print('false')
 except Exception as e: print('false')")
 
@@ -107,7 +107,7 @@ repair() {
     # Fatal error if hotfix failed (i.e. not in Colab or file creation failed)
     echo ""
     if type print_message_box &>/dev/null; then
-        print_message_box "$RED" "FATAL ERROR" "Invalid Engine Configuration" "The 'engine' specified in ontobdc.yaml is invalid or missing.\n\nValid engines are: venv, colab\n\nPlease check your configuration file."
+        print_message_box "$RED" "FATAL ERROR" "Invalid Engine Configuration" "The 'engine' specified in ontobdc.yaml is invalid or missing.\n\nValid engine are: venv, colab\n\nPlease check your configuration file."
     else
         echo -e "${RED}FATAL ERROR: Invalid Engine Configuration${RESET}"
         echo "The 'engine' specified in ontobdc.yaml is invalid or missing."

@@ -78,8 +78,18 @@ def config_data() -> Optional[Dict[str, Any]]:
     try:
         with open(config_file, "r") as f:
             cfg = yaml.safe_load(f) or {}
-            if not cfg.get("directory", {}).get("root", {}).get("absolute_path"):
-                return None
+            directory = cfg.get("directory")
+            if not isinstance(directory, dict):
+                directory = {}
+                cfg["directory"] = directory
+
+            root = directory.get("root")
+            if not isinstance(root, dict):
+                root = {}
+                directory["root"] = root
+
+            if not root.get("absolute_path"):
+                root["absolute_path"] = root_dir
 
             engine = cfg.get("engine")
             if not engine or engine not in ["venv", "colab", "docker"]:
@@ -224,7 +234,7 @@ def main():
                 print("Error: OntoBDC is not initialized. Run 'ontobdc init'.")
             sys.exit(1)
 
-        project_root = cfg.get("directory").get("root").get("absolute_path")
+        # project_root = cfg.get("directory").get("root").get("absolute_path")
         
     if cmd == "run":
         sys.argv = [sys.argv[0]] + sys.argv[2:]

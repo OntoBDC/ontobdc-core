@@ -12,7 +12,9 @@ SCRIPT_DIR="$(
         python3 -c "from ontobdc.cli import get_script_dir; print(get_script_dir())" 2>/dev/null
 )"
 
-MESSAGE_BOX="${SCRIPT_DIR}/cli/message_box.sh"
+ONTOBDC_DIR="${SCRIPT_DIR}"
+
+MESSAGE_BOX="${ONTOBDC_DIR}/cli/message_box.sh"
 
 # Define paths
 RED='\033[0;31m'
@@ -25,7 +27,7 @@ WHITE='\033[1;37m'
 RESET='\033[0m'
 FULL_HLINE="----------------------------------------"
 
-DEFAULT_CONFIG_JSON="${SCRIPT_DIR}/check/config.json"
+DEFAULT_CONFIG_JSON="${ONTOBDC_DIR}/check/config.json"
 
 CONFIG_JSON="${MODULE_ROOT}/.__ontobdc__/check.json"
 if [ ! -f "${CONFIG_JSON}" ]; then
@@ -108,7 +110,7 @@ except Exception as e: print(e, file=sys.stderr)")
     ENGINE_CHECKS=$(python3 -c "import json; import sys; 
 try:
     with open('$CONFIG_JSON') as f: data = json.load(f);
-    print(' '.join(data.get('engines', {}).get('$ENGINE', {}).get('$NAME', [])))
+    print(' '.join(data.get('engine', {}).get('$ENGINE', {}).get('$NAME', [])))
 except Exception as e: print(e, file=sys.stderr)")
 
     if [ -z "$BASE_CHECKS" ] && [ -z "$ENGINE_CHECKS" ]; then
@@ -119,13 +121,81 @@ except Exception as e: print(e, file=sys.stderr)")
     run_check_list() {
         local CHECKS="$1"
         for check_name in $CHECKS; do
-            if [[ "$check_name" == *.* ]]; then
-                check_path="${check_name//./\/}"
-                check_path="${check_path//\\/}"
-                check_script="$MODULE_ROOT/$check_path/init.sh"
-            else
-                check_path="$check_name"
-                check_script="$DIR/$check_path/init.sh"
+            check_script=""
+            check_path=""
+
+            # Normalize potential JSON-printed quotes around the token
+            norm_name="${check_name%\"}"
+            norm_name="${norm_name#\"}"
+            norm_name="${norm_name%\'}"
+            norm_name="${norm_name#\'}"
+
+            if [[ "$norm_name" == @script_path.get* ]]; then
+                check_key="${norm_name#@script_path.get(}"
+                check_key="${check_key%)}"
+                check_key="${check_key//\"/}"
+                check_key="${check_key//\'/}"
+
+                SCRIPT_PATH_CANDIDATES=$(ROOT_PATH="$MODULE_ROOT" python3 -c "import json, os, re
+p='${CONFIG_JSON}'
+root=os.environ.get('ROOT_PATH','')
+alts=[]
+try:
+    with open(p) as f:
+        data=json.load(f) or {}
+    alts=(data.get('script_path',{}) or {}).get('alternative',[]) or []
+except Exception:
+    alts=[]
+out=[]
+for a in alts:
+    if not isinstance(a,str):
+        continue
+    m=re.match(r\"^@root_path\\.joinpath\\(['\\\"](.+?)['\\\"]\\)\\s*$\", a)
+    if not m:
+        continue
+    rel=m.group(1).replace('.', os.sep)
+    out.append(os.path.join(root, rel))
+for item in out:
+    print(item)")
+
+                for base in $SCRIPT_PATH_CANDIDATES "$MODULE_ROOT/wip/src/infobim/check" "$MODULE_ROOT/core/src/infobim/check"; do
+                    if [ -d "$base" ]; then
+                        for candidate in \
+                            "$base/infra/$check_key/init.sh" \
+                            "$base/$check_key/init.sh"
+                        do
+                            if [ -f "$candidate" ]; then
+                                check_script="$candidate"
+                                break 2
+                            fi
+                        done
+                    fi
+                done
+            fi
+
+            if [ -z "$check_script" ]; then
+                if [[ "$check_name" == *.* ]]; then
+                    check_path="${check_name//./\/}"
+                    check_path="${check_path//\\/}"
+
+                    for candidate in \
+                        "$MODULE_ROOT/$check_path/init.sh" \
+                        "$MODULE_ROOT/check/$check_path/init.sh" \
+                        "$ONTOBDC_DIR/$check_path/init.sh" \
+                        "$ONTOBDC_DIR/check/$check_path/init.sh"
+                    do
+                        if [ -f "$candidate" ]; then
+                            check_script="$candidate"
+                            break
+                        fi
+                    done
+                    if [ -z "$check_script" ]; then
+                        check_script="$MODULE_ROOT/$check_path/init.sh"
+                    fi
+                else
+                    check_path="$check_name"
+                    check_script="$DIR/$check_path/init.sh"
+                fi
             fi
             
             if [ -f "$check_script" ]; then
@@ -255,7 +325,7 @@ fi
 
 CONFIG_ENGINES=$(python3 -c "import json; 
 with open('$CONFIG_JSON') as f: data = json.load(f); 
-print(' '.join((data.get('config', {}) or {}).get('engines', [])))" 2>/dev/null)
+print(' '.join((data.get('config', {}) or {}).get('engine', [])))" 2>/dev/null)
 
 if [ -n "$CONFIG_ENGINES" ]; then
     ENGINE_ALLOWED=false
@@ -279,12 +349,24 @@ else
 fi
 
 for scope_name in $SCOPES; do
-    CHECK_DIR="${SCRIPT_DIR}/check/${scope_name}"
-    if [[ -d "${CHECK_DIR}" ]]; then
-        run_checks "${CHECK_DIR}" "${scope_name}" "$ENGINE"
-    else
-        ERRORS+=("Checks directory not found: ${CHECK_DIR}")
+    CHECK_DIR="${ONTOBDC_DIR}/check/${scope_name}"
+    if [[ ! -d "${CHECK_DIR}" ]]; then
+        for candidate in \
+            "$MODULE_ROOT/wip/src/infobim/check/${scope_name}" \
+            "$MODULE_ROOT/wip/src/infobim/check/infra" \
+            "$MODULE_ROOT/core/src/infobim/check/${scope_name}" \
+            "$MODULE_ROOT/core/src/infobim/check/infra"
+        do
+            if [[ -d "${candidate}" ]]; then
+                CHECK_DIR="${candidate}"
+                break
+            fi
+        done
+        if [[ ! -d "${CHECK_DIR}" ]]; then
+            echo -e "  ${YELLOW}Warning: Checks directory not found: ${ONTOBDC_DIR}/check/${scope_name}${RESET}"
+        fi
     fi
+    run_checks "${CHECK_DIR}" "${scope_name}" "$ENGINE"
 done
 
 # if [ -z "$VIRTUAL_ENV" ] && [ -f "venv/bin/activate" ]; then
