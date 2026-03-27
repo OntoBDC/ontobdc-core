@@ -2,12 +2,10 @@
 import os
 import sys
 from typing import Any, Dict, Optional
-try:
-    import yaml
-except Exception:
-    yaml = None
+import yaml
 import argparse
 import subprocess
+from ontobdc.run.run import main as run_main
 
 try:
     from ontobdc.list.list import main as list_main
@@ -42,6 +40,30 @@ def get_root_dir() -> Optional[str]:
     return current_dir
 
 
+def get_script_dir() -> str:
+    """
+    Get the module root directory (ontobdc/).
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    module_root = os.path.abspath(os.path.join(script_dir, ".."))
+    return module_root
+
+
+def get_message_box_script() -> str:
+    module_root = get_script_dir()
+    candidates = [
+        os.path.join(module_root, "cli", "message_box.sh"),
+        os.path.abspath(os.path.join(module_root, "..", "..", "message_box.sh")),
+        os.path.join(module_root, "message_box.sh"),
+    ]
+
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+
+    return os.path.join(module_root, "cli", "message_box.sh")
+
+
 def config_data() -> Optional[Dict[str, Any]]:
     root_dir: Optional[str] = get_root_dir()
     if root_dir is None:
@@ -55,18 +77,9 @@ def config_data() -> Optional[Dict[str, Any]]:
 
     try:
         with open(config_file, "r") as f:
-            if yaml is not None:
-                cfg = yaml.safe_load(f) or {}
-            else:
-                cfg = {}
-                for line in f:
-                    stripped = line.strip()
-                    if stripped.startswith("engine:"):
-                        cfg["engine"] = stripped.split(":", 1)[1].strip()
-                        break
-
+            cfg = yaml.safe_load(f) or {}
             if not cfg.get("directory", {}).get("root", {}).get("absolute_path"):
-                cfg["directory"] = {"root": {"absolute_path": root_dir}}
+                return None
 
             engine = cfg.get("engine")
             if not engine or engine not in ["venv", "colab", "docker"]:
@@ -79,20 +92,19 @@ def config_data() -> Optional[Dict[str, Any]]:
 
 def check_main(args):
     # Get the directory of this file (src/ontobdc/cli)
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Path to check.sh (src/ontobdc/check/check.sh)
-    # cli/.. -> src/ontobdc -> check -> check.sh
-    check_script = os.path.join(current_dir, "..", "check", "check.sh")
-    
+    current_dir = get_script_dir()
+
+    check_script = os.path.join(current_dir, "check", "check.sh")
+
     if not os.path.exists(check_script):
         print(f"Error: check.sh not found at {check_script}")
         sys.exit(1)
-        
+
     # Build command arguments
     cmd = [check_script]
     if args.repair:
         cmd.append("--repair")
-    
+
     # Execute the shell script
     try:
         subprocess.run(cmd, check=True)
@@ -105,9 +117,9 @@ def check_main(args):
 
 def dev_command(action, args, project_root: str):
     # Map dev commands to their scripts in src/ontobdc/dev
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    current_dir = get_script_dir()
     # cli/.. -> src/ontobdc -> dev -> action.sh
-    script_path = os.path.join(current_dir, "..", "dev", f"{action}.sh")
+    script_path = os.path.join(current_dir, "dev", f"{action}.sh")
     
     if not os.path.exists(script_path):
         print(f"Error: {action}.sh not found at {script_path}")
@@ -140,8 +152,7 @@ def print_help():
     GRAY = '\033[90m'
     WHITE = '\033[37m'
     
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    msg_box_script = os.path.join(current_dir, "message_box.sh")
+    msg_box_script = get_message_box_script()
 
     help_content = f"""
   {WHITE}Usage:{RESET}
@@ -183,8 +194,7 @@ def main():
         except Exception:
             ver = "unknown"
 
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        msg_box_script = os.path.join(current_dir, "message_box.sh")
+        msg_box_script = get_message_box_script()
         
         if os.path.exists(msg_box_script):
              subprocess.run(["bash", msg_box_script, "BLUE", "OntoBDC", f"Version: {ver}", "Ontology-Based Data Capabilities"], check=False)
@@ -202,7 +212,7 @@ def main():
     else:
         # Check if engine is installed/initialized
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        msg_box_script = os.path.join(current_dir, "message_box.sh")
+        msg_box_script = get_message_box_script()
 
         cfg = config_data()
 
@@ -217,7 +227,6 @@ def main():
         project_root = cfg.get("directory").get("root").get("absolute_path")
         
     if cmd == "run":
-        from ontobdc.run.run import main as run_main
         sys.argv = [sys.argv[0]] + sys.argv[2:]
         run_main()
         
