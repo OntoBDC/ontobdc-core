@@ -98,22 +98,52 @@ run_checks() {
          return
     fi
 
-    # Parse JSON using python
-    # Get base checks
-    BASE_CHECKS=$(python3 -c "import json; import sys; 
+    CHECKS_DICT=$(python3 -c "import json, os, sys
 try:
-    with open('$CONFIG_JSON') as f: data = json.load(f);
-    print(' '.join(data.get('base', {}).get('$NAME', [])))
-except Exception as e: print(e, file=sys.stderr)")
+    with open('$CONFIG_JSON') as f:
+        data = json.load(f) or {}
+except Exception:
+    data = {}
+out = {}
+base = (data.get('base', {}) or {}).get('$NAME', []) or []
+engine = ((data.get('engine', {}) or {}).get('$ENGINE', {}) or {}).get('$NAME', []) or []
+if base:
+    out['base'] = ' '.join(base)
+if engine:
+    out['engine'] = ' '.join(engine)
 
-    # Get engine specific checks
-    ENGINE_CHECKS=$(python3 -c "import json; import sys; 
+script_path = (data.get('script_path', {}) or {}).get('alternative', None)
+candidates = []
+if isinstance(script_path, str):
+    candidates = [script_path]
+elif isinstance(script_path, list):
+    candidates = [c for c in script_path if isinstance(c, str)]
+
+env_key = None
+for c in candidates:
+    if os.path.isabs(c) and c.rstrip(os.sep).endswith(os.sep + 'check'):
+        env_key = os.path.basename(os.path.dirname(c.rstrip(os.sep)))
+        break
+
+if env_key:
+    env_cfg = data.get(env_key, None)
+    if isinstance(env_cfg, dict):
+        env_checks = (env_cfg.get('$NAME', []) or [])
+        if env_checks:
+            out[env_key] = ' '.join(env_checks)
+print(json.dumps(out))" 2>/dev/null)
+    if [ -z "$CHECKS_DICT" ]; then
+        CHECKS_DICT="{}"
+    fi
+
+    CHECK_KEYS=$(python3 -c "import json, sys
 try:
-    with open('$CONFIG_JSON') as f: data = json.load(f);
-    print(' '.join(data.get('engine', {}).get('$ENGINE', {}).get('$NAME', [])))
-except Exception as e: print(e, file=sys.stderr)")
+    d = json.loads(sys.argv[1]) or {}
+except Exception:
+    d = {}
+print(' '.join(d.keys()))" "$CHECKS_DICT" 2>/dev/null)
 
-    if [ -z "$BASE_CHECKS" ] && [ -z "$ENGINE_CHECKS" ]; then
+    if [ -z "$CHECK_KEYS" ]; then
         echo -e "  ${GRAY}• No checks found for $NAME in $ENGINE${RESET}"
         return
     fi
@@ -146,19 +176,29 @@ try:
     alts=(data.get('script_path',{}) or {}).get('alternative',[]) or []
 except Exception:
     alts=[]
+
+if isinstance(alts, str):
+    alts = [alts]
+elif not isinstance(alts, list):
+    alts = []
+
 out=[]
 for a in alts:
     if not isinstance(a,str):
         continue
-    m=re.match(r\"^@root_path\\.joinpath\\(['\\\"](.+?)['\\\"]\\)\\s*$\", a)
-    if not m:
+    a = a.strip()
+    if os.path.isabs(a) and a.rstrip(os.sep).endswith(os.sep + 'check'):
+        out.append(a)
         continue
-    rel=m.group(1).replace('.', os.sep)
-    out.append(os.path.join(root, rel))
+    m=re.match(r\"^@root_path\\.joinpath\\(['\\\"](.+?)['\\\"]\\)\\s*$\", a)
+    if m:
+        rel=m.group(1).replace('.', os.sep)
+        out.append(os.path.join(root, rel))
+
 for item in out:
     print(item)")
 
-                for base in $SCRIPT_PATH_CANDIDATES "$MODULE_ROOT/wip/src/infobim/check" "$MODULE_ROOT/core/src/infobim/check"; do
+                for base in $SCRIPT_PATH_CANDIDATES; do
                     if [ -d "$base" ]; then
                         for candidate in \
                             "$base/infra/$check_key/init.sh" \
@@ -273,16 +313,38 @@ for item in out:
         done
     }
 
-    if [ -n "$BASE_CHECKS" ]; then
-        echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}Base${RESET}"
-        run_check_list "$BASE_CHECKS"
-    fi
+    FIRST_SECTION=true
+    for SECTION in $CHECK_KEYS; do
+        CHECKS_FOR_SECTION=$(python3 -c "import json, sys
+try:
+    d = json.loads(sys.argv[1]) or {}
+except Exception:
+    d = {}
+print(d.get(sys.argv[2], ''))" "$CHECKS_DICT" "$SECTION" 2>/dev/null)
 
-    if [ -n "$ENGINE_CHECKS" ]; then
-        echo ""
-        echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}Engine: ${ENGINE}${RESET}"
-        run_check_list "$ENGINE_CHECKS"
-    fi
+        if [ -z "$CHECKS_FOR_SECTION" ]; then
+            continue
+        fi
+
+        if [ "$FIRST_SECTION" = false ]; then
+            echo ""
+        fi
+        FIRST_SECTION=false
+
+        if [ "$SECTION" = "base" ]; then
+            echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}base${RESET}"
+        elif [ "$SECTION" = "engine" ]; then
+            echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}engine: ${ENGINE}${RESET}"
+        else
+            echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}${SECTION}${RESET}"
+        fi
+
+        run_check_list "$CHECKS_FOR_SECTION"
+    done
+
+    
+
+
 }
 
 # Determine Engine
