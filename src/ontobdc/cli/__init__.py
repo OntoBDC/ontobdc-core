@@ -44,8 +44,25 @@ def get_script_dir() -> str:
     """
     Get the module root directory (ontobdc/).
     """
+    try:
+        import ontobdc
+        if hasattr(ontobdc, '__path__'):
+            package_path = ontobdc.__path__[0]
+            return package_path
+    except Exception:
+        pass
+
+    try:
+        # pip show ontobdc | grep Location
+        location = subprocess.check_output(["pip", "show", "ontobdc", "|", "grep", "Location"]).decode("utf-8").split(":")[1].strip()
+        if location:
+            return os.path.join(location, "ontobdc")
+    except Exception:
+        pass
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     module_root = os.path.abspath(os.path.join(script_dir, ".."))
+
     return module_root
 
 
