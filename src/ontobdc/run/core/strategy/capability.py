@@ -13,12 +13,12 @@ class CapabilityIdStrategy(CliContextStrategyPort):
                     capability_id = unprocessed_args[idx + 1]
                     # Check if the next argument is a flag (starts with -)
                     if capability_id.startswith("-"):
-                        context.add_parameter("capability_id", {"value": None, "uri": "org.ontobdc.domain.context.strategy.parameter.capability.id"})
+                        context.add_parameter("capability_id", {"value": None, "uri": "org.ontobdc.domain.context.strategy.parameter.capability_id"})
                     else:
-                        context.add_parameter("capability_id", {"value": capability_id, "uri": "org.ontobdc.domain.context.strategy.parameter.capability.id"})
+                        context.add_parameter("capability_id", {"value": capability_id, "uri": "org.ontobdc.domain.context.strategy.parameter.capability_id"})
                         context.clear_parameters([capability_id])
                 else:
-                    context.add_parameter("capability_id", {"value": None, "uri": "org.ontobdc.domain.context.strategy.parameter.capability.id"})
+                    context.add_parameter("capability_id", {"value": None, "uri": "org.ontobdc.domain.context.strategy.parameter.capability_id"})
             except ValueError:
                 pass
             
