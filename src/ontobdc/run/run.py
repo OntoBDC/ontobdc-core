@@ -34,31 +34,31 @@ RESET='\033[0m'
 CONFIG_JSON="${SCRIPT_DIR}/config.json"
 FULL_HLINE="----------------------------------------"
 
-def log(level, message, *args):
-    """Wrapper to call print_log.sh"""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Assuming run.py is in src/ontobdc/run/
-    # print_log.sh is in src/ontobdc/cli/
-    log_script = os.path.join(current_dir, "..", "cli", "print_log.sh")
+# def log(level, message, *args):
+#     """Wrapper to call print_log.sh"""
+#     current_dir = os.path.dirname(os.path.abspath(__file__))
+#     # Assuming run.py is in src/ontobdc/run/
+#     # print_log.sh is in src/ontobdc/cli/
+#     log_script = os.path.join(current_dir, "..", "cli", "print_log.sh")
     
-    if os.path.exists(log_script):
-        import subprocess
-        cmd = ["bash", log_script, level, message] + list(args)
-        subprocess.run(cmd, check=False)
-    else:
-        # Fallback
-        print(f"[{level}] {message} {' '.join(args)}")
+#     if os.path.exists(log_script):
+#         import subprocess
+#         cmd = ["bash", log_script, level, message] + list(args)
+#         subprocess.run(cmd, check=False)
+#     else:
+#         # Fallback
+#         print(f"[{level}] {message} {' '.join(args)}")
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-GRAY='\033[0;90m'
-WHITE='\033[1;37m'
-RESET='\033[0m'
-CONFIG_JSON="${SCRIPT_DIR}/config.json"
-FULL_HLINE="----------------------------------------"
+# RED='\033[0;31m'
+# GREEN='\033[0;32m'
+# YELLOW='\033[1;33m'
+# BLUE='\033[0;34m'
+# CYAN='\033[0;36m'
+# GRAY='\033[0;90m'
+# WHITE='\033[1;37m'
+# RESET='\033[0m'
+# CONFIG_JSON="${SCRIPT_DIR}/config.json"
+# FULL_HLINE="----------------------------------------"
 
 
 def log(level, message, *args):

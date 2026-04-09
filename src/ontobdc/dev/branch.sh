@@ -92,161 +92,234 @@ print_message_box() {
     echo -e "${COLOR}╰${HLINE}╯${RESET}"
 }
 
-# Script to automate branch creation and checkout
-# Usage: ./branch.sh <action> <branch_name>
-# Actions: branch-create, checkout, changelog
+MODE="status"
+BRANCH_NAME=""
+TARGET_REF=""
 
-if [ -z "$1" ]; then
-    echo ""
-    print_message_box "$RED" "Error" "Missing arguments" "Usage: ontobdc dev <branch-create|checkout|changelog> [branch_name]"
-    echo ""
-    exit 1
+if [ "$#" -gt 0 ]; then
+    if [ "$1" = "--create" ]; then
+        MODE="create"
+        BRANCH_NAME="$2"
+        shift 2
+    elif [ "$1" = "--checkout" ]; then
+        MODE="checkout"
+        BRANCH_NAME="$2"
+        shift 2
+    elif [ "$1" = "--changelog" ]; then
+        MODE="changelog"
+        TARGET_REF="$2"
+        shift 2
+    else
+        echo ""
+        print_message_box "$RED" "Error" "Invalid arguments" "Usage:\n  ontobdc dev branch\n  ontobdc dev branch --create <branch_name>"
+        echo ""
+        exit 1
+    fi
 fi
 
-ACTION="$1"
-BRANCH_NAME="$2"
-
-# Validation for create/checkout
-if [[ "$ACTION" == "branch-create" || "$ACTION" == "checkout" ]]; then
+if [ "$MODE" = "create" ] || [ "$MODE" = "checkout" ]; then
     if [ -z "$BRANCH_NAME" ]; then
-         echo ""
-         print_message_box "$RED" "Error" "Missing branch name" "Usage: ontobdc dev $ACTION <branch_name>"
-         echo ""
-         exit 1
+        echo ""
+        print_message_box "$RED" "Error" "Missing branch name" "Usage:\n  ontobdc dev branch --create <branch_name>"
+        echo ""
+        exit 1
     fi
+fi
+
+if [ "$#" -gt 0 ]; then
+    echo ""
+    print_message_box "$RED" "Error" "Too many arguments" "Usage:\n  ontobdc dev branch\n  ontobdc dev branch --create <branch_name>"
+    echo ""
+    exit 1
 fi
 
 cd "$ROOT_DIR" || exit 1
 
 echo ""
 echo -e "${GRAY}${FULL_HLINE}${RESET}"
-echo -e "${CYAN}Starting branch $ACTION...${RESET}"
-if [ -n "$BRANCH_NAME" ]; then
+if [ "$MODE" = "status" ]; then
+    echo -e "${CYAN}Listing repositories...${RESET}"
+elif [ "$MODE" = "create" ]; then
+    echo -e "${CYAN}Creating branch...${RESET}"
     echo -e "${GRAY}Branch: ${WHITE}$BRANCH_NAME${RESET}"
+elif [ "$MODE" = "checkout" ]; then
+    echo -e "${CYAN}Checking out branch...${RESET}"
+    echo -e "${GRAY}Branch: ${WHITE}$BRANCH_NAME${RESET}"
+elif [ "$MODE" = "changelog" ]; then
+    echo -e "${CYAN}Generating changelog...${RESET}"
+    if [ -n "$TARGET_REF" ]; then
+        echo -e "${GRAY}Target: ${WHITE}$TARGET_REF${RESET}"
+    fi
 fi
 echo -e "${GRAY}${FULL_HLINE}${RESET}"
 echo ""
 
-git_branch() {
+repo_status() {
     local DIR="$1"
 
     if [ -d "$DIR" ]; then
-        cd "$DIR" || { echo -e "${RED}Failed to enter $DIR${RESET}"; return; }
+        (
+            cd "$DIR" || exit 0
+            if ! git rev-parse --git-dir > /dev/null 2>&1; then
+                exit 0
+            fi
 
-        # Check if it is a git repository
-        if [ -d ".git" ] || git rev-parse --git-dir > /dev/null 2>&1; then
-            echo -e "${YELLOW}❯ ${WHITE}Processing ${CYAN}${DIR}${RESET}"
-            
-            if [ "$ACTION" == "branch-create" ]; then
-                # Create branch (checks if it already exists to avoid error)
-                if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
-                    echo -e "  ${YELLOW}! Branch '$BRANCH_NAME' already exists${RESET}"
-                else
-                    git checkout -b "$BRANCH_NAME" > /dev/null 2>&1
-                    echo -e "  ${GREEN}✓ Created local branch${RESET}"
-                    
-                    if [ -n "$(git remote)" ]; then
-                        git push --set-upstream origin "$BRANCH_NAME" > /dev/null 2>&1
-                        if [ $? -eq 0 ]; then
-                            echo -e "  ${GREEN}✓ Pushed upstream${RESET}"
-                        else
-                            echo -e "  ${RED}✗ Failed to push upstream${RESET}"
-                        fi
+            local REPO_NAME
+            REPO_NAME=$(basename "$DIR")
+            local BRANCH
+            BRANCH=$(git branch --show-current 2>/dev/null || git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+
+            echo ""
+            echo -e "${YELLOW}❯ ${WHITE}${REPO_NAME} ${CYAN}(${BRANCH})${RESET}"
+
+            local STATUS
+            STATUS=$(git status --porcelain=v1 2>/dev/null)
+            if [ -z "$STATUS" ]; then
+                echo -e "  ${GRAY}• clean${RESET}"
+            else
+                while IFS= read -r line; do
+                    [ -z "$line" ] && continue
+                    local code="${line:0:2}"
+                    local path="${line:3}"
+                    if [ "$DIR" = "$ROOT_DIR" ]; then
+                        for sub in $SUBMODULES ontobdc-wip ontobdc-core core wip; do
+                            if [ -n "$sub" ] && [ "$path" = "$sub" ]; then
+                                continue 2
+                            fi
+                        done
                     fi
-                fi
-            elif [ "$ACTION" == "checkout" ]; then
-                # Checkout branch
-                # Check if branch exists (local or remote)
-                if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME" || \
-                   git show-ref --verify --quiet "refs/remotes/origin/$BRANCH_NAME"; then
-                    
-                    git checkout "$BRANCH_NAME" > /dev/null 2>&1
+                    local color="$WHITE"
+                    local label="modified"
+                    if [[ "$code" == "??" ]]; then
+                        color="$CYAN"
+                        label="untracked"
+                    elif [[ "$code" == *"A"* ]]; then
+                        color="$GREEN"
+                        label="added"
+                    elif [[ "$code" == *"M"* ]]; then
+                        color="$YELLOW"
+                        label="modified"
+                    elif [[ "$code" == *"D"* ]]; then
+                        color="$RED"
+                        label="deleted"
+                    fi
+                    echo -e "  ${color}[${label}]${RESET} ${GRAY}${path}${RESET}"
+                done <<< "$STATUS"
+            fi
+        )
+    fi
+}
+
+git_branch() {
+    local DIR="$1"
+    (
+        cd "$DIR" || exit 0
+        if ! git rev-parse --git-dir > /dev/null 2>&1; then
+            exit 0
+        fi
+
+        local REPO_NAME
+        REPO_NAME=$(basename "$DIR")
+        echo -e "${YELLOW}❯ ${WHITE}Processing ${CYAN}${REPO_NAME}${RESET}"
+
+        if [ "$MODE" = "create" ]; then
+            if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
+                echo -e "  ${YELLOW}! Branch '$BRANCH_NAME' already exists${RESET}"
+            else
+                git checkout -b "$BRANCH_NAME" > /dev/null 2>&1
+                echo -e "  ${GREEN}✓ Created local branch${RESET}"
+                if [ -n "$(git remote)" ]; then
+                    git push --set-upstream origin "$BRANCH_NAME" > /dev/null 2>&1
                     if [ $? -eq 0 ]; then
-                        echo -e "  ${GREEN}✓ Checked out${RESET}"
+                        echo -e "  ${GREEN}✓ Pushed upstream${RESET}"
                     else
-                        echo -e "  ${RED}✗ Checkout failed${RESET}"
+                        echo -e "  ${RED}✗ Failed to push upstream${RESET}"
                     fi
+                fi
+            fi
+        elif [ "$MODE" = "checkout" ]; then
+            if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME" || \
+               git show-ref --verify --quiet "refs/remotes/origin/$BRANCH_NAME"; then
+                CHECKOUT_OUTPUT=$(git checkout "$BRANCH_NAME" 2>&1)
+                if [ $? -eq 0 ]; then
+                    echo -e "  ${GREEN}✓ Checked out${RESET}"
                 else
-                    echo -e "  ${YELLOW}! Warning: Branch '$BRANCH_NAME' does not exist in this repo${RESET}"
-                fi
-            elif [ "$ACTION" == "changelog" ]; then
-                # Changelog: List added, modified, removed files since branch start
-                # Usage: ./ontobdc branch changelog [target_branch]
-                
-                TARGET_REF="$BRANCH_NAME"
-                BASE_BRANCH=""
-
-                # 1. Try provided target branch
-                if [ -n "$TARGET_REF" ]; then
-                    if git show-ref --verify --quiet "refs/remotes/origin/$TARGET_REF"; then
-                        BASE_BRANCH="origin/$TARGET_REF"
-                    elif git show-ref --verify --quiet "refs/heads/$TARGET_REF"; then
-                        BASE_BRANCH="$TARGET_REF"
-                    else
-                         echo -e "  ${YELLOW}! Warning: Target branch '$TARGET_REF' not found. Falling back to defaults.${RESET}"
+                    echo -e "  ${RED}✗ Checkout failed${RESET}"
+                    if [ -n "$CHECKOUT_OUTPUT" ]; then
+                        while IFS= read -r l; do
+                            [ -n "$l" ] && echo -e "  ${GRAY}${l}${RESET}"
+                        done <<< "$CHECKOUT_OUTPUT"
                     fi
-                fi
-
-                # 2. Try default 'develop' if no base found yet
-                if [ -z "$BASE_BRANCH" ]; then
-                    if git show-ref --verify --quiet "refs/remotes/origin/develop"; then
-                        BASE_BRANCH="origin/develop"
-                    elif git show-ref --verify --quiet "refs/heads/develop"; then
-                        BASE_BRANCH="develop"
-                    fi
-                fi
-
-                # 3. Fallback to main/master if still no base found
-                if [ -z "$BASE_BRANCH" ]; then
-                    if git show-ref --verify --quiet "refs/remotes/origin/main"; then
-                        BASE_BRANCH="origin/main"
-                    elif git show-ref --verify --quiet "refs/remotes/origin/master"; then
-                        BASE_BRANCH="origin/master"
-                    elif git show-ref --verify --quiet "refs/heads/main"; then
-                        BASE_BRANCH="main"
-                    elif git show-ref --verify --quiet "refs/heads/master"; then
-                        BASE_BRANCH="master"
-                    fi
-                fi
-
-                if [ -n "$BASE_BRANCH" ]; then
-                    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-                    echo -e "  ${GRAY}Comparing ${WHITE}$CURRENT_BRANCH${GRAY} with ${WHITE}$BASE_BRANCH${RESET}"
-                    
-                    MERGE_BASE=$(git merge-base HEAD "$BASE_BRANCH" 2>/dev/null)
-                    if [ -n "$MERGE_BASE" ]; then
-                         CHANGES=$(git diff --name-status "$MERGE_BASE"..HEAD)
-                         
-                         if [ -z "$CHANGES" ]; then
-                             echo -e "  ${GRAY}No changes detected since split from $BASE_BRANCH${RESET}"
-                         else
-                             echo -e "  ${WHITE}Changes since split from $BASE_BRANCH:${RESET}"
-                             echo "$CHANGES" | while read -r status file; do
-                                 if [[ "$status" == "A"* ]]; then
-                                     echo -e "    ${GREEN}[+] $file${RESET}"
-                                 elif [[ "$status" == "M"* ]]; then
-                                     echo -e "    ${YELLOW}[~] $file${RESET}"
-                                 elif [[ "$status" == "D"* ]]; then
-                                     echo -e "    ${RED}[-] $file${RESET}"
-                                 else
-                                     echo -e "    ${GRAY}[$status] $file${RESET}"
-                                 fi
-                             done
-                         fi
-                    else
-                        echo -e "  ${YELLOW}! Could not find merge base with $BASE_BRANCH${RESET}"
-                    fi
-                else
-                    echo -e "  ${YELLOW}! Could not determine base branch (main/master)${RESET}"
                 fi
             else
-                echo -e "  ${RED}Invalid action: $ACTION. Use 'branch-create', 'checkout', or 'changelog'.${RESET}"
+                echo -e "  ${YELLOW}! Warning: Branch '$BRANCH_NAME' does not exist in this repo${RESET}"
+            fi
+        elif [ "$MODE" = "changelog" ]; then
+            local BASE_BRANCH=""
+
+            if [ -n "$TARGET_REF" ]; then
+                if git show-ref --verify --quiet "refs/remotes/origin/$TARGET_REF"; then
+                    BASE_BRANCH="origin/$TARGET_REF"
+                elif git show-ref --verify --quiet "refs/heads/$TARGET_REF"; then
+                    BASE_BRANCH="$TARGET_REF"
+                else
+                    echo -e "  ${YELLOW}! Warning: Target branch '$TARGET_REF' not found. Falling back to defaults.${RESET}"
+                fi
+            fi
+
+            if [ -z "$BASE_BRANCH" ]; then
+                if git show-ref --verify --quiet "refs/remotes/origin/develop"; then
+                    BASE_BRANCH="origin/develop"
+                elif git show-ref --verify --quiet "refs/heads/develop"; then
+                    BASE_BRANCH="develop"
+                fi
+            fi
+
+            if [ -z "$BASE_BRANCH" ]; then
+                if git show-ref --verify --quiet "refs/remotes/origin/main"; then
+                    BASE_BRANCH="origin/main"
+                elif git show-ref --verify --quiet "refs/remotes/origin/master"; then
+                    BASE_BRANCH="origin/master"
+                elif git show-ref --verify --quiet "refs/heads/main"; then
+                    BASE_BRANCH="main"
+                elif git show-ref --verify --quiet "refs/heads/master"; then
+                    BASE_BRANCH="master"
+                fi
+            fi
+
+            if [ -n "$BASE_BRANCH" ]; then
+                local CURRENT_BRANCH
+                CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+                echo -e "  ${GRAY}Comparing ${WHITE}$CURRENT_BRANCH${GRAY} with ${WHITE}$BASE_BRANCH${RESET}"
+                local MERGE_BASE
+                MERGE_BASE=$(git merge-base HEAD "$BASE_BRANCH" 2>/dev/null)
+                if [ -n "$MERGE_BASE" ]; then
+                    local CHANGES
+                    CHANGES=$(git diff --name-status "$MERGE_BASE"..HEAD)
+                    if [ -z "$CHANGES" ]; then
+                        echo -e "  ${GRAY}No changes detected since split from $BASE_BRANCH${RESET}"
+                    else
+                        echo -e "  ${WHITE}Changes since split from $BASE_BRANCH:${RESET}"
+                        echo "$CHANGES" | while read -r status file; do
+                            if [[ "$status" == "A"* ]]; then
+                                echo -e "    ${GREEN}[+] $file${RESET}"
+                            elif [[ "$status" == "M"* ]]; then
+                                echo -e "    ${YELLOW}[~] $file${RESET}"
+                            elif [[ "$status" == "D"* ]]; then
+                                echo -e "    ${RED}[-] $file${RESET}"
+                            else
+                                echo -e "    ${GRAY}[$status] $file${RESET}"
+                            fi
+                        done
+                    fi
+                else
+                    echo -e "  ${YELLOW}! Could not find merge base with $BASE_BRANCH${RESET}"
+                fi
+            else
+                echo -e "  ${YELLOW}! Could not determine base branch (main/master)${RESET}"
             fi
         fi
-        
-        # Return to root directory
-        cd "$ROOT_DIR" || return
-    fi
+    )
 }
 
 process_repo() {
@@ -264,8 +337,12 @@ process_repo() {
         return
     fi
 
-    echo -e "${YELLOW}❯ Processing ${REPO_NAME}${RESET}"
-    git_branch "$REPO_PATH"
+    if [ "$MODE" = "status" ]; then
+        repo_status "$REPO_PATH"
+    else
+        echo -e "${YELLOW}❯ Processing ${REPO_NAME}${RESET}"
+        git_branch "$REPO_PATH"
+    fi
 }
 
 # 1. Process Submodules explicitly detected via .gitmodules
@@ -310,9 +387,15 @@ fi
 # 4. Process Root Repository (Last)
 # Note: git_branch handles entering the dir.
 # But git_branch expects the dir path.
-echo -e "${YELLOW}❯ Processing Root${RESET}"
-git_branch "${ROOT_DIR}"
+if [ "$MODE" = "status" ]; then
+    repo_status "${ROOT_DIR}"
+else
+    echo -e "${YELLOW}❯ Processing Root${RESET}"
+    git_branch "${ROOT_DIR}"
+fi
 
 echo ""
-print_message_box "$GREEN" "Success!" "Branch process finished" "All repositories processed."
+if [ "$MODE" != "status" ]; then
+    print_message_box "$GREEN" "Success!" "Branch process finished" "All repositories processed."
+fi
 echo ""
