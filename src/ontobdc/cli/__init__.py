@@ -117,7 +117,7 @@ def config_data() -> Optional[Dict[str, Any]]:
         return None
 
 
-def check_main(args):
+def check_main(args, project_root: Optional[str]):
     # Get the directory of this file (src/ontobdc/cli)
     current_dir = get_script_dir()
 
@@ -127,14 +127,14 @@ def check_main(args):
         print(f"Error: check.sh not found at {check_script}")
         sys.exit(1)
 
-    # Build command arguments
-    cmd = [check_script]
-    if args.repair:
-        cmd.append("--repair")
+    cmd = ["bash", check_script] + sys.argv[2:]
 
     # Execute the shell script
     try:
-        subprocess.run(cmd, check=True)
+        env = os.environ.copy()
+        if project_root:
+            env["ONTOBDC_PROJECT_ROOT"] = project_root
+        subprocess.run(cmd, check=True, env=env)
     except subprocess.CalledProcessError as e:
         sys.exit(e.returncode)
     except Exception as e:
@@ -159,7 +159,7 @@ def dev_command(action, args, project_root: str):
     # However, for robustness let's just use the raw arguments
     
     cmd = [script_path] + sys.argv[2:]
-    
+
     try:
         env = os.environ.copy()
         env["ONTOBDC_PROJECT_ROOT"] = project_root
@@ -167,7 +167,40 @@ def dev_command(action, args, project_root: str):
     except subprocess.CalledProcessError as e:
         sys.exit(e.returncode)
     except Exception as e:
-        print(f"Error executing {action} script: {e}")
+        log_script = os.path.join(current_dir, "cli", "print_log.sh")
+        if os.path.exists(log_script):
+            subprocess.run(["bash", log_script, "ERROR", f"Error executing {action} script: {e}"], check=False)
+        else:
+            print(f"Error executing {action} script: {e}")
+        sys.exit(1)
+
+
+def plan_command(project_root: Optional[str]):
+    current_dir = get_script_dir()
+    script_path = os.path.join(current_dir, "plan", "plan.sh")
+    log_script = os.path.join(current_dir, "cli", "print_log.sh")
+
+    if not os.path.exists(script_path):
+        if os.path.exists(log_script):
+            subprocess.run(["bash", log_script, "ERROR", f"plan.sh not found at {script_path}"], check=False)
+        else:
+            print(f"Error: plan.sh not found at {script_path}")
+        sys.exit(1)
+
+    cmd = ["bash", script_path] + sys.argv[2:]
+
+    try:
+        env = os.environ.copy()
+        if project_root:
+            env["ONTOBDC_PROJECT_ROOT"] = project_root
+        subprocess.run(cmd, check=True, env=env)
+    except subprocess.CalledProcessError as e:
+        sys.exit(e.returncode)
+    except Exception as e:
+        if os.path.exists(log_script):
+            subprocess.run(["bash", log_script, "ERROR", f"Error executing plan script: {e}"], check=False)
+        else:
+            print(f"Error executing plan script: {e}")
         sys.exit(1)
 
 
@@ -268,19 +301,13 @@ def main():
     elif cmd == "check":
         parser = argparse.ArgumentParser(description="System Check")
         parser.add_argument("--repair", action="store_true", help="Attempt to repair issues")
+        parser.add_argument("-c", "--compact", action="store_true", help="Compact output")
         # Parse only arguments after 'check'
         args, unknown = parser.parse_known_args(sys.argv[2:])
-        check_main(args)
+        check_main(args, project_root)
 
-    # elif cmd == "plan":
-    #     current_dir = os.path.dirname(os.path.abspath(__file__))
-    #     msg_box_script = os.path.join(current_dir, "message_box.sh")
-        
-    #     if os.path.exists(msg_box_script):
-    #          subprocess.run(["bash", msg_box_script, "RED", "Error", "Not Implemented Yet", "The 'plan' command is currently under development."], check=False)
-    #     else:
-    #          print("Error: Not Implemented Yet (message_box.sh not found)")
-    #     sys.exit(1)
+    elif cmd == "plan":
+        plan_command(project_root)
 
     elif cmd == "dev":
         dev_command("dev", None, project_root)

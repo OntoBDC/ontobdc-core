@@ -33,7 +33,7 @@ fi
 (
     cd "$PROJECT_ROOT" || exit 1
     if command -v ontobdc >/dev/null 2>&1; then
-        ontobdc check
+        ontobdc check -c
     else
         bash "${PROJECT_ROOT}/wip/src/ontobdc/check/check.sh"
     fi
@@ -155,7 +155,26 @@ if [ "$#" -gt 0 ]; then
         exit $?
     fi
 
-    if [ "$1" = "branch-create" ] || [ "$1" = "checkout" ] || [ "$1" = "changelog" ]; then
+    if [ "$1" = "branch-create" ]; then
+        shift
+        bash "${SCRIPT_DIR}/branch.sh" --create "$@"
+        exit $?
+    fi
+
+    if [ "$1" = "checkout" ]; then
+        shift
+        bash "${SCRIPT_DIR}/branch.sh" --checkout "$@"
+        exit $?
+    fi
+
+    if [ "$1" = "changelog" ]; then
+        shift
+        bash "${SCRIPT_DIR}/branch.sh" --changelog "$@"
+        exit $?
+    fi
+
+    if [ "$1" = "branch" ]; then
+        shift
         bash "${SCRIPT_DIR}/branch.sh" "$@"
         exit $?
     fi

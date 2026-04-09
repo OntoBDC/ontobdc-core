@@ -68,24 +68,57 @@ fi
 
 REPAIR_MODE=false
 SCOPE="all"
+COMPACT_MODE=false
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --repair) REPAIR_MODE=true ;;
         --scope) SCOPE="$2"; shift ;;
+        -c|--compact) COMPACT_MODE=true ;;
         *) ;;
     esac
     shift
 done
 
-echo ""
-echo -e "${GRAY}${FULL_HLINE}${RESET}"
-echo -e "${CYAN}Running System Checks...${RESET}"
-echo -e "${GRAY}${FULL_HLINE}${RESET}"
-echo ""
+PRINT_LOG="${ONTOBDC_DIR}/cli/print_log.sh"
+log_line() {
+    local LEVEL="$1"
+    local MESSAGE="$2"
+    shift 2
+    if [ -f "$PRINT_LOG" ]; then
+        bash "$PRINT_LOG" "$LEVEL" "$MESSAGE" "$@"
+    else
+        echo "$LEVEL: $MESSAGE"
+    fi
+}
+
+if [ "$COMPACT_MODE" = true ]; then
+    log_line "INFO" "Running system checks..."
+else
+    echo ""
+    echo -e "${GRAY}${FULL_HLINE}${RESET}"
+    echo -e "${CYAN}Running System Checks...${RESET}"
+    echo -e "${GRAY}${FULL_HLINE}${RESET}"
+    echo ""
+fi
 
 ERRORS=()
 WARNINGS=()
+
+ON_FAILURE=$(python3 -c "import json
+p='${CONFIG_JSON}'
+try:
+    with open(p) as f:
+        data=json.load(f) or {}
+except Exception:
+    data={}
+base=data.get('base',{}) or {}
+beh=(base.get('behavor') or base.get('behavior') or {}) if isinstance(base,dict) else {}
+val=(beh.get('on_failure') or 'continue') if isinstance(beh,dict) else 'continue'
+print(str(val).strip() or 'continue')" 2>/dev/null)
+if [ -z "$ON_FAILURE" ]; then
+    ON_FAILURE="continue"
+fi
 
 run_checks() {
     local DIR="$1"
@@ -144,7 +177,11 @@ except Exception:
 print(' '.join(d.keys()))" "$CHECKS_DICT" 2>/dev/null)
 
     if [ -z "$CHECK_KEYS" ]; then
-        echo -e "  ${GRAY}• No checks found for $NAME in $ENGINE${RESET}"
+        if [ "$COMPACT_MODE" = true ]; then
+            log_line "INFO" "No checks found for ${NAME} (${ENGINE})."
+        else
+            echo -e "  ${GRAY}• No checks found for $NAME in $ENGINE${RESET}"
+        fi
         return
     fi
 
@@ -255,7 +292,11 @@ for item in out:
                 RET_CODE=$?
 
                 if [ $RET_CODE -eq 0 ]; then
-                     echo -e "  ${GREEN}✓ ${DESCRIPTION}${RESET}"
+                     if [ "$COMPACT_MODE" = true ]; then
+                         log_line "SUCCESS" "${DESCRIPTION}"
+                     else
+                         echo -e "  ${GREEN}✓ ${DESCRIPTION}${RESET}"
+                     fi
                 else
                      IS_FATAL=false
                      if [ $RET_CODE -eq 2 ]; then
@@ -275,40 +316,89 @@ for item in out:
 
                      if [ "$HOTFIXED" = false ]; then
                          if [ "$IS_FATAL" = true ]; then
-                             echo -e "  ${RED}✗ ${DESCRIPTION} (FATAL)${RESET}"
+                             if [ "$COMPACT_MODE" = true ]; then
+                                 log_line "ERROR" "${DESCRIPTION} (FATAL)"
+                             else
+                                 echo -e "  ${RED}✗ ${DESCRIPTION} (FATAL)${RESET}"
+                             fi
                              if type repair &>/dev/null; then
                                  repair
                              else
-                                 echo -e "${RED}FATAL ERROR: ${DESCRIPTION} failed and no repair available.${RESET}"
+                                 if [ "$COMPACT_MODE" = true ]; then
+                                     log_line "ERROR" "Fatal error: ${DESCRIPTION} failed and no repair is available."
+                                 else
+                                     echo -e "${RED}FATAL ERROR: ${DESCRIPTION} failed and no repair available.${RESET}"
+                                 fi
                                  exit 1
                              fi
                          fi
 
                          if [ "$REPAIR_MODE" = true ]; then
-                             echo -e "  ${YELLOW}⚡ Attempting repair for: ${DESCRIPTION}...${RESET}"
+                             if [ "$COMPACT_MODE" = true ]; then
+                                 log_line "WARNING" "Attempting repair: ${DESCRIPTION}"
+                             else
+                                 echo -e "  ${YELLOW}⚡ Attempting repair for: ${DESCRIPTION}...${RESET}"
+                             fi
                              if type repair &>/dev/null; then
                                  repair
                                  
                                  check
                                  if [ $? -eq 0 ]; then
-                                     echo -e "  ${GREEN}✓ ${DESCRIPTION} (Repaired)${RESET}"
+                                     if [ "$COMPACT_MODE" = true ]; then
+                                         log_line "SUCCESS" "${DESCRIPTION} (Repaired)"
+                                     else
+                                         echo -e "  ${GREEN}✓ ${DESCRIPTION} (Repaired)${RESET}"
+                                     fi
                                      WARNINGS+=("${DESCRIPTION} (Repaired)")
                                  else
-                                     echo -e "  ${RED}✗ ${DESCRIPTION} (Repair failed)${RESET}"
+                                     if [ "$COMPACT_MODE" = true ]; then
+                                         log_line "ERROR" "${DESCRIPTION} (Repair failed)"
+                                     else
+                                         echo -e "  ${RED}✗ ${DESCRIPTION} (Repair failed)${RESET}"
+                                     fi
                                      ERRORS+=("${DESCRIPTION}")
                                  fi
                              else
-                                 echo -e "  ${RED}✗ ${DESCRIPTION} (No repair function)${RESET}"
+                                 if [ "$COMPACT_MODE" = true ]; then
+                                     log_line "ERROR" "${DESCRIPTION} (No repair function)"
+                                 else
+                                     echo -e "  ${RED}✗ ${DESCRIPTION} (No repair function)${RESET}"
+                                 fi
                                  ERRORS+=("${DESCRIPTION}")
                              fi
                          else
-                             echo -e "  ${RED}✗ ${DESCRIPTION}${RESET}"
+                             if [ "$COMPACT_MODE" = true ]; then
+                                 log_line "ERROR" "${DESCRIPTION}"
+                             else
+                                 echo -e "  ${RED}✗ ${DESCRIPTION}${RESET}"
+                             fi
                              ERRORS+=("${DESCRIPTION}")
+                             if [ "$ON_FAILURE" = "terminate" ]; then
+                                 if [ "$COMPACT_MODE" = true ]; then
+                                     log_line "WARNING" "Stopping checks (on_failure=terminate)."
+                                 else
+                                     echo -e "  ${YELLOW}Stopping checks (on_failure=terminate)${RESET}"
+                                 fi
+                                 exit 1
+                             fi
                          fi
                      fi
                 fi
             else
-                 echo -e "  ${YELLOW}Warning: Check script not found: $check_script${RESET}"
+                 if [ "$COMPACT_MODE" = true ]; then
+                     log_line "WARNING" "Check script not found: ${check_script}"
+                 else
+                     echo -e "  ${YELLOW}Warning: Check script not found: $check_script${RESET}"
+                 fi
+                 ERRORS+=("Check script not found: ${check_script}")
+                 if [ "$ON_FAILURE" = "terminate" ]; then
+                     if [ "$COMPACT_MODE" = true ]; then
+                         log_line "WARNING" "Stopping checks (on_failure=terminate)."
+                     else
+                         echo -e "  ${YELLOW}Stopping checks (on_failure=terminate)${RESET}"
+                     fi
+                     exit 1
+                 fi
             fi
         done
     }
@@ -332,11 +422,23 @@ print(d.get(sys.argv[2], ''))" "$CHECKS_DICT" "$SECTION" 2>/dev/null)
         FIRST_SECTION=false
 
         if [ "$SECTION" = "base" ]; then
-            echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}base${RESET}"
+            if [ "$COMPACT_MODE" = true ]; then
+                log_line "INFO" "Checking base checks..."
+            else
+                echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}base${RESET}"
+            fi
         elif [ "$SECTION" = "engine" ]; then
-            echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}engine: ${ENGINE}${RESET}"
+            if [ "$COMPACT_MODE" = true ]; then
+                log_line "INFO" "Checking engine checks (${ENGINE})..."
+            else
+                echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}engine: ${ENGINE}${RESET}"
+            fi
         else
-            echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}${SECTION}${RESET}"
+            if [ "$COMPACT_MODE" = true ]; then
+                log_line "INFO" "Checking ${SECTION} checks..."
+            else
+                echo -e "${YELLOW}❯ ${WHITE}Checking ${CYAN}${SECTION}${RESET}"
+            fi
         fi
 
         run_check_list "$CHECKS_FOR_SECTION"
@@ -405,7 +507,13 @@ fi
 if [[ "$SCOPE" == "all" ]]; then
     SCOPES=$(python3 -c "import json; 
 with open('$CONFIG_JSON') as f: data = json.load(f); 
-print(' '.join((data.get('base', {}) or {}).keys()))" 2>/dev/null)
+base=(data.get('base', {}) or {})
+keys=[]
+if isinstance(base, dict):
+    for k,v in base.items():
+        if isinstance(v, list):
+            keys.append(k)
+print(' '.join(keys))" 2>/dev/null)
 else
     SCOPES="$SCOPE"
 fi
@@ -446,10 +554,17 @@ if [ ${#ERRORS[@]} -eq 0 ]; then
             MSG="${MSG}\n• $w"
         done
     fi
-    if type print_message_box &>/dev/null; then
-        print_message_box "GREEN" "Success" "System Operational" "$MSG"
+    if [ "$COMPACT_MODE" = true ]; then
+        log_line "SUCCESS" "System checks passed."
+        if [ ${#WARNINGS[@]} -gt 0 ]; then
+            log_line "WARNING" "Warnings: ${#WARNINGS[@]}"
+        fi
     else
-        echo -e "${GREEN}Success: System Operational${RESET}\n$MSG"
+        if type print_message_box &>/dev/null; then
+            print_message_box "GREEN" "Success" "System Operational" "$MSG"
+        else
+            echo -e "${GREEN}Success: System Operational${RESET}\n$MSG"
+        fi
     fi
 else
     MSG="The following checks failed:"
@@ -464,10 +579,14 @@ else
         done
     fi
     
-    if type print_message_box &>/dev/null; then
-        print_message_box "RED" "Error" "System Check Failed" "$MSG"
+    if [ "$COMPACT_MODE" = true ]; then
+        log_line "ERROR" "System checks failed (${#ERRORS[@]})."
     else
-        echo -e "${RED}Error: System Check Failed${RESET}\n$MSG"
+        if type print_message_box &>/dev/null; then
+            print_message_box "RED" "Error" "System Check Failed" "$MSG"
+        else
+            echo -e "${RED}Error: System Check Failed${RESET}\n$MSG"
+        fi
     fi
     exit 1
 fi

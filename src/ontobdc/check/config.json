@@ -6,6 +6,9 @@
         ]
     },
     "base": {
+        "behavor": {
+            "on_failure": "terminate"
+        },
         "infra": [
             "is_connected_to_internet",
             "is_root_absolute_path_configured",

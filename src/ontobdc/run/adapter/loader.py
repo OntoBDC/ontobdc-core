@@ -1,11 +1,11 @@
 import pkgutil
 import importlib
 import inspect
+import os
 import sys
 from typing import List, Type
 from ontobdc.run.core.capability import Capability
 from ontobdc.run.core.action import Action
-from ontobdc.run.ui import print_message_box, YELLOW, RED
 
 class CapabilityLoader:
     @staticmethod
@@ -32,14 +32,19 @@ class CapabilityLoader:
                         if issubclass(obj, Capability):
                             capabilities.append(obj)
             except Exception as e:
-                # Treat module load errors as critical errors and exit
-                print_message_box(
-                    RED,
-                    "Error",
-                    "Module Load Error",
-                    f"Error loading module {name}:\n\n{e}"
-                )
-                sys.exit(1)
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                log_script = os.path.join(current_dir, "..", "..", "cli", "print_log.sh")
+                if os.path.exists(log_script):
+                    import subprocess
+                    subprocess.run(
+                        ["bash", log_script, "WARNING", f"Error loading module {name}: {e}"],
+                        check=False,
+                        stdout=sys.stderr,
+                        stderr=sys.stderr,
+                    )
+                else:
+                    print(f"[CapabilityLoader] Error loading module {name}: {e}", file=sys.stderr)
+                continue
 
         return capabilities
 
