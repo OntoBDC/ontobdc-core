@@ -92,6 +92,10 @@ This ensures reproducibility, auditability, and deterministic validation of engi
 
 We are always on the lookout for contributors to help us fix bugs, create new features, or help us improve project documentation. If you are interested, feel free to create a [PR](https://github.com/OntoBDC/ontobdc-core/pulls) or open an [issue](https://github.com/OntoBDC/ontobdc-core/issues) on this topic.
 
+## 🔜 Next Steps
+
+Generate an RDF execution plan (Turtle) with stable URNs/prefixes linking plans, capabilities, inputs/outputs, and resolved parameters (with values). Add CLI flags and minimal tests/validation (e.g., Protégé/Graphviz) to inspect and verify the generated graph.
+
 ## 📄 License
 
 Licensed under **Apache 2.0**.
