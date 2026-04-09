@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from typing import Optional
-from ontobdc.cli.adapter.wireframe import LightWireframeCharacterSet
-from ontobdc.cli.domain.port.drawing import WireframeCharacterSet, WireframeDrawingObject
+from ontobdc.cli..wireframe import LightWireframeCharacterSet
+from ontobdc.cli..port.drawing import WireframeCharacterSet, WireframeDrawingObject
 
 
 class Hexagon(WireframeDrawingObject):

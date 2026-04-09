@@ -1,6 +1,6 @@
 
 from typing import Dict, List
-from ontobdc.cli.domain.port.drawing import DrawingObject
+from ontobdc.cli..port.drawing import DrawingObject
 
 
 class Canvas:

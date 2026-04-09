@@ -1,7 +1,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass
-from ontobdc.cli.domain.port.drawing import WireframeCharacterSet, WireframeDrawingObject
+from ontobdc.cli..port.drawing import WireframeCharacterSet, WireframeDrawingObject
 
 
 @dataclass(frozen=True)
