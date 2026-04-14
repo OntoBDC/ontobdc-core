@@ -17,6 +17,13 @@ def get_root_dir() -> Optional[str]:
     """
     Find the root directory of the project by looking for the .__ontobdc__ directory.
     """
+    env_root = os.environ.get("ONTOBDC_PROJECT_ROOT")
+    if env_root:
+        env_root = os.path.abspath(env_root)
+        env_cfg = os.path.join(env_root, ".__ontobdc__", "config.yaml")
+        if os.path.isfile(env_cfg):
+            return env_root
+
     def _check_local(current_dir: str) -> Optional[str]:
         config_file: str = os.path.join(current_dir, ".__ontobdc__", "config.yaml")
         if os.path.isfile(config_file):
@@ -81,12 +88,20 @@ def get_message_box_script() -> str:
     return os.path.join(module_root, "cli", "message_box.sh")
 
 
-def config_data() -> Optional[Dict[str, Any]]:
+def get_config_dir() -> str:
     root_dir: Optional[str] = get_root_dir()
     if root_dir is None:
         return None
 
+    return os.path.join(root_dir, ".__ontobdc__")
+
+
+def config_data() -> Optional[Dict[str, Any]]:
     # Get the directory of the config file (.__ontobdc__/config.yaml)
+    root_dir = get_root_dir()
+    if root_dir is None:
+        return None
+
     config_file: str = os.path.join(root_dir, ".__ontobdc__", "config.yaml")
 
     if not os.path.isfile(config_file):
@@ -223,8 +238,11 @@ def print_help():
     {CYAN}check{RESET}     {GRAY}Run infrastructure checks{RESET}
     {CYAN}run{RESET}       {GRAY}Run a capability via ontobdc/run{RESET}
     {CYAN}list{RESET}      {GRAY}List all available capabilities{RESET}
-    {CYAN}dev{RESET}       {GRAY}Developer tools (e.g., ontobdc dev commit){RESET}
 """
+
+    # {CYAN}storage{RESET}    {GRAY}Storage tools{RESET}
+    # {CYAN}entity{RESET}    {GRAY}Entity Framework tools{RESET}
+    # {CYAN}dev{RESET}       {GRAY}Developer tools (e.g., ontobdc dev commit){RESET}
 
     if os.path.exists(msg_box_script):
          subprocess.run(["bash", msg_box_script, "GRAY", "OntoBDC", "CLI Help", help_content], check=False)
@@ -311,6 +329,40 @@ def main():
 
     elif cmd == "dev":
         dev_command("dev", None, project_root)
+
+    elif cmd == "entity":
+        script_dir: str = get_script_dir()
+        project_script = os.path.join(script_dir, "entity", "entity.sh")
+        msg_box_script = get_message_box_script()
+        if not os.path.exists(project_script):
+            if os.path.exists(msg_box_script):
+                subprocess.run(["bash", msg_box_script, "RED", "OntoBDC", "Error", "Entity Script Missing", f"Missing: {project_script}"], check=False)
+                sys.exit(1)
+
+        try:
+            subprocess.run(["bash", project_script] + sys.argv[2:], check=False)
+            sys.exit(0)
+        except Exception as e:
+            if os.path.exists(msg_box_script):
+                subprocess.run(["bash", msg_box_script, "RED", "OntoBDC", "Error", "Entity Execution Failed", str(e)], check=False)
+            sys.exit(1)
+
+    elif cmd == "storage":
+        script_dir: str = get_script_dir()
+        project_script = os.path.join(script_dir, "storage", "storage.sh")
+        msg_box_script = get_message_box_script()
+        if not os.path.exists(project_script):
+            if os.path.exists(msg_box_script):
+                subprocess.run(["bash", msg_box_script, "RED", "OntoBDC", "Error", "Storage Script Missing", f"Missing: {project_script}"], check=False)
+                sys.exit(1)
+
+        try:
+            subprocess.run(["bash", project_script] + sys.argv[2:], check=False)
+            sys.exit(0)
+        except Exception as e:
+            if os.path.exists(msg_box_script):
+                subprocess.run(["bash", msg_box_script, "RED", "OntoBDC", "Error", "Storage Execution Failed", str(e)], check=False)
+            sys.exit(1)
 
     else:
         print_log_script = os.path.join(current_dir, "print_log.sh")

@@ -6,7 +6,7 @@ RESET='\033[0m'
 CYAN='\033[36m'
 GRAY='\033[90m'
 WHITE='\033[37m'
-YELLOW='\033[33m'
+YELLOW='\033[1;33m'
 GREEN='\033[32m'
 RED='\033[31m'
 BLUE='\033[34m'
@@ -33,13 +33,13 @@ print_message_box() {
     
     # Resolve color name to code if passed as string name
     case "$COLOR" in
-        "RED") COLOR="$RED" ;;
-        "GREEN") COLOR="$GREEN" ;;
-        "YELLOW") COLOR="$YELLOW" ;;
-        "CYAN") COLOR="$CYAN" ;;
-        "BLUE") COLOR="$BLUE" ;;
-        "WHITE") COLOR="$WHITE" ;;
-        "GRAY") COLOR="$GRAY" ;;
+        "RED") COLOR="${RED:-\033[31m}" ;;
+        "GREEN") COLOR="${GREEN:-\033[32m}" ;;
+        "YELLOW") COLOR="${YELLOW:-\033[33m}" ;;
+        "CYAN") COLOR="${CYAN:-\033[36m}" ;;
+        "BLUE") COLOR="${BLUE:-\033[34m}" ;;
+        "WHITE") COLOR="${WHITE:-\033[37m}" ;;
+        "GRAY") COLOR="${GRAY:-\033[90m}" ;;
     esac
 
     local TYPE_LEN=${#TITLE_TYPE}
