@@ -69,11 +69,15 @@ fi
 REPAIR_MODE=false
 SCOPE="all"
 COMPACT_MODE=false
+ONLY_CHECK=""
+IGNORE_WARNINGS=false
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --repair) REPAIR_MODE=true ;;
         --scope) SCOPE="$2"; shift ;;
+        --only) ONLY_CHECK="$2"; shift ;;
+        --ignore-warnings) IGNORE_WARNINGS=true ;;
         -c|--compact) COMPACT_MODE=true ;;
         *) ;;
     esac
@@ -125,10 +129,12 @@ run_checks() {
     local NAME="$2"
     local ENGINE="$3"
 
-    if [ ! -f "$CONFIG_JSON" ]; then
-         echo -e "  ${RED}✗ Config file not found: ${CONFIG_JSON}${RESET}"
-         ERRORS+=("Config file missing")
-         return
+    if [ -z "$ONLY_CHECK" ]; then
+        if [ ! -f "$CONFIG_JSON" ]; then
+             echo -e "  ${RED}✗ Config file not found: ${CONFIG_JSON}${RESET}"
+             ERRORS+=("Config file missing")
+             return
+        fi
     fi
 
     CHECKS_DICT=$(python3 -c "import json, os, sys
@@ -176,7 +182,9 @@ except Exception:
     d = {}
 print(' '.join(d.keys()))" "$CHECKS_DICT" 2>/dev/null)
 
-    if [ -z "$CHECK_KEYS" ]; then
+    if [ -n "$ONLY_CHECK" ]; then
+        CHECK_KEYS="__only__"
+    elif [ -z "$CHECK_KEYS" ]; then
         if [ "$COMPACT_MODE" = true ]; then
             log_line "INFO" "No checks found for ${NAME} (${ENGINE})."
         else
@@ -280,7 +288,7 @@ for item in out:
                 unset -f check
                 unset -f repair
                 unset -f hotfix
-                
+
                 # shellcheck disable=SC1090
                 source "$check_script"
                 
@@ -403,6 +411,11 @@ for item in out:
         done
     }
 
+    if [ -n "$ONLY_CHECK" ]; then
+        run_check_list "$ONLY_CHECK"
+        return
+    fi
+
     FIRST_SECTION=true
     for SECTION in $CHECK_KEYS; do
         CHECKS_FOR_SECTION=$(python3 -c "import json, sys
@@ -504,7 +517,13 @@ if [ -n "$CONFIG_ENGINES" ]; then
     fi
 fi
 
-if [[ "$SCOPE" == "all" ]]; then
+if [ -n "$ONLY_CHECK" ]; then
+    if [[ "$ONLY_CHECK" == *.* ]]; then
+        SCOPES="${ONLY_CHECK%%.*}"
+    else
+        SCOPES="infra"
+    fi
+elif [[ "$SCOPE" == "all" ]]; then
     SCOPES=$(python3 -c "import json; 
 with open('$CONFIG_JSON') as f: data = json.load(f); 
 base=(data.get('base', {}) or {})
@@ -548,7 +567,7 @@ echo ""
 
 if [ ${#ERRORS[@]} -eq 0 ]; then
     MSG="All checks passed."
-    if [ ${#WARNINGS[@]} -gt 0 ]; then
+    if [ "$IGNORE_WARNINGS" != true ] && [ ${#WARNINGS[@]} -gt 0 ]; then
         MSG="${MSG}\n\nWarnings:"
         for w in "${WARNINGS[@]}"; do
             MSG="${MSG}\n• $w"
@@ -556,8 +575,11 @@ if [ ${#ERRORS[@]} -eq 0 ]; then
     fi
     if [ "$COMPACT_MODE" = true ]; then
         log_line "SUCCESS" "System checks passed."
-        if [ ${#WARNINGS[@]} -gt 0 ]; then
+        if [ "$IGNORE_WARNINGS" != true ] && [ ${#WARNINGS[@]} -gt 0 ]; then
             log_line "WARNING" "Warnings: ${#WARNINGS[@]}"
+            for w in "${WARNINGS[@]}"; do
+                log_line "WARNING" "$w"
+            done
         fi
     else
         if type print_message_box &>/dev/null; then
@@ -581,6 +603,12 @@ else
     
     if [ "$COMPACT_MODE" = true ]; then
         log_line "ERROR" "System checks failed (${#ERRORS[@]})."
+        if [ "$IGNORE_WARNINGS" != true ] && [ ${#WARNINGS[@]} -gt 0 ]; then
+            log_line "WARNING" "Warnings: ${#WARNINGS[@]}"
+            for w in "${WARNINGS[@]}"; do
+                log_line "WARNING" "$w"
+            done
+        fi
     else
         if type print_message_box &>/dev/null; then
             print_message_box "RED" "Error" "System Check Failed" "$MSG"

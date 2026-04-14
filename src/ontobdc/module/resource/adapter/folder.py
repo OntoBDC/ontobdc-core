@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Any, List
 
-from ontobdc.core.domain.schema.entity import SchemaEntity
 from ontobdc.module.resource.domain.port.entity import FolderPort
 from ontobdc.module.resource.domain.exception.file import OntoBDCPathNotFound
 

@@ -107,8 +107,12 @@ if [ "$#" -gt 0 ]; then
         shift 2
     elif [ "$1" = "--changelog" ]; then
         MODE="changelog"
-        TARGET_REF="$2"
-        shift 2
+        if [ "$#" -ge 2 ] && [ -n "${2:-}" ] && [[ "${2:-}" != --* ]]; then
+            TARGET_REF="$2"
+            shift 2
+        else
+            shift 1
+        fi
     else
         echo ""
         print_message_box "$RED" "Error" "Invalid arguments" "Usage:\n  ontobdc dev branch\n  ontobdc dev branch --create <branch_name>"
