@@ -1,11 +1,10 @@
 
-import os
 import sys
 import json
+from rdflib import Graph
 from typing import Any, Dict
 from ontobdc.storage.adapter.icdd import ICDDIndexAdapter
-from rdflib import Graph
-from ontobdc.core.adapter.entity import EntityStorageAdapter
+from ontobdc.core.adapter.storage import EntityStorageAdapter
 
 
 def main() -> int:

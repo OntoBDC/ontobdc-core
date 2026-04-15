@@ -1,7 +1,7 @@
 
 from typing import Dict, Any
 from ontobdc.cli.init import log as print_log, message_box
-from ontobdc.core.adapter.entity import EntityStorageAdapter, EntityDataStorageAdapter
+from ontobdc.core.adapter.storage import EntityStorageAdapter, EntityDataStorageAdapter
 
 
 def create_entity(unique_name: str) -> None:
