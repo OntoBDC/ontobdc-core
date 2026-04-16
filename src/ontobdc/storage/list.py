@@ -2,7 +2,11 @@
 import os
 import sys
 import json
-
+from pathlib import Path
+from typing import Dict, Any
+from ontobdc.cli import get_root_dir
+from ontobdc.storage.adapter.icdd import ICDDIndexAdapter
+from rdflib import PROV, Graph, RDF, DCTERMS
 from ontobdc.storage import has_storage_index
 from ontobdc.storage.adapter.storage import StorageIndexAdapter
 
@@ -25,17 +29,6 @@ def main() -> int:
 
     storage_rdf = os.path.join(config_dir, StorageIndexAdapter.INDEX_FILE)
 
-    filter_path = None
-    if len(sys.argv) > 1 and sys.argv[1]:
-        filter_path = os.path.abspath(sys.argv[1])
-
-    try:
-        from rdflib import Graph
-        from rdflib.namespace import RDF
-    except Exception:
-        sys.stdout.write("[]")
-        return 0
-
     g = Graph()
     parsed = False
     for fmt in (None, "xml", "turtle", "nt", "n3", "trig"):
@@ -50,42 +43,54 @@ def main() -> int:
         sys.stdout.write("[]")
         return 0
 
-    items: list[dict] = []
-    for s in set(g.subjects()):
-        props: dict[str, list[dict]] = {}
-        for p, o in g.predicate_objects(subject=s):
-            key = str(p)
-            props.setdefault(key, [])
-            if hasattr(o, "datatype") or hasattr(o, "language"):
-                props[key].append(
-                    {
-                        "type": "literal",
-                        "value": str(o),
-                        "datatype": str(getattr(o, "datatype", "")) if getattr(o, "datatype", None) else None,
-                        "lang": getattr(o, "language", None),
-                    }
-                )
-            else:
-                props[key].append({"type": "uri", "value": str(o)})
+    filter_uri = None
+    if len(sys.argv) > 1 and sys.argv[1]:
+        filter_path = os.path.abspath(sys.argv[1])
+        filter_uri = Path(filter_path).resolve().as_uri()
 
-        types = [str(o) for o in g.objects(subject=s, predicate=RDF.type)]
-        items.append({"id": str(s), "types": types, "properties": props})
+    ct = ICDDIndexAdapter.CT
+    containers = list(g.subjects(RDF.type, ct.ContainerDescription))
+    default_container = containers[0] if containers else None
 
-    if filter_path:
-        filtered: list[dict] = []
-        for item in items:
-            for values in item.get("properties", {}).values():
-                for v in values:
-                    vv = v.get("value") if isinstance(v, dict) else None
-                    if isinstance(vv, str) and os.path.abspath(vv) == filter_path:
-                        filtered.append(item)
-                        values = None
-                        break
-                if values is None:
-                    break
-        items = filtered
+    items: Dict[str, Dict[str, Any]] = {}
+    for dataset in set(g.subjects(predicate=PROV.atLocation)):
+        locations = list(g.objects(dataset, PROV.atLocation))
+        if not locations:
+            continue
+        location = locations[0]
+        if filter_uri and str(location) != filter_uri:
+            continue
 
-    sys.stdout.write(json.dumps(items, ensure_ascii=False))
+        container = None
+        container_refs = list(g.objects(dataset, DCTERMS.isPartOf))
+        if container_refs:
+            container = container_refs[0]
+        if container is None:
+            container = default_container
+
+        container_key = str(container) if container is not None else "None"
+
+        container_title = None
+        if container is not None:
+            titles = list(g.objects(container, DCTERMS.title))
+            if titles:
+                container_title = str(titles[0])
+
+        dataset_title = None
+        titles = list(g.objects(dataset, DCTERMS.title))
+        if titles:
+            dataset_title = str(titles[0])
+
+        location_str = str(location)
+        items.setdefault(container_key, {})
+        items[container_key][str(dataset)] = {
+            "container": {"@id": container_key, "title": container_title or "The Main Storage Index"},
+            "title": dataset_title or "",
+            "location": f"[~root_dir~]{location_str.split(get_root_dir())[-1]}",
+        }
+
+    sys.stdout.write(json.dumps(list(items.values()), ensure_ascii=False, indent=2))
+
     return 0
 
 

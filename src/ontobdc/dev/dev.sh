@@ -88,16 +88,16 @@ cfg={}
 if os.path.exists(path):
     with open(path, 'r') as f:
         cfg = yaml.safe_load(f) or {}
-cfg.setdefault('dev', {})['tool'] = 'enable'
+cfg.setdefault('dev', {})['tool'] = 'enabled'
 os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, 'w') as f:
     yaml.safe_dump(cfg, f, sort_keys=False)
 "
     if [ $? -ne 0 ]; then
         if type print_message_box &>/dev/null; then
-            print_message_box "RED" "Error" "Write Failed" "Failed to write dev.tool=enable to .__ontobdc__/config.yaml"
+            print_message_box "RED" "Error" "Write Failed" "Failed to write dev.tool=enabled to .__ontobdc__/config.yaml"
         else
-            echo "Error: Failed to write dev.tool=enable to .__ontobdc__/config.yaml"
+            echo "Error: Failed to write dev.tool=enabled to .__ontobdc__/config.yaml"
         fi
         exit 1
     fi
@@ -118,10 +118,10 @@ except Exception:
     sys.exit(0)
 path='${PROJECT_ROOT}/.__ontobdc__/config.yaml'
 try:
-    with open(path, 'r') as f:
+    with open(path, 'r', encoding='utf-8') as f:
         cfg = yaml.safe_load(f) or {}
     val = ((cfg.get('dev') or {}).get('tool') or '')
-    print('true' if str(val).strip() == 'enable' else 'false')
+    print('true' if str(val).strip() == 'enabled' else 'false')
 except Exception:
     print('false')
 ")
@@ -303,6 +303,39 @@ with open(path, 'w') as f:
         fi
         exit 1
     fi
+
+    UNKNOWN_CMD="$1"
+    CONTENT=""
+    CONTENT="${CONTENT}Unknown command: ${UNKNOWN_CMD}\n\n"
+    CONTENT="${CONTENT}  \033[37mUsage:\033[0m\n"
+    CONTENT="${CONTENT}    \033[90montobdc dev <command> [args]\033[0m\n\n"
+    CONTENT="${CONTENT}  \033[37mCommands:\033[0m\n"
+    CONTENT="${CONTENT}    \033[36m--help\033[0m                               \033[90mShow this help\033[0m\n"
+    CONTENT="${CONTENT}    \033[36m--enable-dev-tool\033[0m                    \033[90mEnable dev.tool in .__ontobdc__/config.yaml (must be passed alone)\033[0m\n"
+    CONTENT="${CONTENT}    \033[36mcommit <message>\033[0m                     \033[90mCommit and push changes across repos\033[0m\n"
+    CONTENT="${CONTENT}    \033[36mbranch\033[0m                             \033[90mList submodules and show git status (with branch)\033[0m\n"
+    CONTENT="${CONTENT}    \033[36mbranch --create <name>\033[0m             \033[90mCreate and push branch across repos\033[0m\n"
+    CONTENT="${CONTENT}    \033[36mcheckout <name>\033[0m                      \033[90mAlias for: branch --checkout <name>\033[0m\n"
+    CONTENT="${CONTENT}  \033[37mNotes:\033[0m\n"
+    CONTENT="${CONTENT}    \033[90mMost dev commands require \033[1;37mdev.tool: enabled\033[0;90m in .__ontobdc__/config.yaml.\033[0m\n"
+    CONTENT="${CONTENT}    \033[90mRun: \033[1;37montobdc dev --enable-dev-tool\033[0;90m\033[0m\n"
+
+    if type print_message_box &>/dev/null; then
+        print_message_box "RED" "Error" "Dev Command Not Found" "$CONTENT"
+    else
+        echo -e "Error: Dev command not found: ${UNKNOWN_CMD}" 1>&2
+        echo -e "$CONTENT" 1>&2
+    fi
+    exit 1
 fi
 
-echo "   • Root directory: $ROOT_DIR"
+source "${SCRIPT_DIR}/help.sh"
+CONTENT="$(ontobdc_help_dev_content)"
+CONTENT="   • Root directory: ${ROOT_DIR}\n\n${CONTENT}"
+
+if type print_message_box &>/dev/null; then
+    print_message_box "BLUE" "OntoBDC" "Dev" "$CONTENT"
+else
+    echo -e "$CONTENT"
+fi
+exit 0

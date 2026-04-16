@@ -36,3 +36,13 @@ class RepositoryPort(ABC):
         :return: A list of file resources as dictionaries.
         """
         pass
+
+    @abstractmethod
+    def exists(self, path: str) -> bool:
+        """
+        Check if a file resource exists.
+
+        :param path: The path of the file resource.
+        :return: True if the file resource exists, False otherwise.
+        """
+        pass

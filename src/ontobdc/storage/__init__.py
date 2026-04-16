@@ -1,6 +1,8 @@
 
 import os
 import json
+import builtins
+import sys
 import subprocess
 from ontobdc.cli import get_config_dir
 from ontobdc.storage.adapter.storage import StorageIndexAdapter
@@ -26,12 +28,12 @@ def has_storage_index() -> bool:
 
 
 def create_storage_index(storage_path: str) -> int:
-    if has_storage_index():
-        _message_box("YELLOW", "Warning", "Storage", f"Storage index already exists:\n{storage_path}")
-        return 2
-
     try:
-        storage_index: StorageIndexAdapter = StorageIndexAdapter.create()
+        if has_storage_index():
+            storage_index: StorageIndexAdapter = StorageIndexAdapter()
+        else:
+            storage_index: StorageIndexAdapter = StorageIndexAdapter.create()
+
         storage_index.add(storage_path, save_action = storage_index.save)
     except Exception as e:
         _message_box("RED", "Error", "Storage", f"Failed to create storage index:\n{storage_path}\n{e}")
@@ -42,13 +44,16 @@ def create_storage_index(storage_path: str) -> int:
 
 def create_storage(storage_path: str) -> int:
     list_script = os.path.join(os.path.dirname(__file__), "list.py")
+    py_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    env = os.environ.copy()
+    env["PYTHONPATH"] = f"{py_root}:{env.get('PYTHONPATH', '')}".rstrip(":")
     out = subprocess.run(
-        ["python3", list_script, storage_path],
+        [sys.executable, list_script, storage_path],
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         text=True,
-        env=os.environ.copy(),
+        env=env,
     ).stdout.strip()
 
     try:
@@ -56,7 +61,7 @@ def create_storage(storage_path: str) -> int:
     except Exception:
         existing = []
 
-    if isinstance(existing, list) and len(existing) > 0:
+    if isinstance(existing, builtins.list) and len(existing) > 0:
         _message_box("YELLOW", "Warning", "Storage", f"Storage already initialized at:\n{storage_path}")
         return 2
 
@@ -65,3 +70,23 @@ def create_storage(storage_path: str) -> int:
 
 def create_local_storage(local_path: str) -> int:
     return create_storage(local_path)
+
+
+def remove_storage(dataset_id: str) -> int:
+    if not has_storage_index():
+        _message_box("YELLOW", "Warning", "Storage", "No storage has been initialized yet.")
+        return 2
+
+    try:
+        storage_index: StorageIndexAdapter = StorageIndexAdapter()
+        removed = storage_index.remove(dataset_id, save_action=storage_index.save)
+    except Exception as e:
+        _message_box("RED", "Error", "Storage", f"Failed to remove dataset:\n{dataset_id}\n{e}")
+        return 1
+
+    if not removed:
+        _message_box("YELLOW", "Warning", "Storage", f"Dataset not found:\n{dataset_id}")
+        return 2
+
+    _message_box("GREEN", "Success", "Storage", f"Dataset removed:\n{dataset_id}")
+    return 0

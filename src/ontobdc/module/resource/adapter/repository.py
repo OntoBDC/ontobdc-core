@@ -9,7 +9,7 @@ from ontobdc.module.resource.domain.port.repository import DatasetRepositoryPort
 
 class SimpleFileRepository(FileRepositoryPort):
     def __init__(self, root_path: str):
-        self._root_path = Path(root_path)
+        self._root_path: Path = Path(root_path)
 
     @property
     def path(self) -> Path:

@@ -32,7 +32,7 @@ fi
 
 show_help() {
     if type print_message_box &>/dev/null; then
-        print_message_box "GRAY" "OntoBDC" "Entity Framework" "Usage:\n  ontobdc entity\n  ontobdc entity --list\n  ontobdc entity --enable <true|false>\n  ontobdc entity --purge\n  ontobdc entity --create <unique_name>\n\nOptions:\n  --list                  List available entities\n  --enable <true|false>   Enable/disable Entity Framework in .__ontobdc__/config.yaml\n  --create <unique_name>  Create a new entity with the given unique name\n  --purge                 Remove Entity Framework state and delete .__ontobdc__/payload and .__ontobdc__/ontology\n  -h                      Show this help"
+        print_message_box "GRAY" "OntoBDC" "Entity Framework" "Usage:\n  ontobdc entity\n  ontobdc entity --list\n  ontobdc entity --enable <true|false>\n  ontobdc entity --purge\n  ontobdc entity --create <unique_name>\n  ontobdc entity --data <unique_name> [key...]\n\nOptions:\n  --list                  List available entities\n  --enable <true|false>   Enable/disable Entity Framework in .__ontobdc__/config.yaml\n  --create <unique_name>  Create a new entity with the given unique name\n  --data <unique_name>    List entity data (optional key filters)\n  --purge                 Remove Entity Framework state and delete .__ontobdc__/payload and .__ontobdc__/ontology\n  -h                      Show this help"
     else
         echo "Usage:"
         echo "  ontobdc entity"
@@ -40,12 +40,14 @@ show_help() {
         echo "  ontobdc entity --enable <true|false>"
         echo "  ontobdc entity --purge"
         echo "  ontobdc entity --create <unique_name>"
+        echo "  ontobdc entity --data <unique_name> [key...]"
         echo ""
         echo "Options:"
         echo "  --list                  List available entities"
         echo "  --enable <true|false>   Enable/disable Entity Framework in .__ontobdc__/config.yaml"
         echo "  --purge                 Remove Entity Framework state and delete .__ontobdc__/payload and .__ontobdc__/ontology"
         echo "  --create <unique_name>  Create a new entity with the given unique name"
+        echo "  --data <unique_name>    List entity data (optional key filters)"
         echo "  -h                      Show this help"
     fi
 }
@@ -77,7 +79,7 @@ try:
     with open(path, 'r', encoding='utf-8') as f:
         cfg = yaml.safe_load(f) or {}
     val = ((cfg.get('entity') or {}).get('framework') or '')
-    print('true' if str(val).strip() == 'enable' else 'false')
+    print('true' if str(val).strip() == 'enabled' else 'false')
 except Exception:
     print('false')
 ")"
@@ -160,7 +162,7 @@ try:
     with open(path, 'r') as f:
         cfg = yaml.safe_load(f) or {}
     val = ((cfg.get('entity') or {}).get('framework') or '')
-    print('true' if str(val).strip() == 'enable' else 'false')
+    print('true' if str(val).strip() == 'enabled' else 'false')
 except Exception:
     print('false')
 ")"
@@ -199,7 +201,7 @@ if os.path.exists(path):
         cfg={}
 if not isinstance(cfg, dict):
     cfg={}
-cfg.setdefault('entity', {})['framework'] = 'enable' if '${2}' == 'true' else 'disable'
+cfg.setdefault('entity', {})['framework'] = 'enabled' if '${2}' == 'true' else 'disabled'
 os.makedirs(os.path.dirname(path), exist_ok=True)
 with open(path, 'w', encoding='utf-8') as f:
     yaml.safe_dump(cfg, f, sort_keys=False)
@@ -251,7 +253,7 @@ try:
     with open(path, 'r', encoding='utf-8') as f:
         cfg = yaml.safe_load(f) or {}
     val = ((cfg.get('entity') or {}).get('framework') or '')
-    print('true' if str(val).strip() == 'enable' else 'false')
+    print('true' if str(val).strip() == 'enabled' else 'false')
 except Exception:
     print('false')
 ")"
@@ -317,6 +319,34 @@ except Exception as e:
     if [ $? -ne 0 ]; then
         if type print_message_box &>/dev/null; then
             print_message_box "RED" "Error" "Entity Create Failed" "Failed to create entity:\n  $2"
+        fi
+        exit 1
+    fi
+    echo ""
+    exit 0
+fi
+
+if [ "$1" = "--data" ]; then
+    if [ "$#" -lt 2 ]; then
+        if type print_message_box &>/dev/null; then
+            print_message_box "RED" "Error" "Invalid Arguments" "Usage:\n  ontobdc entity --data <unique_name> [key...]"
+        else
+            echo "Error: Usage: ontobdc entity --data <unique_name> [key...]"
+        fi
+        exit 1
+    fi
+
+    PYTHONPATH="${PY_ROOT}:${PYTHONPATH:-}" python3 -c "import sys
+try:
+    from ontobdc.entity import entity_data
+    entity_data(*sys.argv[1:])
+except Exception as e:
+    print(str(e))
+    sys.exit(1)
+" "${@:2}"
+    if [ $? -ne 0 ]; then
+        if type print_message_box &>/dev/null; then
+            print_message_box "RED" "Error" "Entity Data Failed" "Failed to list entity data:\n  $2"
         fi
         exit 1
     fi

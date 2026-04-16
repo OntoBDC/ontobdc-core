@@ -61,6 +61,9 @@ class CliContextAdapter(CliContextPort):
 
         self._parameters[param_key].update(param_value)
 
+    def get_parameter(self, param_key: str) -> Dict[str, Any]:
+        return self._parameters.get(param_key, {})
+
     def get_parameter_value(self, param_key: str) -> Any:
         param = self._parameters.get(param_key)
         if param:
