@@ -14,20 +14,22 @@ fi
 
 show_help() {
     if type print_message_box &>/dev/null; then
-        print_message_box "GRAY" "OntoBDC" "Storage" "Usage:\n  ontobdc storage\n  ontobdc storage --local [path]\n\nOptions:\n  --local [path]    Initialize local storage (default: current directory)\n  -h                Show this help"
+        print_message_box "GRAY" "OntoBDC" "Storage" "Usage:\n  ontobdc storage\n  ontobdc storage --local [path]\n  ontobdc storage --remove <dataset_id>\n\nOptions:\n  --local [path]          Initialize local storage (default: current directory)\n  --remove <dataset_id>   Remove a dataset from storage index\n  -h                      Show this help"
     else
         echo "Usage:"
         echo "  ontobdc storage"
         echo "  ontobdc storage --local [path]"
+        echo "  ontobdc storage --remove <dataset_id>"
         echo ""
         echo "Options:"
-        echo "  --local [path]    Initialize local storage (default: current directory)"
+        echo "  --local [path]          Initialize local storage (default: current directory)"
+        echo "  --remove <dataset_id>   Remove a dataset from storage index"
         echo "  -h                Show this help"
     fi
 }
 
 if [ "$#" -eq 0 ]; then
-    OUTPUT=$(python3 "${SCRIPT_DIR}/list.py" 2>/dev/null)
+    OUTPUT=$(python3 "${SCRIPT_DIR}/storage/list.py" 2>/dev/null)
     if [ -z "$OUTPUT" ] || [ "$OUTPUT" = "[]" ]; then
         if type print_message_box &>/dev/null; then
             print_message_box "YELLOW" "Warning" "OntoBDC Storage" "No storage has been initialized yet.\n\nInitialize it with:\n  ontobdc storage --local [path]"
@@ -51,7 +53,12 @@ if [ "$#" -gt 0 ]; then
 fi
 
 if [ "$1" = "--local" ]; then
-    python3 "${SCRIPT_DIR}/local.py" "$@"
+    python3 "${SCRIPT_DIR}/storage/local.py" "$@"
+    exit $?
+fi
+
+if [ "$1" = "--remove" ]; then
+    python3 "${SCRIPT_DIR}/storage/remove.py" "$@"
     exit $?
 fi
 

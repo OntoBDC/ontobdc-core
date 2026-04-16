@@ -91,8 +91,7 @@ class ICDDIndexAdapter:
                         root.replace(rdf_child, owl_element)
 
             elif rdf_child.tag == f"{{{self._get_namespace('ct')}}}ContainerDescription":
-                rdf_child.attrib.pop(f"{{{RDF}}}about", None)
-                rdf_child.set(f"{{{RDF}}}ID", self.container_id)
+                rdf_child.set(f"{{{RDF}}}about", self.container_id)
 
         return self._root_element_to_string(root)
 
@@ -182,4 +181,3 @@ class ICDDStorageAdapter:
         container._index = index_adapter
 
         return container
-

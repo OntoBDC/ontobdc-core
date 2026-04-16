@@ -173,7 +173,22 @@ def dev_command(action, args, project_root: str):
     # The simplest way is to just pass sys.argv minus the first two elements (prog name and command)
     # However, for robustness let's just use the raw arguments
     
-    cmd = [script_path] + sys.argv[2:]
+    if len(sys.argv) > 2 and sys.argv[2] == "commit":
+        cfg = config_data() or {}
+        dev_tool = (cfg.get("dev") or {}).get("tool", "disabled")
+        if str(dev_tool).strip() != "enabled":
+            msg_box_script = get_message_box_script()
+            msg = "dev.tool is not enabled in .__ontobdc__/config.yaml\n\nRun this once to fix:\n  ontobdc dev --enable-dev-tool"
+            if os.path.exists(msg_box_script):
+                subprocess.run(["bash", msg_box_script, "RED", "Error", "Dev Tool Disabled", msg], check=False)
+            else:
+                print("Error: dev.tool is not enabled in .__ontobdc__/config.yaml")
+            sys.exit(1)
+
+        commit_script = os.path.join(current_dir, "dev", "commit.sh")
+        cmd = ["bash", commit_script] + sys.argv[3:]
+    else:
+        cmd = [script_path] + sys.argv[2:]
 
     try:
         env = os.environ.copy()
@@ -234,15 +249,21 @@ def print_help():
     {GRAY}ontobdc{RESET} {CYAN}<command>{RESET} {GRAY}[flags/parameters]{RESET}
 
   {WHITE}Commands:{RESET}
-    {CYAN}init{RESET}      {GRAY}Initialize ontobdc config with engine (venv|colab){RESET}
-    {CYAN}check{RESET}     {GRAY}Run infrastructure checks{RESET}
-    {CYAN}run{RESET}       {GRAY}Run a capability via ontobdc/run{RESET}
-    {CYAN}list{RESET}      {GRAY}List all available capabilities{RESET}
+    {CYAN}init{RESET}       {GRAY}Initialize ontobdc config with engine (venv|colab){RESET}
+    {CYAN}check{RESET}      {GRAY}Run infrastructure checks{RESET}
+    {CYAN}run{RESET}        {GRAY}Run a capability via ontobdc/run{RESET}
+    {CYAN}list{RESET}       {GRAY}List all available capabilities{RESET}
+    {CYAN}storage{RESET}    {GRAY}Manage storage index (list/add/remove local datasets){RESET}
 """
 
-    # {CYAN}storage{RESET}    {GRAY}Storage tools{RESET}
-    # {CYAN}entity{RESET}    {GRAY}Entity Framework tools{RESET}
-    # {CYAN}dev{RESET}       {GRAY}Developer tools (e.g., ontobdc dev commit){RESET}
+    config_data_obj: Optional[Dict[str, Any]] = config_data()
+    if config_data_obj:
+        if config_data_obj.get("entity", {}).get("framework", 'disabled') == "enabled":
+            help_content += f"    {CYAN}entity{RESET}     {GRAY}Entity Framework tools{RESET}\n"
+        if config_data_obj.get("dev", {}).get("tool", 'disabled') == "enabled":
+            help_content += f"    {CYAN}dev{RESET}        {GRAY}Developer tools (e.g., ontobdc dev commit){RESET}\n"
+    # 
+    # 
 
     if os.path.exists(msg_box_script):
          subprocess.run(["bash", msg_box_script, "GRAY", "OntoBDC", "CLI Help", help_content], check=False)
