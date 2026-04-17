@@ -1,10 +1,9 @@
 
 import os
 import shutil
-from uuid import uuid4
 from pathlib import Path
 from urllib.parse import urlparse, unquote
-from rdflib.namespace import RDF, OWL, XSD
+from rdflib.namespace import RDF, OWL
 from rdflib import Graph, Namespace, URIRef, Literal
 from ontobdc.cli import get_config_dir, get_root_dir
 from ontobdc.storage.adapter.icdd import ICDDIndexAdapter
@@ -105,6 +104,50 @@ class StorageIndexAdapter(ICDDIndexAdapter):
         if not CrateStorageAdapter.is_valid(storage_path):
             CrateStorageAdapter.create(storage_path)
 
+    def _find_dataset_ref(self, dataset_id: str):
+        dcterms = StorageIndexAdapter.DCTERMS
+
+        for s in set(self._graph.subjects(dcterms.identifier, None)):
+            for o in self._graph.objects(s, dcterms.identifier):
+                if str(o) == dataset_id:
+                    return s
+
+        candidates = []
+        for s in set(self._graph.subjects(RDF.type, dcterms.Dataset)):
+            candidates.append(s)
+        base = StorageIndexAdapter._xml_base.rstrip("/") + "/"
+        for s in candidates:
+            ss = str(s)
+            if ss == dataset_id:
+                return s
+            if ss.endswith("/" + dataset_id) or ss.endswith(dataset_id):
+                return s
+            if dataset_id.startswith(base) and ss == dataset_id:
+                return s
+
+        return None
+
+    def has_dataset(self, dataset_id: str) -> bool:
+        if not self._load_index():
+            raise ValueError("Failed to load storage index")
+        dataset_id = (dataset_id or "").strip()
+        if not dataset_id:
+            return False
+        return self._find_dataset_ref(dataset_id) is not None
+
+    def _resolve_dataset_path(self, dataset_ref) -> tuple[str, Path]:
+        locs = [str(o) for o in self._graph.objects(dataset_ref, StorageIndexAdapter.PROV.atLocation)]
+        if not locs:
+            raise ValueError(f"Dataset {dataset_ref} has no prov:atLocation")
+
+        loc = locs[0]
+        if not loc.startswith("file://"):
+            raise ValueError(f"Dataset {dataset_ref} has unsupported location: {loc}")
+
+        parsed = urlparse(loc)
+        dataset_path = Path(unquote(parsed.path))
+        return loc, dataset_path
+
     def remove(self, dataset_id: str, save_action: callable = None) -> bool:
         if not self._load_index():
             raise ValueError("Failed to load storage index")
@@ -114,33 +157,7 @@ class StorageIndexAdapter(ICDDIndexAdapter):
             raise ValueError("dataset_id is required")
 
         dcterms = StorageIndexAdapter.DCTERMS
-        dataset_ref = None
-
-        for s in set(self._graph.subjects(dcterms.identifier, None)):
-            for o in self._graph.objects(s, dcterms.identifier):
-                if str(o) == dataset_id:
-                    dataset_ref = s
-                    break
-            if dataset_ref is not None:
-                break
-
-        if dataset_ref is None:
-            candidates = []
-            for s in set(self._graph.subjects(RDF.type, dcterms.Dataset)):
-                candidates.append(s)
-            base = StorageIndexAdapter._xml_base.rstrip("/") + "/"
-            for s in candidates:
-                ss = str(s)
-                if ss == dataset_id:
-                    dataset_ref = s
-                    break
-                if ss.endswith("/" + dataset_id) or ss.endswith(dataset_id):
-                    dataset_ref = s
-                    break
-                if dataset_id.startswith(base) and ss == dataset_id:
-                    dataset_ref = s
-                    break
-
+        dataset_ref = self._find_dataset_ref(dataset_id)
         if dataset_ref is None:
             return False
 
@@ -168,3 +185,44 @@ class StorageIndexAdapter(ICDDIndexAdapter):
                 shutil.rmtree(icdd_dir, ignore_errors=True)
 
         return True
+
+    def refresh(self, dataset_id: str | None = None, save_action: callable = None) -> int:
+        if not self._load_index():
+            raise ValueError("Failed to load storage index")
+
+        dcterms = StorageIndexAdapter.DCTERMS
+
+        datasets = []
+        if dataset_id:
+            dataset_ref = self._find_dataset_ref(dataset_id.strip())
+            if dataset_ref is None:
+                raise ValueError(f"Dataset not found: {dataset_id}")
+            datasets = [dataset_ref]
+        else:
+            datasets = list(set(self._graph.subjects(RDF.type, dcterms.Dataset)))
+
+        changed = False
+        refreshed = 0
+
+        for ds in datasets:
+            loc, dataset_path = self._resolve_dataset_path(ds)
+            if not dataset_path.exists():
+                raise FileNotFoundError(f"Dataset path does not exist for {ds}: {dataset_path}")
+
+            changed_by_refresh = CrateStorageAdapter.refresh(str(dataset_path))
+            if changed_by_refresh:
+                refreshed += 1
+
+            canonical_uri = dataset_path.resolve().as_uri()
+            if loc != canonical_uri:
+                self._graph.remove((ds, StorageIndexAdapter.PROV.atLocation, URIRef(loc)))
+                self._graph.add((ds, StorageIndexAdapter.PROV.atLocation, URIRef(canonical_uri)))
+                changed = True
+
+        if changed:
+            if type(save_action).__name__ == "method":
+                save_action()
+            else:
+                self.save()
+
+        return refreshed

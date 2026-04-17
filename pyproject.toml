@@ -7,7 +7,7 @@ name = "ontobdc"
 authors = [
     { name = "Elias Magalhães", email = "elias@brasidata.com" }
 ]
-version = "0.8.1"
+version = "0.9.0"
 description = "OntoBDC (Ontology-Based Data Capabilities)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,6 +18,7 @@ dependencies = [
     "datapackage",
     "rocrate",
     "rdflib",
+    "tableschema",
 ]
 
 [project.scripts]

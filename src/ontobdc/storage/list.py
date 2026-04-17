@@ -5,9 +5,9 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 from ontobdc.cli import get_root_dir
-from ontobdc.storage.adapter.icdd import ICDDIndexAdapter
 from rdflib import PROV, Graph, RDF, DCTERMS
 from ontobdc.storage import has_storage_index
+from ontobdc.storage.adapter.icdd import ICDDIndexAdapter
 from ontobdc.storage.adapter.storage import StorageIndexAdapter
 
 

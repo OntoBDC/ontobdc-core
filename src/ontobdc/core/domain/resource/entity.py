@@ -14,12 +14,12 @@ class Entity:
     
     @property
     def title(self) -> str:
-        dcterms: str = self._get_ontology_prefix(str(DCTERMS))
+        dcterms: str = self.get_ontology_prefix(str(DCTERMS))
         return self._manifest[f"{dcterms}:title"]
 
     @property
     def description(self) -> str:
-        dcterms: str = self._get_ontology_prefix(str(DCTERMS))
+        dcterms: str = self.get_ontology_prefix(str(DCTERMS))
         return self._manifest[f"{dcterms}:description"]
 
     @property
@@ -27,7 +27,7 @@ class Entity:
         """
         Get the package of the entity.
         """
-        ct: Optional[str] = self._get_ontology_prefix("https://standards.iso.org/iso/21597/-1/ed-1/en/Container#")
+        ct: Optional[str] = self.get_ontology_prefix("https://standards.iso.org/iso/21597/-1/ed-1/en/Container#")
         if ct is None:
             raise ValueError("Container prefix not found in context.")
 
@@ -35,7 +35,25 @@ class Entity:
 
         return package_uri.split(":")[-1].split("/")
 
-    def _get_ontology_prefix(self, uri: str) -> Optional[str]:
+    @property
+    def fields(self) -> Dict[str, Any]:
+        """
+        Get the fields of the entity.
+        """
+        fields: Dict[str, Any] = {}
+        for field_name, field in self._manifest['@context'].items():
+            if isinstance(field, dict) and '@id' in field.keys() and '@type' in field.keys():
+                fields[field_name] = field
+
+        return fields
+
+    def get_uri(self, prefix: str) -> Optional[str]:
+        if prefix in self._manifest['@context']:
+            return self._manifest['@context'][prefix]
+
+        return None
+
+    def get_ontology_prefix(self, uri: str) -> Optional[str]:
         """
         Get the ontology prefix from the URI.
         """
@@ -44,6 +62,17 @@ class Entity:
                 return prefix
 
         return None
+
+    def get_objects_from_prefix(self, prefix: str) -> List[Dict[str, Any]]:
+        """
+        Get the objects from the prefix.
+        """
+        prefixed:  List[Dict[str, Any]] = []
+        for key, value in self._manifest['@context'].items():
+            if key.startswith(f"{prefix}:"):
+                prefixed.append({value: key.split(f"{prefix}:")[-1]})
+
+        return prefixed
 
     def __str__(self) -> str:
         return f"{self.title} ({self._manifest['@id']})"

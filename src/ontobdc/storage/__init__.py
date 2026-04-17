@@ -90,3 +90,27 @@ def remove_storage(dataset_id: str) -> int:
 
     _message_box("GREEN", "Success", "Storage", f"Dataset removed:\n{dataset_id}")
     return 0
+
+
+def refresh_storage(dataset_id: str | None = None) -> int:
+    if not has_storage_index():
+        _message_box("YELLOW", "Warning", "Storage", "No storage has been initialized yet.")
+        return 2
+
+    try:
+        storage_index: StorageIndexAdapter = StorageIndexAdapter()
+        if dataset_id and not storage_index.has_dataset(dataset_id):
+            _message_box("YELLOW", "Warning", "Storage", f"Dataset not found:\n{dataset_id}")
+            return 2
+        refreshed = storage_index.refresh(dataset_id, save_action=storage_index.save)
+    except Exception as e:
+        target = dataset_id if dataset_id else "all"
+        _message_box("RED", "Error", "Storage", f"Failed to refresh storage:\n{target}\n{e}")
+        return 1
+
+    if refreshed == 0:
+        _message_box("GRAY", "Info", "Storage", "No changes detected.")
+        return 0
+
+    _message_box("GREEN", "Success", "Storage", f"Storage refreshed.\nDatasets updated: {refreshed}")
+    return 0

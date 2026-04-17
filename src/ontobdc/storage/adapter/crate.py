@@ -70,6 +70,60 @@ class CrateStorageAdapter():
         return crate_adapter
 
     @classmethod
+    def refresh(cls, crate_path: str) -> bool:
+        if not os.path.isdir(crate_path):
+            raise ValueError(f"The crate path {crate_path} is not a directory")
+        if not cls.is_valid(crate_path):
+            raise ValueError(f"The crate path {crate_path} is not valid")
+
+        crate_root = Path(crate_path).resolve()
+        payload_triples = os.path.join(crate_path, cls.PAYLOAD_TRIPLE_DIR)
+        crate = ROCrate(source=payload_triples, gen_preview=False)
+
+        tmp = ROCrate(gen_preview=False)
+        tmp.add_tree(str(crate_root))
+
+        expected = set()
+        for entity in tmp.get_entities():
+            entity_type = getattr(entity, "type", None)
+            entity_id = str(getattr(entity, "id", ""))
+            if entity_type != "File" or not entity_id:
+                continue
+            if entity_id == cls.CRATE_METADATA_FILE:
+                continue
+            if entity_id.startswith(".__icdd__/"):
+                continue
+            if any(part.startswith(".") for part in entity_id.split("/")):
+                continue
+            expected.add(entity_id)
+
+        existing_entities = {}
+        for entity in crate.get_entities():
+            entity_type = getattr(entity, "type", None)
+            entity_id = str(getattr(entity, "id", ""))
+            if entity_type == "File" and entity_id and entity_id != cls.CRATE_METADATA_FILE:
+                existing_entities[entity_id] = entity
+
+        existing = set(existing_entities.keys())
+        to_remove = sorted(existing - expected)
+        to_add = sorted(expected - existing)
+
+        changed = False
+        if to_remove:
+            crate.delete(*[existing_entities[x] for x in to_remove])
+            changed = True
+        for rel in to_add:
+            crate.add_file(source=None, dest_path=rel)
+            changed = True
+
+        if changed:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=r"No source for .*")
+                crate.write(payload_triples)
+
+        return changed
+
+    @classmethod
     def is_valid(cls, crate_path: str) -> bool:
         if not os.path.isdir(crate_path):
             return False
