@@ -88,7 +88,29 @@ It executes registered checks over the target dataset, reports inconsistencies, 
 
 This ensures reproducibility, auditability, and deterministic validation of engineering workflows.
 
-## 🤝 Contributing
+## Project Map (mini-modules)
+
+OntoBDC is intentionally split into small modules so you can quickly find “where a concern lives”. A simple mental model:
+- If it is a top-level CLI command, start in `src/ontobdc/<command>/` or `src/ontobdc/cli/`.
+- If it is about discovery, parsing flags, selecting, and executing, start in `src/ontobdc/run/`.
+- If it is a domain feature (documents, social, etc.), start in `src/ontobdc/module/<domain>/`.
+
+Mini-modules (by responsibility):
+- **CLI / command routing**: [src/ontobdc/cli](src/ontobdc/cli) — main dispatcher (`ontobdc <command> ...`), init logic, message-box/log helpers.
+- **Infrastructure checks**: [src/ontobdc/check](src/ontobdc/check) — check runner and infra checks (`ontobdc check --repair`).
+- **Runtime (discovery/execution)**: [src/ontobdc/run](src/ontobdc/run) — capability discovery, CLI context resolution (strategies), interactive selection UI, execution.
+- **Catalog/listing**: [src/ontobdc/list](src/ontobdc/list) — “what is available?” tooling (`ontobdc list`), including JSON output for automation.
+- **Storage (dataset index)**: [src/ontobdc/storage](src/ontobdc/storage) — storage index management (`ontobdc storage ...`), refresh/remove/local dataset registration.
+- **Plan (semantic execution plan)**: [src/ontobdc/plan](src/ontobdc/plan) — generates RDF/Turtle artifacts linking capability IDs, parameters, and resolved context.
+- **Entity tools (optional framework/CLI)**: [src/ontobdc/entity](src/ontobdc/entity) — entity-related scripts and utilities (typically enabled via config).
+- **Developer tools (scripts)**: [src/ontobdc/dev](src/ontobdc/dev) — local developer workflows (branch/commit helpers, etc.).
+- **Core (shared ports/adapters)**: [src/ontobdc/core](src/ontobdc/core) — foundational abstractions used by other modules (ports, verification utilities).
+- **Domain modules (plugins/capabilities per domain)**: [src/ontobdc/module](src/ontobdc/module)
+  - **Resource**: [src/ontobdc/module/resource](src/ontobdc/module/resource) — document repository abstractions, renderers, and “resource” capabilities.
+  - **Social**: [src/ontobdc/module/social](src/ontobdc/module/social) — social/account concepts and early CLI strategies (e.g., WhatsApp-related).
+- **UI/output templates**: [src/ontobdc/plugin/template](src/ontobdc/plugin/template) — reusable CLI rendering components (cards/tables).
+
+## Contributing
 
 We are always on the lookout for contributors to help us fix bugs, create new features, or help us improve project documentation. If you are interested, feel free to create a [PR](https://github.com/OntoBDC/ontobdc-core/pulls) or open an [issue](https://github.com/OntoBDC/ontobdc-core/issues) on this topic.
 
