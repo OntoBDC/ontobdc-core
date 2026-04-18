@@ -2,8 +2,8 @@
 import os
 import shutil
 from pathlib import Path
-from urllib.parse import urlparse, unquote
 from rdflib.namespace import RDF, OWL
+from urllib.parse import urlparse, unquote
 from rdflib import Graph, Namespace, URIRef, Literal
 from ontobdc.cli import get_config_dir, get_root_dir
 from ontobdc.storage.adapter.icdd import ICDDIndexAdapter
