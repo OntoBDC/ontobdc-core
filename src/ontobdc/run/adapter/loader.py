@@ -4,7 +4,7 @@ import inspect
 import os
 import sys
 from typing import List, Type
-from ontobdc.run.domain.capability import Capability
+from ontobdc.core.domain.capability import Capability
 from ontobdc.run.domain.action import Action
 
 class CapabilityLoader:
