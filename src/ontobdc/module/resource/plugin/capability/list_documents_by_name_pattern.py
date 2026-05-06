@@ -4,9 +4,9 @@ from fnmatch import fnmatch
 from typing import Any, Dict, List, Optional
 from ontobdc.module.resource.adapter.renderer.document_list import DocumentListRenderer
 from ontobdc.module.resource.audit.repository import HasReadPermission
-from ontobdc.run.core.capability import Capability, CapabilityMetadata
+from ontobdc.run.domain.capability import Capability, CapabilityMetadata
 from ontobdc.module.resource.domain.port.repository import DocumentRepositoryPort
-from ontobdc.run.core.port.contex import CliContextPort
+from ontobdc.run.domain.port.contex import CliContextPort
 
 
 class ListDocumentsByNamePatternCapability(Capability):

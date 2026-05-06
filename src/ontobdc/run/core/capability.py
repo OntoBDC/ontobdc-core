@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Type
-from ontobdc.run.core.port.contex import CliContextPort
+from ontobdc.run.domain.port.contex import CliContextPort
 from ontobdc.core.domain.port.verification import SelfVerifiablePort
 
 

@@ -1,5 +1,5 @@
 from typing import List, Optional
-from ontobdc.run.core.port.contex import CliContextStrategyPort, CliContextPort
+from ontobdc.run.domain.port.contex import CliContextStrategyPort, CliContextPort
 
 
 class CapabilityIdStrategy(CliContextStrategyPort):

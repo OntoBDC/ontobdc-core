@@ -1,5 +1,5 @@
 
-from ontobdc.run.core.port.contex import CliContextStrategyPort, CliContextPort
+from ontobdc.run.domain.port.contex import CliContextStrategyPort, CliContextPort
 
 
 class ExportStrategy(CliContextStrategyPort):

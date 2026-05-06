@@ -1,7 +1,7 @@
 
 from typing import Any, Dict, Optional
 from ontobdc.core.domain.resource.entity import Entity
-from ontobdc.run.core.port.contex import CliContextPort
+from ontobdc.run.domain.port.contex import CliContextPort
 from ontobdc.core.domain.port.entity import EntityRepositoryPort
 
 

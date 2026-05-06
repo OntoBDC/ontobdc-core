@@ -11,7 +11,7 @@ from graphlib import TopologicalSorter
 from typing import Dict, Any, Optional, List, Tuple
 from ontobdc.list.list import main as list_capability
 from ontobdc.plan.adapter.ontology import DirectedAcyclicGraph
-from ontobdc.run.core.port.contex import CliContextPort
+from ontobdc.run.domain.port.contex import CliContextPort
 from ontobdc.run.adapter.contex import CliContextResolver
 
 

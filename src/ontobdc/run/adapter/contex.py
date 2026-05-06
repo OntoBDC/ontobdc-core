@@ -4,9 +4,9 @@ import pkgutil
 import inspect
 import importlib
 from typing import List, Dict, Any, Type
-import ontobdc.run.core.strategy as strategy_pkg
-from ontobdc.run.core.capability import Capability
-from ontobdc.run.core.port.contex import CliContextPort, CliContextStrategyPort
+import ontobdc.run.domain.strategy as strategy_pkg
+from ontobdc.run.domain.capability import Capability
+from ontobdc.run.domain.port.contex import CliContextPort, CliContextStrategyPort
 
 
 class CliContextAdapter(CliContextPort):

@@ -4,8 +4,8 @@ import inspect
 import os
 import sys
 from typing import List, Type
-from ontobdc.run.core.capability import Capability
-from ontobdc.run.core.action import Action
+from ontobdc.run.domain.capability import Capability
+from ontobdc.run.domain.action import Action
 
 class CapabilityLoader:
     @staticmethod

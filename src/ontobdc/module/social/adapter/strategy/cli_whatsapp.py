@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 from rich.console import Console
-from ontobdc.run.core.action import Action
+from ontobdc.run.domain.action import Action
 from ontobdc.module.resource.domain.port.repository import DocumentRepositoryPort
 
 class ExtractWhatsappCliStrategy:
