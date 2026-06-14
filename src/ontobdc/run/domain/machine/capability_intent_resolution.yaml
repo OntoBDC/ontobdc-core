@@ -1,0 +1,115 @@
+
+
+statechart:
+  name: IntentResolution
+  description: The statechart for resolving the intent of a capability.
+
+  root state:
+    name: capability_intent_resolution
+    initial: undefined
+
+    states:
+      - name: undefined
+        description: "The initial state, where the capability intent resolution process starts."
+        transitions:
+          - target: empty
+            guard: handler.can_transit_to(to_state = IntentStatePort.EMPTY)
+            action: handler.perform_state_transition(to_state = IntentStatePort.EMPTY)
+            contract:
+              - after: handler.validate_state_transition(from_state = IntentStatePort.UNDEFINED, to_state = IntentStatePort.EMPTY)
+
+      - name: empty
+        description: "The state where the handler asks the user what language they prefer."
+        transitions:
+          - target: language_defined
+            guard: handler.can_transit_to(to_state = IntentStatePort.LANGUAGE_DEFINED)
+            action: handler.perform_state_transition(to_state = IntentStatePort.LANGUAGE_DEFINED)
+            contract:
+              - after: handler.validate_state_transition(from_state = IntentStatePort.EMPTY, to_state = IntentStatePort.LANGUAGE_DEFINED)
+
+      - name: language_defined
+        description: "The state where the handler asks the user what they want to do."
+        transitions:
+          - target: intended
+            guard: handler.can_transit_to(to_state = IntentStatePort.INTENDED)
+            action: handler.perform_state_transition(to_state = IntentStatePort.INTENDED)
+            contract:
+              - after: handler.validate_state_transition(from_state = IntentStatePort.LANGUAGE_DEFINED, to_state = IntentStatePort.INTENDED)
+
+      - name: intended
+        description: "The state where the handler has the user's intended action defined."
+        transitions:
+          - target: canonical
+            guard: handler.can_transit_to(to_state = IntentStatePort.CANONICAL)
+            action: handler.perform_state_transition(to_state = IntentStatePort.CANONICAL)
+            contract:
+              - after: handler.validate_state_transition(from_state = IntentStatePort.INTENDED, to_state = IntentStatePort.CANONICAL)
+
+      - name: canonical
+        description: "The state where the handler has the user's canonical intent defined."
+        transitions:
+          - target: parsed
+            guard: handler.can_transit_to(to_state = IntentStatePort.PARSED)
+            action: handler.perform_state_transition(to_state = IntentStatePort.PARSED)
+            contract:
+              - after: handler.validate_state_transition(from_state = IntentStatePort.CANONICAL, to_state = IntentStatePort.PARSED)
+
+      - name: parsed
+        description: "The state where the handler has parsed the user's intent."
+        transitions:
+          - target: validated
+            guard: handler.intent_score_is_sufficient() and handler.can_transit_to(to_state = IntentStatePort.VALIDATED)
+            action: handler.perform_state_transition(to_state = IntentStatePort.VALIDATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = IntentStatePort.PARSED, to_state = IntentStatePort.VALIDATED)
+          - target: low_confidence
+            guard: handler.intent_score_is_insufficient() and handler.can_transit_from(from_state = IntentStatePort.LOW_CONFIDENCE)
+            action: handler.perform_state_transition(from_state = IntentStatePort.LOW_CONFIDENCE)
+            contract:
+              - after: handler.validate_state_transition(from_state = IntentStatePort.PARSED, to_state = IntentStatePort.LOW_CONFIDENCE)
+
+      - name: low_confidence
+        description: "The state where the parsed intent exists, but the confidence score is insufficient."
+        transitions:
+          - target: validated
+            guard: handler.intent_score_is_sufficient() and handler.can_transit_to(to_state = IntentStatePort.VALIDATED)
+            action: handler.perform_state_transition(to_state = IntentStatePort.VALIDATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = IntentStatePort.LOW_CONFIDENCE, to_state = IntentStatePort.PARSED)
+
+      - name: validated
+        description: "The state where the user confirmed the resolved intent."
+        transitions:
+          - target: planned
+            guard: handler.can_transit_to(to_state = IntentStatePort.PLANNED)
+            action: handler.perform_state_transition(to_state = IntentStatePort.PLANNED)
+            contract:
+              - after: handler.validate_state_transition(from_state = IntentStatePort.VALIDATED, to_state = IntentStatePort.PLANNED)
+          - target: unreachable
+            guard: handler.execution_plan_is_unreachable() and handler.can_transit_to(to_state = IntentStatePort.UNREACHABLE)
+            action: handler.perform_state_transition(to_state = IntentStatePort.UNREACHABLE)
+            contract:
+              - after: handler.validate_state_transition(from_state = IntentStatePort.VALIDATED, to_state = IntentStatePort.UNREACHABLE)
+
+      - name: planned
+        description: "The state where the capability intent resolution process is planned."
+        transitions:
+          - target: filled
+            guard: handler.execution_plan_is_valid() and handler.can_transit_to(to_state = IntentStatePort.FILLED)
+            action: handler.perform_state_transition(to_state = IntentStatePort.FILLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = IntentStatePort.PLANNED, to_state = IntentStatePort.FILLED)
+
+      - name: unreachable
+        description: "The state where the capability intent resolution process is unreachable."
+        type: final
+
+      - name: filled
+        description: "The final state: capability inputs are filled and ready for execution."
+        type: final
+
+
+
+
+
+

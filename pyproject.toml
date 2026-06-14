@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ontobdc"
+authors = [
+    { name = "Elias Magalhães", email = "elias@brasidata.com" }
+]
+version = "0.9.0"
+description = "OntoBDC (Ontology-Based Data Capabilities)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "rich",
+    "PyYAML",
+    "numpy",
+    "rfc3987",
+    "sismic",
+    "spacy",
+    "networkx",
+    "pyspellchecker",
+]
+
+[project.optional-dependencies]
+storage = [
+    "datapackage",
+    "rocrate",
+    "tableschema",
+    "lxml",
+    "rdflib",
+    "frictionless",
+]
+dev = [
+    "pytest",
+    "coverage",
+]
+a3 = [
+    "rdflib",
+    "pyshacl",
+]
+a3-openai = [
+
+]
+social = [
+    "rdflib",
+]
+
+[project.scripts]
+ontobdc = "ontobdc.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+"ontobdc" = [
+    "*.sh",
+    "cli/*.sh",
+    "dev/*.sh",
+    "run/*.sh",
+    "check/*.sh",
+    "check/*.json",
+    "check/infra/*/*.sh",
+    "entity/*.sh",
+    "core/**",
+    "module/**",
+    "prompt/**",
+    "plugin/**",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ontobdc*"]
+
+[tool.ontobdc]
+documentation_scope = "current CLI command surface"
+documentation_source = "https://ontobdc.org/"
+
