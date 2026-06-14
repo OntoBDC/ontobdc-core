@@ -1,7 +1,7 @@
 
 from typing import Dict, Any, List
 from ontobdc.core.domain.resource.entity import Entity
-from ontobdc.run.core.port.contex import CliContextPort
+from ontobdc.run.domain.port.contex import CliContextPort
 from ontobdc.run.adapter.contex import CliContextResolver
 from ontobdc.cli.init import log as print_log, message_box
 from ontobdc.core.adapter.storage import EntityStorageAdapter

@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Optional, Type
 import yaml
 from rich.console import Console
 from ontobdc.run.adapter.loader import CapabilityLoader
-from ontobdc.run.core.port.contex import CliContextPort
+from ontobdc.run.domain.port.contex import CliContextPort
 from ontobdc.run.adapter.contex import CliContextResolver
-from ontobdc.run.core.capability import Capability, CapabilityExecutor
+from ontobdc.run.domain.capability import Capability, CapabilityExecutor
 from ontobdc.run.ui import YELLOW, RED, print_message_box, GRAY, CYAN
 
 # Bootstrap: Setup project root first to allow ontobdc imports

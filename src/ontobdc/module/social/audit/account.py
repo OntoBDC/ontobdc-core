@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from ontobdc.core.domain.port.verification import VerificationStrategyPort
-from ontobdc.run.core.capability import CapabilityExecutor, CapabilityRegistry
+from ontobdc.run.domain.capability import CapabilityExecutor, CapabilityRegistry
 
 
 class ValidWhatsappAccount(VerificationStrategyPort):

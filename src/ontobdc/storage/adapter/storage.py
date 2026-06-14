@@ -51,6 +51,9 @@ class StorageIndexAdapter(ICDDIndexAdapter):
     def xml_base(self) -> str:
         return StorageIndexAdapter._xml_base
 
+    def save(self):
+        self._graph.serialize(destination=self._index_path, format="xml")
+
     def _load_index(self) -> bool:
         if isinstance(self._index_graph, Graph):
             return True
@@ -59,7 +62,7 @@ class StorageIndexAdapter(ICDDIndexAdapter):
             return False
 
         self._index_graph = Graph()
-        self._index_graph.parse(self._index_path)
+        self._index_graph.parse(self._index_path, format="xml")
 
         if self._container_id is None:
             for s in self._index_graph.subjects(RDF.type, ICDDIndexAdapter.CT.ContainerDescription):

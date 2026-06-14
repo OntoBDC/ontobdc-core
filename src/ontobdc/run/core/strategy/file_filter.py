@@ -1,4 +1,4 @@
-from ontobdc.run.core.port.contex import CliContextStrategyPort, CliContextPort
+from ontobdc.run.domain.port.contex import CliContextStrategyPort, CliContextPort
 
 class FileNameStrategy(CliContextStrategyPort):
     def execute(self, context: CliContextPort) -> CliContextPort:
