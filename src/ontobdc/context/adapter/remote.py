@@ -7,10 +7,10 @@ from frictionless import Package
 from urllib.parse import urlparse, ParseResult
 from typing import Dict, Any, Optional, Type, List
 from ontobdc.shared.domain.port.context import CliContextPort
-from ontobdc.storage.domain.port.dataset import RemoteDatasetCapabilityPort, RemoteDatasetCapabilityVisitorPort, RemoteDatasetRepositoryPort, EntityQueryCapabilityVisitablePort
-from ontobdc.context.domain.port.remote import LinksetDatapackageResourcePort
 from ontobdc.context.domain.resource.remote import RemoteCapabilityMetadata
+from ontobdc.context.domain.port.remote import LinksetDatapackageResourcePort
 from ontobdc.shared.domain.resource.capability import CapabilityExecutor, Capability, QueryCapability
+from ontobdc.storage.domain.port.dataset import RemoteDatasetCapabilityPort, RemoteDatasetCapabilityVisitorPort, RemoteDatasetRepositoryPort, EntityQueryCapabilityVisitablePort
 
 
 class LinksetDatapackageResource(LinksetDatapackageResourcePort):
@@ -65,9 +65,10 @@ class RemoteCommandRunAdapter:
         """
         capability_id: str = capability_metadata.identifier
 
+        capability_module: Optional[Any] = None
         try:
             try:
-                capability_module: Any = dataset.load_capability(capability_id)
+                capability_module = dataset.load_capability(capability_id)
 
                 # Step 3: Find and instantiate the capability class
                 capability_class: Type[Capability] = cls._find_capability_class(capability_module, capability_id)
@@ -79,7 +80,7 @@ class RemoteCommandRunAdapter:
 
                 if issubclass(capability_class, QueryCapability) or isinstance(capability_instance, EntityQueryCapabilityVisitablePort):
                     from ontobdc.context.adapter.visitor import EntityQueryCapabilityVisitor
-                    visitor = EntityQueryCapabilityVisitor(dataset)
+                    visitor: RemoteDatasetCapabilityVisitorPort = EntityQueryCapabilityVisitor(dataset)
                     capability_instance.accept(visitor)
 
                 # Step 4: Execute the capability
@@ -89,9 +90,12 @@ class RemoteCommandRunAdapter:
 
             finally:
                 # Clean up temporary directory
-                shutil.rmtree(Path(capability_module.__file__).parent, ignore_errors=True)
+                if capability_module and hasattr(capability_module, "__file__"):
+                    shutil.rmtree(Path(capability_module.__file__).parent, ignore_errors=True)
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             raise RuntimeError(f"Failed to execute remote capability: {str(e)}") from e
 
     @classmethod

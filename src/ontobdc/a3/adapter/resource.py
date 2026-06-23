@@ -4,7 +4,7 @@ import hashlib
 from pathlib import Path
 from typing import Any, Dict, Optional
 from ontobdc.storage.domain.port.resource import TextFileResourcePort
-from ontobdc.storage.domain.port.repository import DatasetRepositoryPort
+from ontobdc.storage.domain.port.dataset import DatasetRepositoryPort
 
 
 class RawTextResourceAdapter(TextFileResourcePort):

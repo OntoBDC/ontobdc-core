@@ -1,8 +1,7 @@
 
 import os
 from rdflib import Graph
-from ontobdc.cli import get_config_dir
-from ontobdc.cli.init import is_extra_enabled
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 
 
 EMPTY_STORAGE_GRAPH: str = """
@@ -24,8 +23,8 @@ def is_enabled() -> bool:
     Checks if all dependencies defined in the 'storage' extra 
     of pyproject.toml are installed and storage file is valid.
     """
-    if not is_extra_enabled("storage"):
-        return False
+    # if not is_extra_enabled("storage"):
+    #     return False
 
     if not is_storage_file_valid():
         return False
@@ -33,7 +32,7 @@ def is_enabled() -> bool:
     return True
 
 def get_storage_file() -> str:
-    return os.path.join(get_config_dir(), "storage.ttl")
+    return str(ConfigDataAdapter().config_dir / "storage.ttl")
 
 def is_storage_file_valid() -> bool:
     if not os.path.exists(get_storage_file()):

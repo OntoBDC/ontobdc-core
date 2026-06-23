@@ -29,8 +29,7 @@ class CapabilityParamResolverRunner(CapabilityParamResolverRunnerPort):
         module_basename = to_snake_case(resolver_base)
         resolver_class_name = f"{to_pascal_case(resolver_base)}ParamResolver"
 
-        from ontobdc.cli import get_script_dir
-        ontobdc_dir = get_script_dir()
+        ontobdc_dir = str(ConfigDataAdapter().script_dir)
 
         for entry in sorted(os.listdir(ontobdc_dir)):
             entry_path = os.path.join(ontobdc_dir, entry)

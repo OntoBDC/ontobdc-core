@@ -3,8 +3,7 @@ from rdflib import Graph, URIRef
 from rdflib.namespace import RDF
 from frictionless import Package
 from frictionless.system import system
-from typing import Dict, Any, Optional, List
-from frictionless.resources.table import TableResource
+from typing import Dict, Any, Optional
 from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
 from ontobdc.context.domain.port.remote import RemoteResourceLoaderPort
 from ontobdc.storage.domain.port.dataset import RemoteDatasetRepositoryPort

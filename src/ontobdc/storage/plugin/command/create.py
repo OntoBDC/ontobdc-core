@@ -1,17 +1,20 @@
 
 import os
+import sys
 import warnings
-from typing import Any
-from rdflib import Graph
+import subprocess
+from pathlib import Path
+from rdflib import Graph, URIRef
 from rocrate.rocrate import ROCrate
-from ontobdc.cli import get_root_dir
+from typing import Any, Iterable, List, Tuple
 from ontobdc.cli.adapter.command import CliCommandRequest
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.cli.domain.resource.command import CommandResponse
 from ontobdc.storage.adapter.container import StorageLocalContainerAdapter
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
 from ontobdc.storage.domain.port.repository import LoadedStorageContainerCratePort
-from ontobdc.storage import EMPTY_STORAGE_GRAPH, CRATE_METADATA_FILE, is_enabled, get_storage_file
 from ontobdc.storage.adapter.repository import LoadedStorageContainerCrate, LoadedStorageGraph
+from ontobdc.storage import EMPTY_STORAGE_GRAPH, CRATE_METADATA_FILE, is_enabled, get_storage_file
 
 
 class StorageCreateCommand(CliCommandPort):
@@ -34,6 +37,13 @@ class StorageCreateCommand(CliCommandPort):
         ],
     )
 
+    @staticmethod
+    def accepts(args: List[str]) -> bool:
+        """
+        Match the storage container creation command at the CLI routing stage.
+        """
+        return len(args) > 2 and args[0] == "storage" and args[1] == "--create"
+
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
         self._print_log : callable = None
@@ -46,69 +56,47 @@ class StorageCreateCommand(CliCommandPort):
         Check if the command is valid.
         Returns True if the command is valid, False otherwise.
         """
-        return is_enabled() and len(self._request.command_args) == 2
+        return (
+            is_enabled()
+            and len(self._request.command_args) == 2
+            and self._request.command_args[0] == "--create"
+        )
 
     def run(self) -> CommandResponse:
         """
         Execute the command to create a new local container.
         """
         try:
-            import os
-            path_arg: str = self._request.command_args[1]
-            abs_path = os.path.abspath(path_arg).split(get_root_dir())[-1].strip("/")
+            root_dir = Path(ConfigDataAdapter().root_dir).resolve()
+            full_dir_path, container_path = self._resolve_container_path(root_dir, self._request.command_args[1])
+            full_dir_path.mkdir(parents=True, exist_ok=True)
 
-            # Ensure the directory exists
-            full_dir_path = os.path.join(get_root_dir(), abs_path)
-            if not os.path.exists(full_dir_path):
-                os.makedirs(full_dir_path, exist_ok=True)
-
-            file_uri = f"urn:ontobdc:storage/local/{abs_path}"
-            container_id = f"urn:ontobdc:storage/local/{abs_path}"
-
-            # Load the storage graph
+            container_id = self._build_container_id(container_path)
             graph: LoadedStorageGraph = LoadedStorageGraph(get_storage_file())
-
-            # Create and save the local container
-            container = StorageLocalContainerAdapter(graph, container_id, f"file://{full_dir_path}")
+            container_ref = URIRef(container_id)
+            container = StorageLocalContainerAdapter(graph, container_id, full_dir_path.as_uri())
             if container.container_exists():
                 raise ValueError(f"Container {container_id} already exists.")
 
             container.save()
-            
-            self._container_set_finish(full_dir_path, graph.graph.predicate_objects(container_id), container_id)
 
-            self._print_info_log(f"Created local container at {abs_path}")
+            self._container_set_finish(
+                full_dir_path=full_dir_path,
+                predicate_objects=graph.graph.predicate_objects(container_ref),
+                container_ref=container_ref,
+            )
 
-            # Execute hotfix command asynchronously
-            try:
-                import subprocess
-                import sys
-                
-                # We need to construct the environment to make sure PYTHONPATH points to wip/src
-                # Also, ontobdc.cli is a package, we need to point directly to its __init__.py
-                # or pass -c to execute from the main namespace.
-                # Since we know the path of the script, we can construct the direct call
-                cli_path = os.path.join(get_root_dir(), "wip", "src", "ontobdc", "cli", "__init__.py")
-                env = os.environ.copy()
-                src_path = os.path.join(get_root_dir(), "wip", "src")
-                env["PYTHONPATH"] = src_path + (os.pathsep + env["PYTHONPATH"] if "PYTHONPATH" in env else "")
-
-                # Start a detached process that executes the hotfix
-                if get_root_dir():
-                    subprocess.Popen(
-                        [sys.executable, cli_path, "storage", "--fix"],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        start_new_session=True,
-                        env=env
-                    )
-            except Exception as e:
-                self._print_info_log(f"Warning: Could not complete the process: {e}")
+            self._print_info_log(f"Created local container at {container_path}")
+            self._run_hotfix_async(root_dir)
 
             return CommandResponse(
                 title="Storage Container Created",
-                description=f"Successfully created a new local storage container at {abs_path}.",
-                content={"container_id": container_id, "location": file_uri, "path": abs_path}
+                description=f"Successfully created a new local storage container at {container_path}.",
+                content={
+                    "container_id": container_id,
+                    "location": container_id,
+                    "path": container_path,
+                }
             )
         except Exception as e:
             return CommandResponse(
@@ -121,44 +109,84 @@ class StorageCreateCommand(CliCommandPort):
         if self._print_log:
             self._print_log("INFO", "Create Storage", message)
 
-    def _container_set_finish(self, full_dir_path: str, predicate_objects: Any, container_id: str) -> None:
-        container_config_dir = os.path.join(full_dir_path, ".__ontobdc__")
+    def _resolve_container_path(self, root_dir: Path, path_arg: str) -> Tuple[Path, str]:
+        requested_path = Path(path_arg).expanduser()
+        if not requested_path.is_absolute():
+            requested_path = (Path.cwd() / requested_path).resolve()
+        else:
+            requested_path = requested_path.resolve()
 
-        # Create config dir if not exists
-        if not os.path.exists(container_config_dir):
-            os.makedirs(container_config_dir, exist_ok=True)
+        try:
+            relative_path = requested_path.relative_to(root_dir)
+        except ValueError as exc:
+            raise ValueError(
+                f"Storage container path must be inside the project root: {root_dir}"
+            ) from exc
+
+        normalized_path = relative_path.as_posix().strip("/")
+        if not normalized_path:
+            raise ValueError("Storage container path cannot be the project root itself.")
+
+        return (root_dir / relative_path, normalized_path)
+
+    def _build_container_id(self, container_path: str) -> str:
+        return f"urn:ontobdc:storage/local/{container_path}"
+
+    def _run_hotfix_async(self, root_dir: Path) -> None:
+        try:
+            cli_path = root_dir / "wip" / "src" / "ontobdc" / "cli" / "__init__.py"
+            src_path = root_dir / "wip" / "src"
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(src_path) + (
+                os.pathsep + env["PYTHONPATH"] if "PYTHONPATH" in env else ""
+            )
+
+            subprocess.Popen(
+                [sys.executable, str(cli_path), "storage", "--fix"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+                env=env,
+            )
+        except Exception as exc:
+            self._print_info_log(f"Warning: Could not complete the process: {exc}")
+
+    def _container_set_finish(
+        self,
+        full_dir_path: Path,
+        predicate_objects: Iterable[Tuple[Any, Any]],
+        container_ref: URIRef,
+    ) -> None:
+        container_config_dir = full_dir_path / ".__ontobdc__"
+        if not container_config_dir.exists():
+            container_config_dir.mkdir(parents=True, exist_ok=True)
             self._print_info_log(f"Created {container_config_dir}")
 
-        container_storage_file = os.path.join(container_config_dir, "storage.ttl")
-
-        # Create storage file if not exists
-        if not os.path.exists(container_storage_file):
-            # Write the empty storage RDF content to the file
-            with open(container_storage_file, "w", encoding="utf-8") as f:
-                f.write(EMPTY_STORAGE_GRAPH)
+        container_storage_file = container_config_dir / "storage.ttl"
+        if not container_storage_file.exists():
+            container_storage_file.write_text(EMPTY_STORAGE_GRAPH, encoding="utf-8")
             self._print_info_log(f"Created {container_storage_file}")
 
         g_container: Graph = Graph()
-        g_container.parse(container_storage_file, format="turtle")
+        g_container.parse(str(container_storage_file), format="turtle")
 
-        # 2. Add the correct properties from the root graph
         for p, o in predicate_objects:
-            g_container.add((container_id, p, o))
+            g_container.add((container_ref, p, o))
 
-        g_container.serialize(destination=container_storage_file, format="turtle")
+        g_container.serialize(destination=str(container_storage_file), format="turtle")
         self._print_info_log(f"Synced data for container in {container_storage_file}")
 
-        container_ro_crate_file: str = os.path.join(container_config_dir, CRATE_METADATA_FILE)
-        if not os.path.exists(container_ro_crate_file) or not os.path.isfile(container_ro_crate_file):
+        container_ro_crate_file = container_config_dir / CRATE_METADATA_FILE
+        if not container_ro_crate_file.exists() or not container_ro_crate_file.is_file():
             container_ro_crate: ROCrate = ROCrate(gen_preview=False)
 
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", message=r"No source for .*")
-                container_ro_crate.write(container_config_dir)
+                container_ro_crate.write(str(container_config_dir))
                 self._print_info_log(f"Created RO-Crate file {container_ro_crate_file}")
 
-        container_ro_crate: LoadedStorageContainerCratePort = LoadedStorageContainerCrate(container_ro_crate_file)
+        container_ro_crate: LoadedStorageContainerCratePort = LoadedStorageContainerCrate(
+            str(container_ro_crate_file)
+        )
         container_ro_crate.refresh()
         self._print_info_log(f"The RO-Crate file {container_ro_crate_file} is up to date.")
-
-

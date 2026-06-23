@@ -1,11 +1,11 @@
 
+from rdflib import URIRef
 from typing import Any, Dict, List, Optional
 from ontobdc.context.adapter.loader import RemoteResourceLoader
 from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
 from ontobdc.context.adapter.remote import RemoteDatasetCapability
 from ontobdc.context.domain.port.remote import LinksetDatapackageResourcePort, RemoteResourceLoaderPort
 from ontobdc.storage.domain.port.dataset import RemoteDatasetCapabilityVisitorPort, RemoteDatasetRepositoryPort
-from rdflib import URIRef
 
 SCHEMA = get_ontology_by_prefix("schema")
 

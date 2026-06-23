@@ -14,7 +14,8 @@ class RunHelpCommand(CliCommandPort):
     METADATA = CliCommandMetadata(
         id="help",
         logical_component="run",
-        description="Help command for run plugin",
+        description="Display help for run commands.",
+        depends_on=None,
         arguments=[
             {
                 "accepts": [

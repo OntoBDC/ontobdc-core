@@ -1,7 +1,7 @@
 
 import os
 import json
-from ontobdc.cli import get_config_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from typing import Any, Dict, Optional, Type
 from ontobdc.shared.adapter.plugin import CapabilityLoader
 from ontobdc.run.domain.machine.response import IntentScoreResponse
@@ -88,7 +88,7 @@ class ResolutionToValidatedCapability(TransformationCapability, LoggerAwarePort,
             raise RuntimeError("Prompt choice function is not configured.")
 
         # Read the canonicalized intent file
-        parsed_intent_file: str = os.path.join(get_config_dir(), IntentScoreResponse.CANONICALIZED_INTENT_FILE_NAME)
+        parsed_intent_file: str = str(ConfigDataAdapter().config_dir / IntentScoreResponse.CANONICALIZED_INTENT_FILE_NAME)
         if not os.path.exists(parsed_intent_file):
             raise RuntimeError(f"Canonicalized intent file not found: {parsed_intent_file}")
 

@@ -27,6 +27,7 @@ class RunBaseCommand(CliCommandPort, LoggerAwarePort, PromptChoiceAwarePort, Pro
         id="base",
         logical_component="run",
         description="Base command for run plugin",
+        depends_on=None,
         arguments=[
             {
                 "accepts": [],

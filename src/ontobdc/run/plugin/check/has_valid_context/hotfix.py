@@ -3,8 +3,7 @@ import os
 import sys
 from typing import Optional
 from rdflib.namespace import RDF, OWL
-from ontobdc.cli import get_config_dir
-from rdflib import Graph, Literal, Namespace, URIRef
+from rdflib import Graph, Namespace, URIRef
 from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.shared.domain.port.config import ConfigDataPort
 from ontobdc.shared.adapter.ontology import as_literal, get_ontology_by_prefix
@@ -23,7 +22,7 @@ def main(print_log: callable = None) -> int:
             print_log("ERROR", "Hotfix Context", "Failed to hotfix context: " + message)
 
     try:
-        context_file: str = os.path.join(get_config_dir(), "context.ttl")
+        context_file: str = str(ConfigDataAdapter().config_dir / "context.ttl")
 
         # Create directory if needed
         if not os.path.exists(os.path.dirname(context_file)):
