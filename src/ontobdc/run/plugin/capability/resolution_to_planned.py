@@ -2,7 +2,7 @@ import json
 import os
 from typing import Any, Dict, List, Optional, Set, Type
 
-from ontobdc.cli import get_config_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.shared.adapter.plugin import CapabilityLoader, ParameterLoader
 from ontobdc.run.adapter.evaluator import DagParametersEvaluator
 from ontobdc.run.domain.port.dag import DagParametersEvaluatorPort
@@ -91,10 +91,7 @@ class ResolutionToPlannedCapability(TransformationCapability):
         }
 
     def _dump_supporting_capabilities(self, supporting_capability_ids: List[str]) -> None:
-        canonicalized_intent_file: str = os.path.join(
-            get_config_dir(),
-            IntentScoreResponse.CANONICALIZED_INTENT_FILE_NAME,
-        )
+        canonicalized_intent_file: str = str(ConfigDataAdapter().config_dir / IntentScoreResponse.CANONICALIZED_INTENT_FILE_NAME)
         if not os.path.exists(canonicalized_intent_file):
             raise RuntimeError(f"Canonicalized intent file not found: {canonicalized_intent_file}")
 

@@ -3,10 +3,10 @@ import os
 from typing import List
 from pathlib import Path
 from datetime import datetime
-from ontobdc.cli import get_config_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.shared.adapter.machine import LocalStatechartRepository
-from ontobdc.shared.domain.port.logger import LogLevelPort, LogRepositoryPort
 from ontobdc.storage.domain.port.repository import LocalRepositoryPort
+from ontobdc.shared.domain.port.logger import LogLevelPort, LogRepositoryPort
 
 
 class A3LocalStatechartRepository(LocalStatechartRepository):
@@ -26,9 +26,9 @@ class A3LogLocalDirectoryRepository(LogRepositoryPort):
     """
 
     def __init__(self):
-        log_dir: str = os.path.join(get_config_dir(), "log", "a3")
+        log_dir: Path = ConfigDataAdapter().config_dir / "log" / "a3"
         os.makedirs(log_dir, exist_ok=True)
-        self._log_dir: Path = Path(log_dir)
+        self._log_dir: Path = log_dir
 
     def log(self, level: LogLevelPort, message: str) -> None:
         date_str: str = datetime.now().strftime("%Y-%m-%d")

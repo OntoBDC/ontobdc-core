@@ -40,3 +40,10 @@ class ExceptionCommandResponse(CommandResponse):
 class ReportCommandResponse(CommandResponse):
     """Report command response."""
     pass
+
+
+@dataclass
+class CheckFailCommandResponse(CommandResponse):
+    """Check fail command response."""
+    pass
+

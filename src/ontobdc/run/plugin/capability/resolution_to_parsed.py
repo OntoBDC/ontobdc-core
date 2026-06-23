@@ -2,7 +2,7 @@
 import os
 import json
 from typing import Any, Dict, List
-from ontobdc.cli import get_config_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.shared.domain.port.context import CliContextPort
 from ontobdc.run.adapter.spacy import SpacyIntentModelResolver
 from ontobdc.run.domain.machine.response import IntentScoreResponse
@@ -92,7 +92,7 @@ class ResolutionToParsedCapability(TransformationCapability):
             model_resolver: IntentModelResolverPort = SpacyIntentModelResolver(context.language)
             parsed_result: IntentScoreResponse = model_resolver.parse_intent(user_intent)
 
-            parsed_intent_file: str = os.path.join(get_config_dir(), IntentScoreResponse.PARSED_INTENT_FILE_NAME)
+            parsed_intent_file: str = str(ConfigDataAdapter().config_dir / IntentScoreResponse.PARSED_INTENT_FILE_NAME)
             if os.path.exists(parsed_intent_file):
                 os.remove(parsed_intent_file)
 

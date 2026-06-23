@@ -2,7 +2,7 @@
 import json
 import os
 from typing import Any, Dict, Optional
-from ontobdc.cli import get_config_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from rdflib import Graph, Literal, URIRef, RDF
 from rdflib.namespace import OWL
 
@@ -24,6 +24,7 @@ class ContextBaseCommand(CliCommandPort):
         id="base",
         logical_component="context",
         description="Display the persisted execution context.",
+        depends_on=None,
         arguments=[
             {
                 "accepts": [],
@@ -130,7 +131,7 @@ class ContextBaseCommand(CliCommandPort):
                 intent_root = has_root[0]
 
         return {
-            "file_path": f"./{file_path.split(get_config_dir())[-1].strip('/')}",
+            "file_path": f"./{file_path.split(str(ConfigDataAdapter().config_dir))[-1].strip('/')}",
             "root": intent_root,
         }
 

@@ -3,7 +3,7 @@ from typing import List, Tuple
 from ontobdc.shared.adapter.plugin import CheckLoader
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.resource.command import CommandResponse, ExceptionCommandResponse, EnableCommandResponse
+from ontobdc.cli.domain.resource.command import CommandResponse, CheckFailCommandResponse, EnableCommandResponse
 
 
 class StorageCheckCommand(CliCommandPort):
@@ -24,6 +24,13 @@ class StorageCheckCommand(CliCommandPort):
             },
         ],
     )
+
+    @staticmethod
+    def accepts(args: List[str]) -> bool:
+        """
+        Match the storage check command at the CLI routing stage.
+        """
+        return len(args) > 1 and args[0] == "storage" and args[1] == "--check"
 
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
@@ -83,7 +90,7 @@ class StorageCheckCommand(CliCommandPort):
                 })
 
         if has_failures:
-            return ExceptionCommandResponse(
+            return CheckFailCommandResponse(
                 title="Storage Checks Failed",
                 description="One or more storage checks failed.",
                 content={"results": results}

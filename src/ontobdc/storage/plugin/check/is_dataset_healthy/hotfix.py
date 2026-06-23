@@ -6,7 +6,7 @@ from typing import Iterable, List, Optional
 from urllib.parse import urlparse
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, PROV
-from ontobdc.cli import get_root_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.storage import STORAGE_URN_PREFIX, get_storage_file
 from ontobdc.storage.adapter.repository import LoadedStorageGraph
 
@@ -205,7 +205,7 @@ def _location_candidates(location_value: str) -> List[Path]:
 
     candidate_paths.append(LoadedStorageGraph.resolve_location_path(normalized_location).resolve())
 
-    root_dir: Optional[str] = get_root_dir()
+    root_dir: Optional[str] = ConfigDataAdapter().root_dir
     if isinstance(root_dir, str) and root_dir.strip():
         if "urn:ontobdc:storage/local/" in normalized_location:
             root_relative_path: str = normalized_location.split("urn:ontobdc:storage/local/", 1)[1]

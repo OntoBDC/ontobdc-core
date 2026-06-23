@@ -7,6 +7,7 @@ import importlib
 from abc import abstractmethod
 from typing import List, Optional, Tuple, Type
 from ontobdc.cli.domain.port.command import CliCommandPort
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.shared.domain.port.capability import CapabilityPort
 from ontobdc.shared.domain.resource.capability import Capability
 from ontobdc.shared.domain.port.resource import PluginResourcePort
@@ -15,9 +16,8 @@ from ontobdc.shared.domain.port.context import CliContextStrategyPort
 
 class PluginResource(PluginResourcePort):
     def _list_plugin_folder(self, resource: str) -> List[str]:
-        from ontobdc.cli import get_script_dir
         discovered: List[str] = []
-        ontobdc_root: str = get_script_dir()
+        ontobdc_root: str = str(ConfigDataAdapter().script_dir)
         
         def scan_directory(base_dir: str, base_pkg: str):
             try:
@@ -132,8 +132,8 @@ class ParameterLoader(PluginResource):
                                 and obj is not CliContextStrategyPort):
                             strategies.append(obj())
                 except Exception as e:
-                    print(name)
-                    print(e)
+                    # print(name)
+                    # print(e)
                     continue
 
         return strategies
@@ -146,6 +146,7 @@ class CommandLoader(PluginResource):
     def __init__(self, logical_component: str, print_log: callable = None):
         self._logical_component: str = logical_component
         self._print_log: callable = print_log
+        self._root_dir: str = ConfigDataAdapter().root_dir
 
     def get(self, id: str) -> Type[CliCommandPort]:
         return super().get("command", id)
@@ -194,6 +195,9 @@ class CheckLoader(PluginResource):
     """
     Check loader for plugin checks.
     """
+    def __init__(self, print_log: callable = None):
+        self._print_log: callable = print_log
+
     def get_all(self, resource: str = "check") -> List[Tuple[object, object]]:
         checks: List[Tuple[object, object]] = []
 

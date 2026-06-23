@@ -1,14 +1,10 @@
 
-from rdflib import Graph, URIRef
-from rdflib.namespace import DCTERMS, RDF
+from typing import List
 from ontobdc.storage import is_enabled, get_storage_file
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.cli.domain.resource.command import CommandResponse
-from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.storage.adapter.container import StorageLocalContainerAdapter, StorageRootContainerAdapter, LoadedStorageGraph
-
-CT = get_ontology_by_prefix("ct")
+from ontobdc.storage.adapter.container import StorageLocalContainerAdapter, LoadedStorageGraph
 
 
 class StorageDeleteCommand(CliCommandPort):
@@ -31,6 +27,13 @@ class StorageDeleteCommand(CliCommandPort):
         ],
     )
 
+    @staticmethod
+    def accepts(args: List[str]) -> bool:
+        """
+        Match the storage container deletion command at the CLI routing stage.
+        """
+        return len(args) > 2 and args[0] == "storage" and args[1] == "--delete"
+
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
         self._print_log : callable = None
@@ -50,11 +53,7 @@ class StorageDeleteCommand(CliCommandPort):
         Execute the command to delete a container.
         """
         try:
-            container_id: str = self._request.command_args[1]
-            if not container_id.startswith("urn:"):
-                container_id = f"urn:ontobdc:storage/local/{container_id}"
-
-            # Load the storage graph
+            container_id = self._normalize_container_id(self._request.command_args[1])
             graph = LoadedStorageGraph(get_storage_file())
             container = StorageLocalContainerAdapter(graph, container_id, "")
             container.delete()
@@ -82,3 +81,13 @@ class StorageDeleteCommand(CliCommandPort):
     def _print_info_log(self, message: str):
         if self._print_log:
             self._print_log("INFO", "Delete Storage", message)
+
+    def _normalize_container_id(self, container_id: str) -> str:
+        normalized_id = container_id.strip()
+        if not normalized_id:
+            raise ValueError("Container id cannot be empty.")
+
+        if normalized_id.startswith("urn:"):
+            return normalized_id
+
+        return f"urn:ontobdc:storage/local/{normalized_id}"

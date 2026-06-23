@@ -1,9 +1,11 @@
 
 import requests
-from typing import Dict, Optional
+from requests.models import Response
+from typing import Dict, Optional, List
 from ontobdc.shared.adapter.util import is_valid_url
 from ontobdc.storage.adapter.resource import UrlResource
 from ontobdc.cli.adapter.command import CliCommandRequest
+from ontobdc.shared.adapter.context import CliContextAdapter
 from ontobdc.shared.domain.port.logger import LoggerAwarePort
 from ontobdc.context.adapter.remote import RemoteCommandRunAdapter
 from ontobdc.shared.domain.port.context import PromptChoiceAwarePort
@@ -12,8 +14,8 @@ from ontobdc.storage.domain.port.dataset import RemoteDatasetRepositoryPort
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
 from ontobdc.run.plugin.check.has_valid_context.check import main as check_error
 from ontobdc.run.plugin.check.has_valid_context.hotfix import main as plugin_hotfix
-from ontobdc.cli.domain.resource.command import ExceptionCommandResponse, ReportCommandResponse
 from ontobdc.context.domain.resource.remote import EntityMetadata, RemoteCapabilityMetadata
+from ontobdc.cli.domain.resource.command import ExceptionCommandResponse, ReportCommandResponse
 
 
 class ContextRemoteDatasetCommand(CliCommandPort, LoggerAwarePort, PromptChoiceAwarePort):
@@ -30,6 +32,13 @@ class ContextRemoteDatasetCommand(CliCommandPort, LoggerAwarePort, PromptChoiceA
             },
         ],
     )
+
+    @staticmethod
+    def accepts(args: List[str]) -> bool:
+        if not args or args[0] != "context":
+            return False
+
+        return len(args) > 1 and args[1] in ["--remote", "-r"]
 
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
@@ -166,7 +175,18 @@ class ContextRemoteDatasetCommand(CliCommandPort, LoggerAwarePort, PromptChoiceA
             param_value = args[1]
 
             try:
-                requests.head(param_value, timeout=5)
+                response: Response = requests.head(param_value, timeout=5)
+                content_type = response.headers.get('Content-Type', '')
+                if 'text/html' in content_type:
+                    return ExceptionCommandResponse(
+                        title="Invalid Dataset Content Type",
+                        description=f"The provided remote URL '{param_value}' returns an HTML page, not a valid RDF dataset. Please provide the raw dataset URL (e.g. raw.githubusercontent.com or the direct .ttl link).",
+                        content={
+                            "remote": param_value,
+                            "content_type": content_type
+                        },
+                    )
+
             except requests.exceptions.RequestException:
                 return ExceptionCommandResponse(
                     title="Invalid Remote URL",
@@ -234,4 +254,21 @@ class ContextRemoteDatasetCommand(CliCommandPort, LoggerAwarePort, PromptChoiceA
                     "execution_response": str(error),
                 },
             )
+
+
+if __name__ == "__main__":
+    clean_args: List[str] = ["remote", "https://raw.githubusercontent.com/Brasidata/brasidatacenter/091b6ce50c9d0fffd8ab15d252aabc79a5d2daed/domain/social/ds/country/dataset.ttl"]
+
+    req = CliCommandRequest(
+        logical_component=ContextRemoteDatasetCommand.METADATA.logical_component,
+        component_action=ContextRemoteDatasetCommand.METADATA.id,
+        command_args=clean_args,
+        context=CliContextAdapter(clean_args),
+    )
+
+    capability: CliCommandPort = ContextRemoteDatasetCommand(req)
+    if capability.check():
+        print(capability.run())
+    else:
+        print('Deu ruim')
 

@@ -25,6 +25,13 @@ class StorageHotfixCommand(CliCommandPort):
         ],
     )
 
+    @staticmethod
+    def accepts(args: List[str]) -> bool:
+        """
+        Match the storage hotfix command at the CLI routing stage.
+        """
+        return len(args) > 1 and args[0] == "storage" and args[1] == "--fix"
+
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
         self._print_log: callable = None

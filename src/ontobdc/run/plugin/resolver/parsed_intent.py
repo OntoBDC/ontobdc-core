@@ -1,17 +1,14 @@
 import json
 import os
 from typing import Any, Dict, Optional
-from ontobdc.cli import get_config_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.run.domain.machine.response import IntentScoreResponse
 from ontobdc.shared.domain.port.context import CliContextPort
 
 
 class ParsedIntentParamResolver:
     def resolve(self, context: CliContextPort, uri: str, prop: str) -> None:
-        parsed_intent_file = os.path.join(
-            get_config_dir(),
-            IntentScoreResponse.PARSED_INTENT_FILE_NAME,
-        )
+        parsed_intent_file = str(ConfigDataAdapter().config_dir / IntentScoreResponse.PARSED_INTENT_FILE_NAME)
 
         if not os.path.exists(parsed_intent_file):
             raise FileNotFoundError(

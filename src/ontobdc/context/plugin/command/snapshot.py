@@ -2,7 +2,7 @@ import os
 import shutil
 from typing import Dict, List, Optional
 
-from ontobdc.cli import get_config_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
 from ontobdc.cli.domain.resource.command import ExceptionCommandResponse, ReportCommandResponse
@@ -13,7 +13,7 @@ from ontobdc.run.domain.machine.response import IntentScoreResponse
 
 
 def to_config_relative_path(file_path: str) -> str:
-    config_dir_path: str = get_config_dir()
+    config_dir_path: str = str(ConfigDataAdapter().config_dir)
     return f"./{file_path.split(config_dir_path)[-1].strip('/')}"
 
 
@@ -34,7 +34,7 @@ def context_source_file_paths(context_file_path: str) -> List[str]:
 
 def save_context_snapshot(context_file_path: str) -> Dict[str, object]:
     destination_dir_path: str = os.path.join(
-        get_config_dir(),
+        str(ConfigDataAdapter().config_dir),
         "memory",
         f"context-{_context_timestamp(context_file_path)}",
     )

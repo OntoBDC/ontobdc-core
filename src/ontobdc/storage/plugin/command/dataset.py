@@ -1,8 +1,9 @@
 
 from pathlib import Path
+from typing import List
 from rdflib import Graph, URIRef
 from urllib.parse import urlparse
-from ontobdc.cli import get_root_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from rdflib.namespace import DCTERMS, PROV, RDF
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.cli.domain.resource.command import CommandResponse
@@ -45,6 +46,18 @@ class StorageDatasetCreateCommand(CliCommandPort):
             },
         ],
     )
+
+    @staticmethod
+    def accepts(args: List[str]) -> bool:
+        """
+        Match dataset creation requests for the storage component.
+        """
+        return (
+            len(args) >= 5
+            and args[0] == "storage"
+            and "--container-id" in args
+            and "--create" in args
+        )
 
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
@@ -98,15 +111,17 @@ class StorageDatasetCreateCommand(CliCommandPort):
                 f"Created dataset '{dataset_identifier}' in container '{container_id}' at {dataset_location}"
             )
 
+            root_dir: str = ConfigDataAdapter().root_dir
+
             # Execute hotfix command asynchronously
             try:
-                cli_path = os.path.join(get_root_dir(), "wip", "src", "ontobdc", "cli", "__init__.py")
+                cli_path = os.path.join(root_dir, "wip", "src", "ontobdc", "cli", "__init__.py")
                 env = os.environ.copy()
-                src_path = os.path.join(get_root_dir(), "wip", "src")
+                src_path = os.path.join(root_dir, "wip", "src")
                 env["PYTHONPATH"] = src_path + (os.pathsep + env["PYTHONPATH"] if "PYTHONPATH" in env else "")
 
                 # Start a detached process that executes the hotfix
-                if get_root_dir():
+                if root_dir:
                     subprocess.Popen(
                         [sys.executable, cli_path, "storage", "--fix"],
                         stdout=subprocess.DEVNULL,
@@ -167,7 +182,7 @@ class StorageDatasetCreateCommand(CliCommandPort):
         if location_str.startswith("file://"):
             return Path(location_str[7:])
         if location_str.startswith("urn:ontobdc:storage/local"):
-            root_dir = get_root_dir()
+            root_dir = ConfigDataAdapter().root_dir
             if not root_dir:
                 raise ValueError("Project root could not be resolved.")
             resolved = location_str.replace("urn:ontobdc:storage/local", root_dir, 1)
@@ -218,6 +233,18 @@ class StorageDatasetDeleteCommand(CliCommandPort):
             },
         ],
     )
+
+    @staticmethod
+    def accepts(args: List[str]) -> bool:
+        """
+        Match dataset deletion requests for the storage component.
+        """
+        return (
+            len(args) >= 5
+            and args[0] == "storage"
+            and "--container-id" in args
+            and "--delete" in args
+        )
 
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
@@ -272,15 +299,17 @@ class StorageDatasetDeleteCommand(CliCommandPort):
                 f"Deleted dataset '{dataset_identifier}' in container '{container_id}' at {dataset_location}"
             )
 
+            root_dir: str = ConfigDataAdapter().root_dir
+
             # Execute hotfix command asynchronously
             try:
-                cli_path = os.path.join(get_root_dir(), "wip", "src", "ontobdc", "cli", "__init__.py")
+                cli_path = os.path.join(root_dir, "wip", "src", "ontobdc", "cli", "__init__.py")
                 env = os.environ.copy()
-                src_path = os.path.join(get_root_dir(), "wip", "src")
+                src_path = os.path.join(root_dir, "wip", "src")
                 env["PYTHONPATH"] = src_path + (os.pathsep + env["PYTHONPATH"] if "PYTHONPATH" in env else "")
 
                 # Start a detached process that executes the hotfix
-                if get_root_dir():
+                if root_dir:
                     subprocess.Popen(
                         [sys.executable, cli_path, "storage", "--fix"],
                         stdout=subprocess.DEVNULL,
@@ -341,7 +370,7 @@ class StorageDatasetDeleteCommand(CliCommandPort):
         if location_str.startswith("file://"):
             return Path(location_str[7:])
         if location_str.startswith("urn:ontobdc:storage/local"):
-            root_dir = get_root_dir()
+            root_dir = ConfigDataAdapter().root_dir
             if not root_dir:
                 raise ValueError("Project root could not be resolved.")
             resolved = location_str.replace("urn:ontobdc:storage/local", root_dir, 1)
@@ -421,6 +450,19 @@ class StorageDatasetResourceCommand(CliCommandPort):
             },
         ],
     )
+
+    @staticmethod
+    def accepts(args: List[str]) -> bool:
+        """
+        Match dataset resource requests for the storage component.
+        """
+        return (
+            len(args) >= 5
+            and args[0] == "storage"
+            and "--container-id" in args
+            and "--dataset-id" in args
+            and "--resource" in args
+        )
 
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
