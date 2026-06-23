@@ -4,7 +4,7 @@ import warnings
 from pathlib import Path
 from rdflib import Graph, URIRef
 from rocrate.rocrate import ROCrate
-from ontobdc.cli import get_root_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from rdflib.namespace import DCTERMS, PROV, RDF
 from typing import List, Any, Dict, Iterable, Optional
 from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
@@ -63,7 +63,7 @@ class LoadedStorageGraph(LoadedStorageGraphPort):
             if loc.startswith("file://"):
                 container_path = loc[7:]
             elif loc.startswith("urn:ontobdc:storage/local"):
-                container_path = loc.replace("urn:ontobdc:storage/local", get_root_dir(), 1)
+                container_path = loc.replace("urn:ontobdc:storage/local", ConfigDataAdapter().root_dir, 1)
             else:
                 container_path = loc
 
@@ -77,7 +77,7 @@ class LoadedStorageGraph(LoadedStorageGraphPort):
         if location.startswith("file://"):
             return Path(location[7:])
         if location.startswith("urn:ontobdc:storage/local"):
-            root_dir = get_root_dir()
+            root_dir = ConfigDataAdapter().root_dir
             if not root_dir:
                 raise ValueError("Project root could not be resolved.")
             return Path(location.replace("urn:ontobdc:storage/local", root_dir, 1))
@@ -175,10 +175,12 @@ class LoadedStorageGraph(LoadedStorageGraphPort):
                 root_triples = sorted(
                     (str(predicate), str(obj))
                     for predicate, obj in self.graph.predicate_objects(subject)
+                    if predicate in [RDF.type, DCTERMS.identifier, PROV.atLocation, DCTERMS.title, DCTERMS.description]
                 )
                 container_triples = sorted(
                     (str(predicate), str(obj))
                     for predicate, obj in container_graph.predicate_objects(subject)
+                    if predicate in [RDF.type, DCTERMS.identifier, PROV.atLocation, DCTERMS.title, DCTERMS.description]
                 )
 
                 if root_triples != container_triples:

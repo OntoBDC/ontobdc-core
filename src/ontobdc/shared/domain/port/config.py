@@ -13,7 +13,7 @@ class ConfigDataPort(ABC):
 
     @property
     @abstractmethod
-    def data(self) -> Optional[Dict[str, Any]]:
+    def all(self) -> Optional[Dict[str, Any]]:
         ...
 
     @property

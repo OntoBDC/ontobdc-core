@@ -1,6 +1,7 @@
 
 import os
 import subprocess
+from typing import List
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.storage import get_storage_file, EMPTY_STORAGE_GRAPH
 from ontobdc.storage.adapter.container import StorageRootContainerAdapter
@@ -28,6 +29,13 @@ class StorageEnableCommand(CliCommandPort):
         ],
     )
 
+    @staticmethod
+    def accepts(args: List[str]) -> bool:
+        """
+        Match the storage enable command at the CLI routing stage.
+        """
+        return len(args) > 1 and args[0] == "storage" and args[1] == "--enable"
+
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
         self._print_log : callable = None
@@ -40,7 +48,7 @@ class StorageEnableCommand(CliCommandPort):
         Check if the command is valid.
         Returns True if the command is valid, False otherwise.
         """
-        return True
+        return len(self._request.command_args) == 1 and self._request.command_args[0] == "--enable"
 
     def run(self) -> CommandResponse:
         """

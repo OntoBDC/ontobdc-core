@@ -3,7 +3,7 @@ import os
 import sys
 from rdflib import Graph, Namespace, URIRef
 from rdflib.namespace import RDF
-from ontobdc.cli import get_config_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
 
 OBDC: Namespace = get_ontology_by_prefix("obdc")
@@ -16,7 +16,7 @@ def main(print_log: callable = None) -> int:
             print_log("ERROR", "Check Valid Context", message)
 
     try:
-        context_file: str = os.path.join(get_config_dir(), "context.ttl")
+        context_file: str = str(ConfigDataAdapter().config_dir / "context.ttl")
 
         if not os.path.exists(context_file):
             _print_error_log(f"Context file not found: {context_file}", print_log)

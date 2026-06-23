@@ -1,7 +1,7 @@
 
 import os
 import json
-from ontobdc.cli import get_config_dir
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from typing import Any, Dict, List, Type
 from ontobdc.shared.adapter.plugin import CapabilityLoader
 from ontobdc.shared.domain.port.context import CliContextPort
@@ -103,7 +103,7 @@ class ResolutionFromLowConfidenceCapability(TransformationCapability):
         model_resolver: IntentModelResolverPort = SpacyIntentModelResolver(context.language)
         parsed_result: IntentScoreResponse = model_resolver.parse_intent(canonical_intent.replace(";", " "))
 
-        parsed_intent_file: str = os.path.join(get_config_dir(), IntentScoreResponse.CANONICALIZED_INTENT_FILE_NAME)
+        parsed_intent_file: str = str(ConfigDataAdapter().config_dir / IntentScoreResponse.CANONICALIZED_INTENT_FILE_NAME)
         if os.path.exists(parsed_intent_file):
             os.remove(parsed_intent_file)
 

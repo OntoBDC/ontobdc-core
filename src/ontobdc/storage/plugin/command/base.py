@@ -1,10 +1,14 @@
 
-from typing import Dict
+from typing import List
+from rdflib import Graph
+from rdflib.namespace import DCTERMS, PROV, RDF
+from ontobdc.storage import is_enabled, get_storage_file
 from ontobdc.cli.adapter.command import CliCommandRequest
-from ontobdc.cli.domain.exception.command import CliCommandArgumentException
+from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.resource.command import CommandResponse, HelpCommandResponse
-from ontobdc.shared.adapter.plugin import CommandLoader, PluginResource
+from ontobdc.cli.domain.resource.command import CommandResponse, ListCommandResponse
+
+CT = get_ontology_by_prefix("ct")
 
 
 class StorageBaseCommand(CliCommandPort):
@@ -14,17 +18,30 @@ class StorageBaseCommand(CliCommandPort):
     METADATA = CliCommandMetadata(
         id="base",
         logical_component="storage",
-        description="Base command for storage plugin",
+        description="Base Storage command handler.",
+        depends_on=None,
         arguments=[
             {
                 "accepts": [
-                    "--help",
-                    "-h",
+                    "--list",
+                    "-l",
                 ],
-                "description": "Display help information",
+                "description": "List all containers in the storage.",
+                "usage": "ontobdc storage --list",
             }
         ],
     )
+
+    @staticmethod
+    def accepts(args: List[str]) -> bool:
+        """
+        Match the component root command and its help flags.
+        """
+        return (
+            len(args) >= 1
+            and args[0] == "storage"
+            and (len(args) == 1 or args[1] in ["--list", "-l"])
+        )
 
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
@@ -38,32 +55,57 @@ class StorageBaseCommand(CliCommandPort):
         Check if the command is valid.
         Returns True if the command is valid, False otherwise.
         """
-        return True
+        return is_enabled() and (len(self._request.command_args) == 0 or (
+            len(self._request.command_args) == 1
+            and self._request.command_args[0] in ["--list", "-l"]
+        ))
 
     def run(self) -> CommandResponse:
         """
         Execute the command.
         """
-        if len(self._request.command_args) == 1 and self._request.command_args[0] not in ['--help', '-h']:
-            raise CliCommandArgumentException()
+        storage_path = get_storage_file()
+        containers = []
 
-        arg_list: Dict[str, str] = {}
-        usage_list: Dict[str, str] = {"base": "ontobdc storage <argument> [flags/parameters]"}
-        loader: PluginResource = CommandLoader('storage')
-        for command in loader.get_all():
-            if command.METADATA.id != 'base' and hasattr(command.METADATA, 'arguments') and command.METADATA.arguments:
-                arg_key = " | ".join(command.METADATA.arguments[0]["accepts"])
-                arg_list[arg_key] = command.METADATA.arguments[0]["description"]
-                if "usage" in command.METADATA.arguments[0]:
-                    usage_list[command.METADATA.id] = command.METADATA.arguments[0]["usage"]
+        try:
+            g = Graph()
+            g.parse(storage_path)
+            container_type = CT.ContainerDescription
 
-        arg_list[" | ".join(self.METADATA.arguments[0]["accepts"])] = self.METADATA.arguments[0]["description"]
+            for container in g.subjects(RDF.type, container_type):
+                container_data = {
+                    "id": None,
+                    "title": None,
+                    "description": None,
+                    "location": None
+                }
 
-        return HelpCommandResponse(
-            title="Storage CLI Help",
-            description="Display help information for the storage component.",
-            content={
-                "Usage": usage_list,
-                "Options": arg_list,
-            }
+                for id in g.objects(container, DCTERMS.identifier):
+                    container_data["id"] = str(id)
+
+                for title in g.objects(container, DCTERMS.title):
+                    container_data["title"] = str(title)
+
+                for description in g.objects(container, CT.description):
+                    container_data["description"] = str(description)
+
+                for location in g.objects(container, PROV.atLocation):
+                    loc_str = str(location)
+                    if loc_str.startswith("file://"):
+                        loc_str = loc_str[7:]
+                    container_data["location"] = loc_str
+
+                containers.append(container_data)
+
+        except Exception as e:
+            return CommandResponse(
+                title="Failed to List Containers",
+                description=f"An error occurred while reading storage.ttl: {str(e)}",
+                content={"containers": [], "error": str(e)}
+            )
+
+        return ListCommandResponse(
+            title="Storage Containers",
+            description=f"Found {len(containers)} container(s) in the storage.",
+            content={"containers": containers}
         )

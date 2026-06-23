@@ -47,8 +47,6 @@ class JsonSchemaGuardrailAdapter(JsonSchemaGuardrailPort):
         if not isinstance(data, dict):
             raise ValueError("The data to validate must be a dictionary.")
 
-        # print(self.schema, data)
-
         schema = self.schema
         required = schema.get("required", [])
         properties = schema.get("properties", {})

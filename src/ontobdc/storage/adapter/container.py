@@ -1,11 +1,11 @@
 
 import os
 from typing import Any, Dict
-from ontobdc.cli import get_root_dir
 from datetime import datetime, timezone
 from ontobdc.storage.adapter.resource import LocalFileResource
 from rdflib import URIRef, Literal, Graph
 from ontobdc.storage import get_storage_file
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from rdflib.namespace import DCTERMS, RDF, XSD, PROV
 from ontobdc.storage.adapter.repository import LoadedStorageGraph
 from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
@@ -254,7 +254,7 @@ class StorageRootContainerAdapter(StorageLocalContainerAdapter, RootContainerRep
         return f"Main storage container for project at {self.title}"
 
     def __init__(self):
-        super().__init__(LoadedStorageGraph(get_storage_file()), "urn:ontobdc:storage/local", f"file://{get_root_dir()}")
+        super().__init__(LoadedStorageGraph(get_storage_file()), "urn:ontobdc:storage/local", f"file://{ConfigDataAdapter().root_dir}")
 
     def container_exists(self) -> bool:
         """

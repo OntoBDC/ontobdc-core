@@ -1,10 +1,11 @@
 
 import os
-from rdflib import Graph, Literal, Namespace, URIRef, RDF
 from typing import List, Dict, Any, Optional
-from ontobdc.shared.adapter.util import to_camel_case, to_pascal_case
+from rdflib import Graph, Literal, Namespace, URIRef, RDF
+from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.shared.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
+from ontobdc.shared.adapter.util import to_camel_case, to_pascal_case
 
 OBDC: Namespace = get_ontology_by_prefix("obdc")
 BASE_URI: Namespace = Namespace("urn:ontobdc:context/")
@@ -17,14 +18,12 @@ class CliContextAdapter(CliContextPort):
         self._context_individual: Optional[URIRef] = None
 
         self._resolved_parameters: Dict[str, Any] = {}
-
-        from ontobdc.cli import get_config_dir
-        self._context_file: str = os.path.join(get_config_dir(), "context.ttl")
+        self._context_file: str = str(ConfigDataAdapter().config_dir / "context.ttl")
 
         self._graph: Graph = Graph()
         try:
             self._load()
-        except FileNotFoundError:
+        except (FileNotFoundError, PermissionError):
             pass
 
     @property
@@ -62,9 +61,7 @@ class CliContextAdapter(CliContextPort):
         """
         Returns the root path of the repository.
         """
-        from ontobdc.cli import config_data
-
-        cfg = config_data() or {}
+        cfg = ConfigDataAdapter().all or {}
         directory = cfg.get("directory") or {}
         root = directory.get("root") or {}
         absolute_path = root.get("absolute_path")

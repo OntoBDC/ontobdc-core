@@ -1,14 +1,14 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 from dataclasses import dataclass, field
-from ontobdc.cli.init import log as print_log
+from ontobdc.cli.adapter.terminal import log
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.shared.adapter.context import CliContextAdapter
+from ontobdc.shared.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.plugin import CommandLoader, PluginResource
 from ontobdc.cli.domain.exception.command import CliCommandArgumentException
-from ontobdc.shared.domain.port.context import CliContextPort
 
 
 @dataclass
@@ -30,79 +30,43 @@ class CliCommandRunAdapter:
     flow, so this adapter must be safe to call before that logic runs.
     """
     @classmethod
-    def make(cls, args: List[str]) -> CliCommandPort:
+    def make(cls, args: List[str], print_log: callable = log) -> CliCommandPort:
         """
         Create a command adapter from raw CLI arguments.
         """
-        if len(args) == 0 or args[0] in ["--help", "-h"]:
-            loader: PluginResource = CommandLoader('cli', print_log)
-            command_class: Optional[type[CliCommandPort]] = loader.get('command', 'base')
+        candidate_list: Dict[str, CliCommandPort] = {}
+
+        clean_args: List[str] = args
+        loader: PluginResource = CommandLoader('cli', print_log)
+        if args:
+            if not args[0].startswith("-"):
+                loader: PluginResource = CommandLoader(args[0], print_log)
+                clean_args = args[1:]
+
+        for command_class in loader.get_all():
             if isinstance(command_class, type):
-                return command_class(
-                    CliCommandRequest(
-                        logical_component="cli",
-                        component_action="base",
-                        command_args=args,
-                        context=CliContextAdapter(args),
-                    )
-                )
+                if command_class.accepts(args):
+                    candidate_list[command_class.METADATA.id] = command_class
 
-        elif isinstance(args[0], str):
-            logical_component: str = args[0]
-            args.remove(logical_component)
-            loader: PluginResource = CommandLoader(logical_component, print_log)
-
-            if len(args) == 0:
-                for command_class in loader.get_all():
-                    if not isinstance(command_class, type):
-                        continue
-
-                    if len(command_class.METADATA.arguments[0]["accepts"]):
-                        continue
-
-                    req = CliCommandRequest(
-                        logical_component=logical_component,
-                        component_action=command_class.METADATA.id,
-                        command_args=args,
-                        context=CliContextAdapter(args),
-                    )
-                    cmd_instance = command_class(req)
-                    if cmd_instance.check():
-                        return cmd_instance
-
-                args.append("--help")
-
-            for command_class in loader.get_all():
-
-                if not isinstance(command_class, type):
-                    continue
-
-                matched_argument: Optional[dict] = None
-                for argument in command_class.METADATA.arguments:
-                    accepted_args: List[str] = argument.get("accepts", [])
-                    if args[0] in accepted_args:
-                        matched_argument = argument
-                        break
-
-                if matched_argument is None:
-                    continue
-
-                expected_args_len = 0
-                for argument in command_class.METADATA.arguments:
-                    expected_args_len += 2 if argument.get("valued") else 1
-
-                if expected_args_len > len(args):
-                    continue
-
+        if len(candidate_list) == 0:
+            raise CliCommandArgumentException(f"Invalid command arguments: {args}")
+        else:
+            instance_list: Dict[str, CliCommandPort] = {}
+            for uri, command_class in candidate_list.items():
                 req = CliCommandRequest(
-                    logical_component=logical_component,
-                    component_action="base",
-                    command_args=args,
-                    context=CliContextAdapter(args),
+                    logical_component=command_class.METADATA.logical_component,
+                    component_action=command_class.METADATA.id,
+                    command_args=clean_args,
+                    context=CliContextAdapter(clean_args),
                 )
-
                 cmd_instance = command_class(req)
                 if cmd_instance.check():
-                    return cmd_instance
+                    instance_list[uri] = cmd_instance
 
-        raise CliCommandArgumentException(f"Invalid command arguments: {args}")
+            if len(instance_list) == 0:
+                raise CliCommandArgumentException(f"Invalid command arguments: {args}")
+            elif len(instance_list) == 1:
+                return instance_list[list(instance_list.keys())[0]]
+            else:
+                print(instance_list)
+                raise CliCommandArgumentException(f"Invalid command arguments: {args} - Multiple commands match {args}")    
