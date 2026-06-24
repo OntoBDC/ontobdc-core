@@ -134,15 +134,16 @@ class StorageCreateCommand(CliCommandPort):
 
     def _run_hotfix_async(self, root_dir: Path) -> None:
         try:
-            cli_path = root_dir / "wip" / "src" / "ontobdc" / "cli" / "__init__.py"
-            src_path = root_dir / "wip" / "src"
             env = os.environ.copy()
-            env["PYTHONPATH"] = str(src_path) + (
-                os.pathsep + env["PYTHONPATH"] if "PYTHONPATH" in env else ""
-            )
+            # Inherit the current sys.path to ensure we can import ontobdc dynamically
+            env["PYTHONPATH"] = os.pathsep.join(sys.path)
 
             subprocess.Popen(
-                [sys.executable, str(cli_path), "storage", "--fix"],
+                [
+                    sys.executable,
+                    "-c",
+                    "import sys; sys.argv=['ontobdc', 'storage', '--fix']; from ontobdc.cli import main; main()"
+                ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,

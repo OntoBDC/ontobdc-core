@@ -39,4 +39,38 @@ class DatasetIdStrategy(Parameter, CliContextStrategyPort, PromptChoiceAwarePort
         return self._log_strategy
 
     def execute(self, context: CliContextPort) -> CliContextPort:
-        pass
+        # Try to infer dataset from current working directory
+        cwd = Path(os.getcwd())
+        storage_file = get_storage_file()
+        
+        if os.path.isfile(storage_file):
+            try:
+                storage_graph = LoadedStorageGraph(storage_file)
+                # First attempt to find the dataset using the current directory path directly
+                dataset = storage_graph.get_dataset(dataset_location=cwd.as_uri())
+                if dataset is None:
+                    dataset = storage_graph.get_dataset(dataset_location=str(cwd))
+                
+                # If not found directly, iterate upwards through the parents
+                if dataset is None:
+                    for parent in cwd.parents:
+                        dataset = storage_graph.get_dataset(dataset_location=parent.as_uri())
+                        if dataset is None:
+                            dataset = storage_graph.get_dataset(dataset_location=str(parent))
+                        if dataset is not None:
+                            break
+                            
+                if dataset is not None:
+                    context.set_parameter_value("dataset_id", dataset)
+                    # Infer container implicitly when we infer dataset
+                    if not context.has_parameter("container_id") and dataset.container:
+                        from ontobdc.storage.adapter.container import StorageContainerAdapter
+                        container_repository = StorageContainerAdapter(storage_graph, dataset.container)
+                        context.set_parameter_value("container_id", container_repository)
+                        
+                    if self._log_strategy:
+                        self._log_strategy.print_log("INFO", "Context", f"Inferred dataset '{dataset.id}' from current directory.")
+            except Exception:
+                pass
+                
+        return context

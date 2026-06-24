@@ -115,15 +115,18 @@ class StorageDatasetCreateCommand(CliCommandPort):
 
             # Execute hotfix command asynchronously
             try:
-                cli_path = os.path.join(root_dir, "wip", "src", "ontobdc", "cli", "__init__.py")
                 env = os.environ.copy()
-                src_path = os.path.join(root_dir, "wip", "src")
-                env["PYTHONPATH"] = src_path + (os.pathsep + env["PYTHONPATH"] if "PYTHONPATH" in env else "")
+                # Inherit the current sys.path to ensure we can import ontobdc dynamically
+                env["PYTHONPATH"] = os.pathsep.join(sys.path)
 
                 # Start a detached process that executes the hotfix
                 if root_dir:
                     subprocess.Popen(
-                        [sys.executable, cli_path, "storage", "--fix"],
+                        [
+                            sys.executable, 
+                            "-c", 
+                            "import sys; sys.argv=['ontobdc', 'storage', '--fix']; from ontobdc.cli import main; main()"
+                        ],
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                         start_new_session=True,
@@ -240,9 +243,8 @@ class StorageDatasetDeleteCommand(CliCommandPort):
         Match dataset deletion requests for the storage component.
         """
         return (
-            len(args) >= 5
+            len(args) >= 2
             and args[0] == "storage"
-            and "--container-id" in args
             and "--delete" in args
         )
 
@@ -254,12 +256,21 @@ class StorageDatasetDeleteCommand(CliCommandPort):
         self._print_log = print_log
 
     def check(self) -> bool:
-        return (
-            is_enabled()
-            and len(self._request.command_args) >= 4
-            and "--container-id" in self._request.command_args
-            and "--delete" in self._request.command_args
-        )
+        args = self._request.command_args
+        if not is_enabled() or "--delete" not in args:
+            return False
+            
+        if "--container-id" not in args and not self._request.context.has_parameter("container_id"):
+            # Try to resolve implicitly from context
+            from ontobdc.storage.plugin.parameter.container import ContainerIdStrategy
+            from ontobdc.storage.plugin.parameter.dataset import DatasetIdStrategy
+            DatasetIdStrategy().execute(self._request.context)
+            ContainerIdStrategy().execute(self._request.context)
+            
+            if not self._request.context.has_parameter("container_id"):
+                return False
+                
+        return True
 
     def run(self) -> CommandResponse:
         try:
@@ -267,11 +278,33 @@ class StorageDatasetDeleteCommand(CliCommandPort):
             import subprocess
             import sys
             
-            container_idx = self._request.command_args.index("--container-id")
-            delete_idx = self._request.command_args.index("--delete")
+            args = self._request.command_args
             
-            container_id = self._request.command_args[container_idx + 1].strip()
-            dataset_identifier = self._normalize_dataset_identifier(self._request.command_args[delete_idx + 1].strip())
+            container_id = None
+            if "--container-id" in args:
+                container_idx = args.index("--container-id")
+                if container_idx + 1 < len(args):
+                    container_id = args[container_idx + 1].strip()
+            
+            if not container_id:
+                container_repo = self._request.context.get_parameter_value("container_id")
+                if container_repo:
+                    container_id = container_repo.id
+                    
+            if not container_id:
+                raise ValueError("Container ID is required")
+                
+            delete_idx = args.index("--delete")
+            if delete_idx + 1 >= len(args) or args[delete_idx + 1].startswith("--"):
+                dataset_repo = self._request.context.get_parameter_value("dataset_id")
+                if dataset_repo:
+                    dataset_value = dataset_repo.id
+                else:
+                    raise ValueError("Dataset ID is missing after --delete")
+            else:
+                dataset_value = args[delete_idx + 1].strip()
+                
+            dataset_identifier = self._normalize_dataset_identifier(dataset_value)
 
             root_graph: LoadedStorageGraphPort = LoadedStorageGraph(get_storage_file())
             container_subject = self._get_container_subject(root_graph.graph, container_id)
@@ -303,15 +336,18 @@ class StorageDatasetDeleteCommand(CliCommandPort):
 
             # Execute hotfix command asynchronously
             try:
-                cli_path = os.path.join(root_dir, "wip", "src", "ontobdc", "cli", "__init__.py")
                 env = os.environ.copy()
-                src_path = os.path.join(root_dir, "wip", "src")
-                env["PYTHONPATH"] = src_path + (os.pathsep + env["PYTHONPATH"] if "PYTHONPATH" in env else "")
+                # Inherit the current sys.path to ensure we can import ontobdc dynamically
+                env["PYTHONPATH"] = os.pathsep.join(sys.path)
 
                 # Start a detached process that executes the hotfix
                 if root_dir:
                     subprocess.Popen(
-                        [sys.executable, cli_path, "storage", "--fix"],
+                        [
+                            sys.executable, 
+                            "-c", 
+                            "import sys; sys.argv=['ontobdc', 'storage', '--fix']; from ontobdc.cli import main; main()"
+                        ],
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                         start_new_session=True,
