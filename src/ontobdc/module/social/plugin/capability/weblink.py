@@ -6,7 +6,7 @@ from typing import Any, Dict
 from html.parser import HTMLParser
 from rdflib.namespace import RDF, DC, FOAF, RDFS
 from ontobdc.shared.domain.port.context import CliContextPort
-from ontobdc.a3.domain.port.document import DocumentKnowledgeGraphPort
+from ontobdc.a32.domain.port.document import DocumentKnowledgeGraphPort
 from ontobdc.shared.domain.resource.capability import QueryCapability, CapabilityMetadata
 
 

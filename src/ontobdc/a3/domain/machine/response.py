@@ -1,7 +1,7 @@
 
 import json
 from dataclasses import dataclass, asdict
-from ontobdc.a3.domain.machine.lifecycle import A3EtlProcessState
+from ontobdc.a32.domain.machine.lifecycle import A3EtlProcessState
 
 
 @dataclass

@@ -6,7 +6,7 @@ from rdflib import Graph, URIRef, Literal
 from typing import Any, Dict, List, Optional
 from ontobdc.shared.adapter.util import is_valid_uri
 from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
-from ontobdc.a3.domain.port.guardrail import JsonSchemaGuardrailPort
+from ontobdc.a32.domain.port.guardrail import JsonSchemaGuardrailPort
 
 
 CV = get_ontology_by_prefix('cv')

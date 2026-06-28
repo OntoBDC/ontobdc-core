@@ -2,7 +2,7 @@
 from typing import Callable, Optional
 
 from ontobdc.cli.adapter.command import CliCommandRequest
-from ontobdc.a3.adapter.etl import A3EtlStartResult, A3EtlStarterAdapter
+from ontobdc.a32.adapter.etl import A3EtlStartResult, A3EtlStarterAdapter
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
 from ontobdc.cli.domain.resource.command import CommandResponse, ExceptionCommandResponse
 

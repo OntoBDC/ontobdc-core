@@ -11,7 +11,7 @@ from ontobdc.shared.domain.port.machine import StatechartRepositoryPort
 from ontobdc.shared.domain.resource.capability import CapabilityExecutor
 from ontobdc.run.domain.machine.lifecycle import RunIntentResolutionState
 from ontobdc.run.adapter.repository import IntentLocalStatechartRepository
-from ontobdc.run.adapter.machine import SismicIntentTransitionHandlerAdapter
+from ontobdc.run.adapter.sismic import SismicIntentTransitionHandlerAdapter
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
 from ontobdc.run.plugin.check.has_valid_context.check import main as check_error
 from ontobdc.run.plugin.check.has_valid_context.hotfix import main as plugin_hotfix

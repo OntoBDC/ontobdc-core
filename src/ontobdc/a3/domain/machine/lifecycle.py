@@ -1,5 +1,5 @@
 
-from ontobdc.a3.domain.port.machine import EtlProcessStatePort
+from ontobdc.a32.domain.port.machine import EtlProcessStatePort
 
 
 class A3EtlProcessState(EtlProcessStatePort):

@@ -1,8 +1,8 @@
 
 from pathlib import Path
 from typing import Any, Dict
-from ontobdc.a3.domain.machine.lifecycle import A3EtlProcessState
-from ontobdc.a3.domain.machine.response import TransformationResponse
+from ontobdc.a32.domain.machine.lifecycle import A3EtlProcessState
+from ontobdc.a32.domain.machine.response import TransformationResponse
 from ontobdc.shared.domain.port.context import CliContextPort
 from ontobdc.shared.domain.resource.capability import CapabilityMetadata, TransformationCapability
 from ontobdc.storage.domain.port.repository import LocalRepositoryPort

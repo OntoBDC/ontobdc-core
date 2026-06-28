@@ -3,11 +3,11 @@ from pathlib import Path
 import concurrent.futures
 from urllib.parse import urlparse
 from typing import Optional, TypedDict
-from ontobdc.a3.adapter.worker import StateWorkerAdapter
-from ontobdc.a3.adapter.resource import RawTextResourceAdapter
+from ontobdc.a32.adapter.worker import StateWorkerAdapter
+from ontobdc.a32.adapter.resource import RawTextResourceAdapter
 from ontobdc.storage.adapter.resource import LocalFileResource
 from ontobdc.storage.domain.port.resource import FileResourcePort
-from ontobdc.a3.adapter.repository import A3LogLocalDirectoryRepository
+from ontobdc.a32.adapter.repository import A3LogLocalDirectoryRepository
 from ontobdc.storage.domain.port.repository import ContainerRepositoryPort, DatasetRepositoryPort
 
 

@@ -5,10 +5,10 @@ from sismic.model import Statechart
 from sismic.interpreter import Interpreter
 from ontobdc.shared.domain.resource.logger import LogLevel
 from ontobdc.shared.domain.port.logger import LogRepositoryPort
-from ontobdc.a3.adapter.machine import SismicA3TransitionHandlerAdapter
-from ontobdc.a3.adapter.repository import A3LocalStatechartRepository
-from ontobdc.a3.domain.machine.lifecycle import A3EtlProcessState
-from ontobdc.a3.domain.port.machine import (
+from ontobdc.a32.adapter.machine import SismicA3TransitionHandlerAdapter
+from ontobdc.a32.adapter.repository import A3LocalStatechartRepository
+from ontobdc.a32.domain.machine.lifecycle import A3EtlProcessState
+from ontobdc.a32.domain.port.machine import (
     EtlProcessStatePort,
     EtlStateTransitionHandlerPort,
     EtlStatechartRepositoryPort,

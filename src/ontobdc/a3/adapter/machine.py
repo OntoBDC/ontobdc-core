@@ -1,7 +1,7 @@
 
 from typing import List
 from pathlib import Path
-from ontobdc.a3.domain.port.machine import (
+from ontobdc.a32.domain.port.machine import (
     EtlProcessStatePort,
     EtlStateEvaluatorPort,
     EtlStateTransitionHandlerPort,
@@ -14,10 +14,10 @@ from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
 from ontobdc.shared.adapter.context import CliContextAdapter
 from ontobdc.shared.domain.port.context import CliContextPort
 from ontobdc.shared.domain.port.capability import CapabilityPort
-from ontobdc.a3.domain.machine.lifecycle import A3EtlProcessState
+from ontobdc.a32.domain.machine.lifecycle import A3EtlProcessState
 from ontobdc.storage.domain.port.repository import LocalRepositoryPort
 from ontobdc.shared.domain.resource.capability import CapabilityExecutor
-from ontobdc.a3.adapter.repository import A3LocalStatechartRepository, TransformableDataPackageRepository
+from ontobdc.a32.adapter.repository import A3LocalStatechartRepository, TransformableDataPackageRepository
 
 CT = get_ontology_by_prefix("ct")
 
