@@ -6,7 +6,7 @@ from ontobdc.storage import is_enabled, get_storage_file
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.resource.command import CommandResponse, ListCommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse, ListCommandResponse
 
 CT = get_ontology_by_prefix("ct")
 

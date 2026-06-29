@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.resource.command import CommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse
 from ontobdc.shared.adapter.config import ConfigDataAdapter
 
 

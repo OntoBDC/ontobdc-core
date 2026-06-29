@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from typing import Dict, Any, List
 from abc import ABC, abstractmethod
-from ontobdc.cli.domain.resource.command import CommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse
 
 
 @dataclass

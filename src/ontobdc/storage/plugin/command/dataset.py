@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from ontobdc.shared.adapter.config import ConfigDataAdapter
 from rdflib.namespace import DCTERMS, PROV, RDF
 from ontobdc.cli.adapter.command import CliCommandRequest
-from ontobdc.cli.domain.resource.command import CommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse
 from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
 from ontobdc.storage.domain.port.repository import LoadedStorageGraphPort
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort

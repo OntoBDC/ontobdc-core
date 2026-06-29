@@ -7,7 +7,7 @@ from frictionless import Package
 from urllib.parse import urlparse, ParseResult
 from typing import Dict, Any, Optional, Type, List
 from ontobdc.shared.domain.port.context import CliContextPort
-from ontobdc.context.domain.resource.remote import RemoteCapabilityMetadata
+from ontobdc.context.domain.model.remote import RemoteCapabilityMetadata
 from ontobdc.context.domain.port.remote import LinksetDatapackageResourcePort
 from ontobdc.shared.domain.resource.capability import CapabilityExecutor, Capability, QueryCapability
 from ontobdc.storage.domain.port.dataset import RemoteDatasetCapabilityPort, RemoteDatasetCapabilityVisitorPort, RemoteDatasetRepositoryPort, EntityQueryCapabilityVisitablePort

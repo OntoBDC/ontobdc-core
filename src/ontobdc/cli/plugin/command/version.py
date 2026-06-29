@@ -2,7 +2,7 @@ from typing import List
 
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.resource.command import CommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse
 
 
 class CliVersionCommand(CliCommandPort):

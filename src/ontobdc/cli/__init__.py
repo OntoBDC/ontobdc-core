@@ -12,7 +12,7 @@ from ontobdc.cli.domain.exception.command import CliCommandArgumentException
 from ontobdc.cli.adapter.terminal import log, prompt_choice, prompt_raw_text
 from ontobdc.shared.domain.port.context import PromptChoiceAwarePort, PromptRawTextAwarePort
 from ontobdc.shared.domain.resource.logger import LogLevel, LogStrategyResource, NullLogRepository
-from ontobdc.cli.domain.resource.command import CommandResponse, ExceptionCommandResponse, HelpCommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse, ExceptionCommandResponse, HelpCommandResponse
 
 
 def main() -> None:

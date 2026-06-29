@@ -1,7 +1,7 @@
 
 from abc import abstractmethod, ABC
 from typing import Any, Dict, Optional, TYPE_CHECKING
-from ontobdc.context.domain.resource.remote import EntityMetadata
+from ontobdc.context.domain.model.remote import EntityMetadata
 from ontobdc.context.domain.port.remote import LinksetDatapackageResourcePort, DatasetFacadeResourcePort
 from ontobdc.storage.domain.port.repository import LocalRepositoryPort, RemoteRepositoryPort
 

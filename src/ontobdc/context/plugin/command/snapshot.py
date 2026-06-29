@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 from ontobdc.shared.adapter.config import ConfigDataAdapter
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.resource.command import ExceptionCommandResponse, ReportCommandResponse
+from ontobdc.cli.domain.response.command import ExceptionCommandResponse, ReportCommandResponse
 from ontobdc.context import get_context_file
 from ontobdc.run.plugin.check.has_valid_context.check import main as check_error
 from ontobdc.run.plugin.check.has_valid_context.hotfix import main as plugin_hotfix

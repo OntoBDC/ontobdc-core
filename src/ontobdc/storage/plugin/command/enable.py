@@ -7,7 +7,7 @@ from ontobdc.storage import get_storage_file, EMPTY_STORAGE_GRAPH
 from ontobdc.storage.adapter.container import StorageRootContainerAdapter
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
 from ontobdc.storage.plugin.check.is_root_set.hotfix import main as root_set_finish
-from ontobdc.cli.domain.resource.command import CommandResponse, EnableCommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse, EnableCommandResponse
 
 
 class StorageEnableCommand(CliCommandPort):

@@ -3,7 +3,7 @@ import subprocess
 from typing import List
 
 from ontobdc.cli.domain.port.command import CliCommandMetadata
-from ontobdc.cli.domain.resource.command import CommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse
 from ontobdc.dev.plugin.command.branch import DevBranchCommand
 
 
