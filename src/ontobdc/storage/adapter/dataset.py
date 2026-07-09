@@ -12,7 +12,7 @@ from ontobdc.storage.domain.port.dataset import (
     RemoteDatasetRepositoryPort, 
     DatasetRepositoryPort
 )
-from ontobdc.context.domain.resource.remote import RemoteCapabilityMetadata, EntityMetadata
+from ontobdc.context.domain.model.remote import RemoteCapabilityMetadata, EntityMetadata
 from ontobdc.storage.domain.port.resource import UrlResourcePort
 from rdflib import Graph, URIRef, Literal
 from typing import List, Any, Dict, Optional

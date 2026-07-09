@@ -5,7 +5,7 @@ from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.shared.adapter.plugin import CommandLoader, PluginResource
 from ontobdc.cli.domain.exception.command import CliCommandArgumentException
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.resource.command import CommandResponse, HelpCommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse, HelpCommandResponse
 
 
 class StorageListCommand(CliCommandPort):

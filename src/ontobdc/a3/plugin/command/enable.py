@@ -2,7 +2,7 @@ import subprocess
 
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.resource.command import CommandResponse, EnableCommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse, EnableCommandResponse
 
 
 class A3EnableCommand(CliCommandPort):

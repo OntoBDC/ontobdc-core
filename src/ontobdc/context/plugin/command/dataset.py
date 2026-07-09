@@ -14,8 +14,8 @@ from ontobdc.storage.domain.port.dataset import RemoteDatasetRepositoryPort
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
 from ontobdc.run.plugin.check.has_valid_context.check import main as check_error
 from ontobdc.run.plugin.check.has_valid_context.hotfix import main as plugin_hotfix
-from ontobdc.context.domain.resource.remote import EntityMetadata, RemoteCapabilityMetadata
-from ontobdc.cli.domain.resource.command import ExceptionCommandResponse, ReportCommandResponse
+from ontobdc.context.domain.model.remote import EntityMetadata, RemoteCapabilityMetadata
+from ontobdc.cli.domain.response.command import ExceptionCommandResponse, ReportCommandResponse
 
 
 class ContextRemoteDatasetCommand(CliCommandPort, LoggerAwarePort, PromptChoiceAwarePort):

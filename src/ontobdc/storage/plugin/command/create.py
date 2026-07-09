@@ -9,7 +9,7 @@ from rocrate.rocrate import ROCrate
 from typing import Any, Iterable, List, Tuple
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.shared.adapter.config import ConfigDataAdapter
-from ontobdc.cli.domain.resource.command import CommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse
 from ontobdc.storage.adapter.container import StorageLocalContainerAdapter
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
 from ontobdc.storage.domain.port.repository import LoadedStorageContainerCratePort

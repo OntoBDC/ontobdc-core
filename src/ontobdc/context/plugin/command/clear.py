@@ -5,7 +5,7 @@ from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
 from ontobdc.run.plugin.check.has_valid_context.check import main as check_error
 from ontobdc.run.plugin.check.has_valid_context.hotfix import main as plugin_hotfix
-from ontobdc.cli.domain.resource.command import ExceptionCommandResponse, ReportCommandResponse
+from ontobdc.cli.domain.response.command import ExceptionCommandResponse, ReportCommandResponse
 from ontobdc.context import get_context_file
 from ontobdc.context.plugin.command.snapshot import (
     context_source_file_paths,

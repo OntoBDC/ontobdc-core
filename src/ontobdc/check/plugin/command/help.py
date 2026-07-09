@@ -2,7 +2,7 @@ from typing import Dict
 from ontobdc.cli.adapter.command import CliCommandRequest
 from ontobdc.cli.domain.exception.command import CliCommandArgumentException
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.resource.command import CommandResponse, HelpCommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse, HelpCommandResponse
 from ontobdc.shared.adapter.plugin import CommandLoader, PluginResource
 
 

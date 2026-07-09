@@ -15,7 +15,7 @@ from ontobdc.run.adapter.sismic import SismicIntentTransitionHandlerAdapter
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
 from ontobdc.run.plugin.check.has_valid_context.check import main as check_error
 from ontobdc.run.plugin.check.has_valid_context.hotfix import main as plugin_hotfix
-from ontobdc.cli.domain.resource.command import CommandResponse, ExceptionCommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse, ExceptionCommandResponse
 from ontobdc.shared.domain.port.context import PromptChoiceAwarePort, PromptRawTextAwarePort
 
 

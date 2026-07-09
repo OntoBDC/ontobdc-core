@@ -2,7 +2,7 @@
 from typing import List
 from ontobdc.storage import is_enabled, get_storage_file
 from ontobdc.cli.adapter.command import CliCommandRequest
-from ontobdc.cli.domain.resource.command import CommandResponse
+from ontobdc.cli.domain.response.command import CommandResponse
 from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
 from ontobdc.storage.adapter.container import StorageLocalContainerAdapter, LoadedStorageGraph
 
