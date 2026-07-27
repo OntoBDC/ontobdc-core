@@ -1,42 +1,39 @@
-
 import os
-import sys
+from pathlib import Path
 from typing import Optional
+
 from rdflib import Graph, URIRef
 from rdflib.namespace import DCTERMS, RDF
+
+from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
+from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
 from ontobdc.storage import get_storage_file
-from ontobdc.storage.adapter.repository import LoadedStorageGraph
-from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
-from ontobdc.storage.domain.port.repository import LoadedStorageGraphPort
 
-CT = get_ontology_by_prefix("ct")
-
-
-def main(print_log: callable = None) -> int:
-    def _print_error_log(message: str, print_log: callable = None):
-        if print_log:
-            print_log("ERROR", "Check Root Container", message)
-        else:
-            print(message, file=sys.stderr)
+STORAGE_IDENTIFIER: str = "urn:ontobdc:storage/local"
+_ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
+    config_adapter=UnsetProjectRootConfigDataAdapter(),
+)
+OBDC = _ontology_adapter.get_ontology_namespace_by_prefix("obdc")
 
 
+def main(root_path: Optional[str] = None) -> int:
     try:
-        storage_file_path: str = get_storage_file()
-
-        if not os.path.exists(storage_file_path):
-            _print_error_log("Storage configuration file not found.", print_log)
+        storage_file_path: Path = Path(get_storage_file(root_path=root_path))
+        if not os.path.isfile(storage_file_path):
             return 1
 
-        root_graph: LoadedStorageGraphPort = LoadedStorageGraph(storage_file_path)
-        root_container: Optional[URIRef] = root_graph.get_root_container()
+        graph: Graph = Graph()
+        graph.parse(storage_file_path, format="turtle")
 
-        if not isinstance(root_container, URIRef):
-            _print_error_log("Root container not found in storage graph.", print_log)
+        storage_reference: URIRef = URIRef(STORAGE_IDENTIFIER)
+        if (storage_reference, RDF.type, OBDC.DataStorage) not in graph:
+            return 1
+
+        if (storage_reference, DCTERMS.identifier, None) not in graph:
             return 1
 
         return 0
-    except Exception as e:
-        _print_error_log(f"Invalid storage configuration: {str(e)}", print_log)
+    except Exception:
         return 1
 
 

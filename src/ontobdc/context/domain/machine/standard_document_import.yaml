@@ -1,0 +1,291 @@
+statechart:
+  name: StandardDocumentImport
+  description: "Statechart for importing information artifacts, transforming their contents into semantic instances, and publishing the resulting information inside an ICDD container."
+
+  root state:
+    name: standard_document_import
+    initial: undefined
+
+    states:
+      - name: undefined
+        description: Initial state assigned before the import process has materialized, classified, or otherwise processed any source artifact.
+        transitions:
+          - target: ingested
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.INGESTED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.INGESTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.UNDEFINED, to_state = DocumentImportProcessState.INGESTED)
+
+      - name: ingested
+        description: The source artifact has entered the import process and has been preserved in its original form. Its identity, content hash, file name, media type, size, origin, and available provenance have been recorded. When applicable, the original artifact is already registered as an ICDD payload document, but its contents have not yet been interpreted.
+        transitions:
+          - target: profiled
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.PROFILED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.PROFILED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.INGESTED, to_state = DocumentImportProcessState.PROFILED)
+          - target: failed
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.FAILED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.FAILED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.INGESTED, to_state = DocumentImportProcessState.FAILED)
+          - target: cancelled
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.CANCELLED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.CANCELLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.INGESTED, to_state = DocumentImportProcessState.CANCELLED)
+
+      - name: profiled
+        description: The source artifact has been technically and documentarily characterized so that suitable processing capabilities can be selected. Profiling may identify the document type, format, generating application, language, revision, page geometry, presence of native text, scanned content, tables, images, vector graphics, annotations, or other relevant structural features. No domain assertions are created solely from this characterization.
+        transitions:
+          - target: extracted
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.EXTRACTED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.EXTRACTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.PROFILED, to_state = DocumentImportProcessState.EXTRACTED)
+          - target: unsupported
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.UNSUPPORTED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.UNSUPPORTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.PROFILED, to_state = DocumentImportProcessState.UNSUPPORTED)
+          - target: failed
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.FAILED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.FAILED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.PROFILED, to_state = DocumentImportProcessState.FAILED)
+          - target: cancelled
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.CANCELLED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.CANCELLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.PROFILED, to_state = DocumentImportProcessState.CANCELLED)
+
+      - name: extracted
+        description: Observable content has been recovered from the source without yet assigning domain meaning to it. Extracted material may include text, words, bounding boxes, blocks, tables, images, vector documents, metadata, bookmarks, annotations, or OCR results. Every extracted fragment should retain enough provenance to identify its source artifact, page or region, and extraction method.
+        transitions:
+          - target: structured
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.STRUCTURED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.STRUCTURED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.EXTRACTED, to_state = DocumentImportProcessState.STRUCTURED)
+          - target: review_required
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.EXTRACTED, to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+          - target: failed
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.FAILED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.FAILED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.EXTRACTED, to_state = DocumentImportProcessState.FAILED)
+          - target: cancelled
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.CANCELLED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.CANCELLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.EXTRACTED, to_state = DocumentImportProcessState.CANCELLED)
+
+      - name: structured
+        description: Extracted fragments have been organized into a coherent intermediate representation that is independent of the target ontology. Examples include rows, columns, cells, sections, fields, records, candidate activities, dates, relationships, risks, controls, or other document-level structures. Each structured value remains traceable to the evidence from which it was derived.
+        transitions:
+          - target: instantiated
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.INSTANTIATED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.INSTANTIATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.STRUCTURED, to_state = DocumentImportProcessState.INSTANTIATED)
+          - target: review_required
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.STRUCTURED, to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+          - target: failed
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.FAILED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.FAILED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.STRUCTURED, to_state = DocumentImportProcessState.FAILED)
+          - target: cancelled
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.CANCELLED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.CANCELLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.STRUCTURED, to_state = DocumentImportProcessState.CANCELLED)
+
+      - name: instantiated
+        description: The intermediate records have been transformed into semantic instances and assertions according to the selected domain models. For example, schedule records may produce work schedules, tasks, task times, decompositions, and sequence relationships, while other documents may produce people, organizations, locations, requirements, risks, controls, inspections, or occurrences. References may still be unresolved at this stage.
+        transitions:
+          - target: resolved
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.RESOLVED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.RESOLVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.INSTANTIATED, to_state = DocumentImportProcessState.RESOLVED)
+          - target: review_required
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.INSTANTIATED, to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+          - target: failed
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.FAILED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.FAILED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.INSTANTIATED, to_state = DocumentImportProcessState.FAILED)
+          - target: cancelled
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.CANCELLED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.CANCELLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.INSTANTIATED, to_state = DocumentImportProcessState.CANCELLED)
+
+      - name: resolved
+        description: References and candidate identities have been reconciled with known entities within the current import, the ICDD container, previous revisions, or authorized external datasets. Each attempted resolution should explicitly record whether it is resolved, ambiguous, unresolved, or conflicting, together with its supporting evidence, so that uncertain correspondences are not silently asserted.
+        transitions:
+          - target: validated
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.VALIDATED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.VALIDATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.RESOLVED, to_state = DocumentImportProcessState.VALIDATED)
+          - target: review_required
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.RESOLVED, to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+          - target: failed
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.FAILED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.FAILED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.RESOLVED, to_state = DocumentImportProcessState.FAILED)
+          - target: cancelled
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.CANCELLED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.CANCELLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.RESOLVED, to_state = DocumentImportProcessState.CANCELLED)
+
+      - name: validated
+        description: The semantic instances, values, and relationships have been checked for structural, referential, and domain consistency. Validation may include schema conformance, data types, cardinalities, SHACL shapes, temporal rules, referential integrity, document-specific constraints, completeness requirements, and cross-record consistency. The validation result and every warning or violation are recorded as auditable process outputs.
+        transitions:
+          - target: linked
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.LINKED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.LINKED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.VALIDATED, to_state = DocumentImportProcessState.LINKED)
+          - target: rejected
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.REJECTED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.REJECTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.VALIDATED, to_state = DocumentImportProcessState.REJECTED)
+          - target: review_required
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.VALIDATED, to_state = DocumentImportProcessState.REVIEW_REQUIRED)
+          - target: failed
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.FAILED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.FAILED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.VALIDATED, to_state = DocumentImportProcessState.FAILED)
+          - target: cancelled
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.CANCELLED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.CANCELLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.VALIDATED, to_state = DocumentImportProcessState.CANCELLED)
+
+      - name: linked
+        description: Semantic instances have been connected to source documents, exact document fragments, other semantic entities, and relevant external artifacts. The resulting ICDD RDF linksets may relate an entity to a complete document, a page or bounding-box evidence fragment, another entity such as an IFC object, or operational records such as photographs, reports, permits, and risk assessments.
+        transitions:
+          - target: packaged
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.PACKAGED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.PACKAGED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.LINKED, to_state = DocumentImportProcessState.PACKAGED)
+          - target: failed
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.FAILED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.FAILED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.LINKED, to_state = DocumentImportProcessState.FAILED)
+          - target: cancelled
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.CANCELLED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.CANCELLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.LINKED, to_state = DocumentImportProcessState.CANCELLED)
+
+      - name: packaged
+        description: The original payloads and all selected process products have been assembled into an ICDD container. The package may include semantic models, human-editable representations, RDF linksets, validation reports, provenance, manifests, hashes, and capability versions. The container is complete enough for final verification but has not yet been declared an immutable published version.
+        transitions:
+          - target: published
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.PUBLISHED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.PUBLISHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.PACKAGED, to_state = DocumentImportProcessState.PUBLISHED)
+          - target: rejected
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.REJECTED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.REJECTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.PACKAGED, to_state = DocumentImportProcessState.REJECTED)
+          - target: failed
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.FAILED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.FAILED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.PACKAGED, to_state = DocumentImportProcessState.FAILED)
+          - target: cancelled
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.CANCELLED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.CANCELLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.PACKAGED, to_state = DocumentImportProcessState.CANCELLED)
+
+      - name: published
+        description: The ICDD container has passed final verification and has been closed as an identifiable, immutable, and distributable version. Final hashes, version identifiers, and signatures, when applicable, have been recorded. Any subsequent change must produce a new process execution or container revision rather than silently altering the published result.
+        transitions:
+          - target: superseded
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.SUPERSEDED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.SUPERSEDED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.PUBLISHED, to_state = DocumentImportProcessState.SUPERSEDED)
+
+      - name: review_required
+        description: Automated processing completed far enough to produce usable intermediate or semantic results, but one or more ambiguities, low-confidence interpretations, unresolved references, or validation findings require an explicit human decision before normal processing can continue. This is a controlled workflow state, not a technical failure.
+        transitions:
+          - target: structured
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.STRUCTURED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.STRUCTURED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.REVIEW_REQUIRED, to_state = DocumentImportProcessState.STRUCTURED)
+          - target: instantiated
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.INSTANTIATED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.INSTANTIATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.REVIEW_REQUIRED, to_state = DocumentImportProcessState.INSTANTIATED)
+          - target: resolved
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.RESOLVED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.RESOLVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.REVIEW_REQUIRED, to_state = DocumentImportProcessState.RESOLVED)
+          - target: validated
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.VALIDATED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.VALIDATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.REVIEW_REQUIRED, to_state = DocumentImportProcessState.VALIDATED)
+          - target: rejected
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.REJECTED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.REJECTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.REVIEW_REQUIRED, to_state = DocumentImportProcessState.REJECTED)
+          - target: cancelled
+            guard: handler.can_transit_to(to_state = DocumentImportProcessState.CANCELLED)
+            action: handler.perform_state_transition(to_state = DocumentImportProcessState.CANCELLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DocumentImportProcessState.REVIEW_REQUIRED, to_state = DocumentImportProcessState.CANCELLED)
+
+      - name: unsupported
+        description: The artifact was ingested and profiled, but no available adapter or processing capability can reliably handle its format, structure, protection mechanism, or document type. The source and profiling evidence remain preserved so that processing may be retried when appropriate support becomes available.
+        type: final
+
+      - name: rejected
+        description: Processing produced interpretable results, but the source or resulting semantic content does not satisfy the minimum acceptance criteria required for integration or publication. Rejection is a deliberate semantic or governance decision supported by recorded validation findings, not an unexpected execution error.
+        type: final
+
+      - name: failed
+        description: The process could not complete the current operation because of an unexpected technical error, unavailable dependency, corrupted intermediate artifact, or other execution failure. The failure context, completed states, and recoverable outputs should be retained to support diagnosis and safe retry.
+        type: final
+
+      - name: cancelled
+        description: The import process was deliberately stopped before publication by a user, an authorized workflow, or a controlling process. Already materialized artifacts and provenance are retained according to policy, but the execution is not considered a completed semantic import.
+        type: final
+
+      - name: superseded
+        description: The process result or published container version has been replaced by a newer accepted revision. The superseded result remains identifiable and auditable and may still be referenced for historical or provenance purposes, but it is no longer the current authoritative version.
+        type: final

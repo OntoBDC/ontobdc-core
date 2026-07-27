@@ -1,13 +1,17 @@
 
-from typing import List
-
-from ontobdc.cli.adapter.command import CliCommandRequest
+from typing import List, Dict, Any
+from ontobdc.cli.domain.model.command import CliCommandMetadata
+from ontobdc.shared.adapter.loader import CommandLoader
+from ontobdc.cli.adapter.logger import NullLogRepository
+from ontobdc.cli.domain.model.logger import LogStrategyConfig
+from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.exception.command import CliCommandArgumentException
-from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
+from ontobdc.cli.domain.port.logger import LoggerAwarePort, LogRepositoryPort
+from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.response.command import CommandResponse, HelpCommandResponse
 
 
-class CliBaseCommand(CliCommandPort):
+class CliBaseCommand(CliCommandPort, LoggerAwarePort):
     """
     Helper class for base command loading.
     """
@@ -20,7 +24,12 @@ class CliBaseCommand(CliCommandPort):
 
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
-        self._print_log : callable = None
+        self._logger: LogRepositoryPort = NullLogRepository()
+        self._log_strategy: Any = None
+
+    @property
+    def log_strategy(self) -> Any:
+        return self._log_strategy
 
     @staticmethod
     def accepts(args: List[str]) -> bool:
@@ -33,8 +42,9 @@ class CliBaseCommand(CliCommandPort):
 
         return len(args) == 0
 
-    def set_print_log(self, print_log: callable):
-        self._print_log = print_log
+    def set_log_strategy(self, log_strategy: LogStrategyConfig) -> None:
+        self._log_strategy = log_strategy
+        self._logger = log_strategy.log_repository
 
     def check(self) -> bool:
         """
@@ -50,17 +60,16 @@ class CliBaseCommand(CliCommandPort):
         if len(self._request.command_args) > 1 and self._request.command_args[0] not in ['--help', '-h']:
             raise CliCommandArgumentException()
 
-        command_list = {}
-        from ontobdc.shared.adapter.plugin import CommandLoader
+        command_list: Dict[str, Any] = {}
 
         # Discover all logical components dynamically
-        dummy_loader = CommandLoader("")
+        dummy_loader = CommandLoader("", self._logger)
         logical_components = sorted(list(set(
             pkg.split('.')[1] for pkg in dummy_loader._list_plugin_folder("command")
         )))
 
         for component in logical_components:
-            loader = CommandLoader(component, self._print_log)
+            loader = CommandLoader(component, self._logger)
             for cmd_class in loader.get_all():
                 if not isinstance(cmd_class, type):
                     continue

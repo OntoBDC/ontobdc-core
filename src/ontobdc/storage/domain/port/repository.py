@@ -1,8 +1,53 @@
 
 from pathlib import Path
-from rdflib import Graph
+from typing import List, Any
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Iterable
+from typing import Dict, Any, List
+
+
+class RepositoryPort(ABC):
+    """
+    Base repository port.
+    """
+
+    @abstractmethod
+    def get_by_id(self, id: str) -> List[Any]:
+        """
+        Get a file resource by its ID.
+
+        :param id: The ID of the file resource.
+        :return: The file resource as a dictionary.
+        """
+        pass
+
+    @abstractmethod
+    def get_all(self) -> List[Any]:
+        """
+        Get all file resources.
+
+        :return: A list of file resources as dictionaries.
+        """
+        pass
+
+    @abstractmethod
+    def get_by_type(self, type: str) -> List[Any]:
+        """
+        Get all file resources of a certain type.
+
+        :param type: The type of the file resource.
+        :return: A list of file resources as dictionaries.
+        """
+        pass
+
+    @abstractmethod
+    def exists(self, path: str) -> bool:
+        """
+        Check if a file resource exists.
+
+        :param path: The path of the file resource.
+        :return: True if the file resource exists, False otherwise.
+        """
+        pass
 
 
 class LocalRepositoryPort(ABC):
@@ -108,112 +153,6 @@ class ContainerRepositoryPort(ABC):
 class RootContainerRepositoryPort(ContainerRepositoryPort):
     """
     Repository port for root container resources.
-    """
-    pass
-
-
-class LoadedStorageGraphPort(ABC):
-    @property
-    @abstractmethod
-    def graph(self) -> Graph:
-        """
-        The loaded RDF graph.
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def file_path(self) -> Path:
-        """
-        The source file path of the loaded graph.
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def containers(self) -> Iterable:
-        """
-        Iterate over registered containers.
-        """
-        ...
-
-    @abstractmethod
-    def serialize(self, destination: str, format: str = "xml") -> bytes:
-        """
-        Serialize the loaded graph.
-        """
-        ...
-
-    @abstractmethod
-    def is_valid(self) -> bool:
-        """
-        Check whether the loaded graph is valid.
-        """
-        ...
-
-
-class LoadedStorageContainerCratePort(ABC):
-    @property
-    @abstractmethod
-    def dictionary(self) -> Dict[str, Any]:
-        """
-        The loaded crate dictionary.
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def file_path(self) -> Path:
-        """
-        The source file path of the loaded crate.
-        """
-        ...
-
-    @abstractmethod
-    def serialize(self, destination: str | Path | None = None) -> None:
-        """
-        Serialize the loaded crate.
-        """
-        ...
-
-    @abstractmethod
-    def is_valid(self) -> bool:
-        """
-        Check whether the loaded crate is valid.
-        """
-        ...
-
-
-class RemoteRepositoryPort(ABC):
-    """
-    Repository port for remote resources.
-    """
-    @property
-    @abstractmethod
-    def url(self) -> 'UrlResourcePort':
-        """
-        The URL of the remote repository.
-        """
-        ...
-
-    @abstractmethod
-    def serialize(self, format: str = "turtle") -> bytes:
-        """
-        Serialize the remote repository.
-        """
-        ...
-
-    @abstractmethod
-    def to_json(self) -> Dict[str, Any]:
-        """
-        Convert the repository to a JSON object.
-        """
-        ...
-
-
-class RemotePublicRepositoryPort(RemoteRepositoryPort):
-    """
-    Repository port for remote public resources.
     """
     pass
 

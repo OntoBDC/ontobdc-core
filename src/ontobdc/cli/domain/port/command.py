@@ -1,35 +1,17 @@
 
-from dataclasses import dataclass
-from typing import Dict, Any, List
+from typing import TYPE_CHECKING, List
 from abc import ABC, abstractmethod
 from ontobdc.cli.domain.response.command import CommandResponse
 
-
-@dataclass
-class CliCommandMetadata:
-    id: str
-    logical_component: str
-    description: str = ""
-    usage: str = ""
-    arguments: List[Dict[str, Any]] = None
-    depends_on: List[str] | str = "DEFAULT"
-
-    def __post_init__(self):
-        if self.arguments is None:
-            self.arguments = []
-            
-        if self.depends_on == "DEFAULT":
-            self.depends_on = ["cli.is_root_dir_set"]
-        elif self.depends_on is None:
-            self.depends_on = []
-
+if TYPE_CHECKING:
+    from ontobdc.cli.domain.model.command import CliCommandMetadata
 
 
 class CliCommandPort(ABC):
     """
     Port interface for CLI commands.
     """
-    METADATA: CliCommandMetadata
+    METADATA: "CliCommandMetadata"
 
     @staticmethod
     @abstractmethod

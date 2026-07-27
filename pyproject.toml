@@ -7,40 +7,32 @@ name = "ontobdc"
 authors = [
     { name = "Elias Magalhães", email = "elias@brasidata.com" }
 ]
-version = "0.10.0"
+version = "0.11.0"
 description = "OntoBDC (Ontology-Based Datasets & Containers)"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "rich",
-    "PyYAML",
-    "numpy",
-    "rfc3987",
-    "sismic",
-    "spacy",
+    "setuptools",
+    "requests",
     "rdflib",
-    "networkx",
-    "pyspellchecker",
-    "datapackage",
+    "pydantic",
+    "PyYAML",
+    "sismic",
     "rocrate",
-    "tableschema",
-    "lxml",
+    "rich",
+    "pymupdf4llm",
+    "langid",
+    "openpyxl",
     "frictionless",
+    "rfc3987",
+    "spacy",
+    "spacy-lookups-data",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
     "coverage",
-]
-a3 = [
-    "pyshacl",
-]
-a3-openai = [
-
-]
-social = [
-    "rdflib",
 ]
 
 [project.scripts]
@@ -72,4 +64,3 @@ include = ["ontobdc*"]
 [tool.ontobdc]
 documentation_scope = "current CLI command surface"
 documentation_source = "https://ontobdc.org/"
-

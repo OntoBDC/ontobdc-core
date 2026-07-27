@@ -1,14 +1,11 @@
 
-from typing import List
-from rdflib import Graph
-from rdflib.namespace import DCTERMS, PROV, RDF
-from ontobdc.storage import is_enabled, get_storage_file
-from ontobdc.cli.adapter.command import CliCommandRequest
-from ontobdc.shared.adapter.ontology import get_ontology_by_prefix
-from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.response.command import CommandResponse, ListCommandResponse
-
-CT = get_ontology_by_prefix("ct")
+from ontobdc.storage import get_storage_file
+from typing import Callable, Dict, List, Optional
+from ontobdc.storage.adapter.repository import LoadedStorageGraph
+from ontobdc.shared.facade.request.command import CliCommandRequest
+from ontobdc.shared.facade.port.command import CliCommandPort
+from ontobdc.cli.domain.model.command import CliCommandMetadata
+from ontobdc.shared.facade.response.command import CommandResponse, ListCommandResponse, ExceptionCommandResponse
 
 
 class StorageBaseCommand(CliCommandPort):
@@ -45,9 +42,9 @@ class StorageBaseCommand(CliCommandPort):
 
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
-        self._print_log : callable = None
+        self._print_log: Optional[Callable[[str], None]] = None
 
-    def set_print_log(self, print_log: callable):
+    def set_print_log(self, print_log: Callable[[str], None]) -> None:
         self._print_log = print_log
 
     def check(self) -> bool:
@@ -55,7 +52,7 @@ class StorageBaseCommand(CliCommandPort):
         Check if the command is valid.
         Returns True if the command is valid, False otherwise.
         """
-        return is_enabled() and (len(self._request.command_args) == 0 or (
+        return (len(self._request.command_args) == 0 or (
             len(self._request.command_args) == 1
             and self._request.command_args[0] in ["--list", "-l"]
         ))
@@ -64,41 +61,12 @@ class StorageBaseCommand(CliCommandPort):
         """
         Execute the command.
         """
-        storage_path = get_storage_file()
-        containers = []
-
         try:
-            g = Graph()
-            g.parse(storage_path)
-            container_type = CT.ContainerDescription
-
-            for container in g.subjects(RDF.type, container_type):
-                container_data = {
-                    "id": None,
-                    "title": None,
-                    "description": None,
-                    "location": None
-                }
-
-                for id in g.objects(container, DCTERMS.identifier):
-                    container_data["id"] = str(id)
-
-                for title in g.objects(container, DCTERMS.title):
-                    container_data["title"] = str(title)
-
-                for description in g.objects(container, CT.description):
-                    container_data["description"] = str(description)
-
-                for location in g.objects(container, PROV.atLocation):
-                    loc_str = str(location)
-                    if loc_str.startswith("file://"):
-                        loc_str = loc_str[7:]
-                    container_data["location"] = loc_str
-
-                containers.append(container_data)
+            storage_graph = LoadedStorageGraph(get_storage_file())
+            containers: List[Dict[str, Optional[str]]] = storage_graph.storage_graph.list_containers()
 
         except Exception as e:
-            return CommandResponse(
+            return ExceptionCommandResponse(
                 title="Failed to List Containers",
                 description=f"An error occurred while reading storage.ttl: {str(e)}",
                 content={"containers": [], "error": str(e)}
