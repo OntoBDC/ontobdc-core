@@ -102,6 +102,10 @@ class CliCommandRunAdapter:
                 command_args=clean_args,
                 context=CliContextAdapter(clean_args),
             )
-            return command_class(request)
+            command: CliCommandPort = command_class(request)
+            if not command.check():
+                raise CliCommandArgumentException(f"Invalid command arguments: {args}")
+
+            return command
         except ProjectRootDirectoryNotSetError:
             raise
