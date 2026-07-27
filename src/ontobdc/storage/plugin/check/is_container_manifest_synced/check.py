@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
+from urllib.parse import unquote
 
 from ontobdc.storage.adapter.bootstrap import (
     ONTOBDC_DIRECTORY_NAME,
@@ -84,7 +85,7 @@ def _extract_has_part_ids(crate_data: Dict[str, Any]) -> Optional[Set[str]]:
         part_id: object = part.get("@id")
         if not isinstance(part_id, str) or not part_id.strip():
             return None
-        normalized_id: str = part_id.strip()
+        normalized_id: str = unquote(part_id.strip())
         if normalized_id.startswith("./"):
             normalized_id = normalized_id[2:]
         file_ids.add(normalized_id)
