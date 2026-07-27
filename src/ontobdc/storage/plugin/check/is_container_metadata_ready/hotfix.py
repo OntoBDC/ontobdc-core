@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote
 
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF, XSD
@@ -31,7 +32,8 @@ def _build_container_id(container_path: Path, root_path: Path) -> Optional[str]:
     except ValueError:
         return None
 
-    return f"urn:ontobdc:storage/local/{relative_container_path.as_posix()}"
+    encoded_relative_path: str = quote(relative_container_path.as_posix(), safe="/")
+    return f"urn:ontobdc:storage/local/{encoded_relative_path}"
 
 
 def _build_container_title(container_path: Path) -> str:
