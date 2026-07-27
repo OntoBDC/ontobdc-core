@@ -20,7 +20,7 @@ class CliContextAdapter(CliContextPort):
     def __init__(self, argv: List[str] = [], root_dir: str = None):
         self._raw_argv = argv
 
-        self._config_adapter: ConfigDataPort = self._make_config_data_adapter()
+        self._config_adapter: ConfigDataPort = self._make_config_data_adapter(root_dir)
 
         self._unprocessed_args = argv[1:]
         self._context_individual: Optional[URIRef] = None
@@ -37,6 +37,10 @@ class CliContextAdapter(CliContextPort):
             self._load()
         except (FileNotFoundError, PermissionError):
             pass
+
+        if self._context_individual is None:
+            self._context_individual = URIRef(BASE_URI["execution"])
+            self._graph.add((self._context_individual, RDF.type, OBDC.ExecutionContext))
 
     @property
     def language(self) -> Optional[str]:
@@ -85,7 +89,10 @@ class CliContextAdapter(CliContextPort):
         """
         Returns the root path of the repository.
         """
-        cfg = self._config_adapter.all or {}
+        try:
+            cfg = self._config_adapter.all or {}
+        except ProjectRootDirectoryNotSetError:
+            return os.getcwd()
         directory = cfg.get("directory") or {}
         root = directory.get("root") or {}
         absolute_path = root.get("absolute_path")
@@ -217,6 +224,9 @@ class CliContextAdapter(CliContextPort):
         """
         Saves the graph back to the context file.
         """
+        if self._context_file is None:
+            return
+
         self._graph.serialize(destination=self._context_file, format="turtle")
 
     @classmethod
@@ -225,7 +235,7 @@ class CliContextAdapter(CliContextPort):
             return False
 
         root_dir_path: Path = Path(root_dir)
-        return root_dir_path.ex
+        return root_dir_path.exists() and root_dir_path.is_dir()
 
     @classmethod
     def _make_config_data_adapter(cls, root_dir: Optional[str] = None) -> ConfigDataPort:

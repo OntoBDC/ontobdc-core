@@ -124,11 +124,15 @@ def main(
 
     container_storage_file_path: Path = get_container_storage_file_path(resolved_container_path)
     storage_file_path: Path = get_storage_file_path(resolved_root_path)
-    if not container_storage_file_path.is_file() or not storage_file_path.is_file():
+    if not container_storage_file_path.is_file():
         return 1
 
     container_graph: Optional[Graph] = _load_graph(container_storage_file_path)
-    storage_graph: Optional[Graph] = _load_graph(storage_file_path)
+    if storage_file_path.is_file():
+        storage_graph: Optional[Graph] = _load_graph(storage_file_path)
+    else:
+        storage_graph = Graph()
+
     if container_graph is None or storage_graph is None:
         return 1
 
