@@ -42,7 +42,11 @@ def main() -> None:
         elif render_type == 'rich':
             logger = InLineLogger()
 
-        cli_command_run: CliCommandPort = CliCommandRunAdapter.make(incoming_args, logger)
+        cli_command_run: CliCommandPort = CliCommandRunAdapter.make(
+            incoming_args,
+            logger,
+            defer_check=True,
+        )
 
         if _check_command(cli_command_run, incoming_args, logger):
             if isinstance(cli_command_run, LoggerAwarePort):
@@ -87,6 +91,7 @@ def _check_command(
     cli_command_run: CliCommandPort,
     incoming_args: List[str],
     logger: LogRepositoryPort,
+    parameter_loader: Optional[ParameterLoader] = None,
 ) -> bool:
     """
     Check if a command is valid and ready to execute.
@@ -105,7 +110,9 @@ def _check_command(
 
     _apply_explicit_parameter_values(cli_command_run, incoming_args, context)
 
-    parameter_loader: ParameterLoader = ParameterLoader()
+    if parameter_loader is None:
+        parameter_loader = ParameterLoader()
+
     parameter_strategies: List[Any] = parameter_loader.get_all()
     required_parameter_names: Set[str] = _resolve_required_parameter_names(cli_command_run)
 

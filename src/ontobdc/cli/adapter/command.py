@@ -49,6 +49,7 @@ class CliCommandRunAdapter:
         logger: LogRepositoryPort,
         check_level: int = 1,
         loader_class: Optional[Type[CommandLoaderPort]] = None,
+        defer_check: bool = False,
     ) -> CliCommandPort:
         """
         Create a command adapter from raw CLI arguments.
@@ -103,7 +104,7 @@ class CliCommandRunAdapter:
                 context=CliContextAdapter(clean_args),
             )
             command: CliCommandPort = command_class(request)
-            if not command.check():
+            if not defer_check and not command.check():
                 raise CliCommandArgumentException(f"Invalid command arguments: {args}")
 
             return command
