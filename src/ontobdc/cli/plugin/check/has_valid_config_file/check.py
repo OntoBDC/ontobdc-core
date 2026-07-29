@@ -1,44 +1,47 @@
+from pathlib import Path
+from typing import Any, Dict, Optional
 
-import os
-import sys
 import yaml
+
 from ontobdc.shared.adapter.config import ConfigDataAdapter
 
 
-def main(print_log: callable = None) -> int:
-    def _print_error_log(message: str, print_log: callable = None):
-        if print_log:
-            print_log("ERROR", "Check Valid Config File", message)
-        else:
-            print(message, file=sys.stderr)
+def _get_config_file(root_path: Optional[str] = None) -> Path:
+    if isinstance(root_path, str) and root_path.strip():
+        return Path(root_path).expanduser().resolve() / ".__ontobdc__" / "config.yaml"
 
+    return ConfigDataAdapter().config_file
+
+
+def main(root_path: Optional[str] = None) -> int:
     try:
-        try:
-            root_dir = ConfigDataAdapter().root_dir
-        except ValueError:
-            _print_error_log("Project configuration file (.__ontobdc__/config.yaml) not found.", print_log)
+        config_file: Path = _get_config_file(root_path=root_path)
+        if not config_file.is_file():
             return 1
 
-        config_file = os.path.join(root_dir, ".__ontobdc__", "config.yaml")
+        with open(config_file, "r", encoding="utf-8") as file_handle:
+            parsed_config: Any = yaml.safe_load(file_handle) or {}
 
-        if not os.path.exists(config_file):
-            _print_error_log(f"Config file not found: {config_file}", print_log)
+        if not isinstance(parsed_config, dict) or len(parsed_config) == 0:
             return 1
 
-        with open(config_file, "r") as f:
-            yaml.safe_load(f)
+        config_adapter: ConfigDataAdapter = ConfigDataAdapter(str(config_file.parent.parent.resolve()))
+        config_data: Optional[Dict[str, Any]] = config_adapter.all
+        if not isinstance(config_data, dict) or len(config_data) == 0:
+            return 1
 
-        if not isinstance(ConfigDataAdapter().all, dict):
-            _print_error_log(f"Config file is not a valid YAML dictionary: {config_file}", print_log)
+        directory: Any = config_data.get("directory")
+        if not isinstance(directory, dict):
+            return 1
+
+        root: Any = directory.get("root")
+        if not isinstance(root, dict):
+            return 1
+
+        absolute_path: Any = root.get("absolute_path")
+        if not isinstance(absolute_path, str) or not absolute_path.strip():
             return 1
 
         return 0
-    except yaml.YAMLError as e:
-        _print_error_log(f"Invalid YAML in config file: {str(e)}", print_log)
+    except Exception:
         return 1
-    except Exception as e:
-        _print_error_log(f"Error checking config file: {str(e)}", print_log)
-        return 1
-
-if __name__ == "__main__":
-    sys.exit(main())

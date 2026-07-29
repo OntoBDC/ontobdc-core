@@ -1,0 +1,109 @@
+@prefix : <https://w3id.org/ontobdc/ontology/file-display#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://w3id.org/ontobdc/ontology/file-display>
+    a owl:Ontology ;
+    dcterms:title "OntoBDC File Display Ontology"@en ;
+    dcterms:description
+        "Declarative profiles controlling which catalogued files may appear in user-facing resource views."@en .
+
+:FileDisplayProfile
+    a owl:Class ;
+    rdfs:label "File display profile"@en ;
+    rdfs:comment
+        "Allowlist profile assigning supported MIME types and filename extensions to one display category."@en .
+
+:displayCategory
+    a owl:DatatypeProperty ;
+    rdfs:domain :FileDisplayProfile ;
+    rdfs:range xsd:string ;
+    rdfs:label "display category"@en .
+
+:acceptedMimeType
+    a owl:DatatypeProperty ;
+    rdfs:domain :FileDisplayProfile ;
+    rdfs:range xsd:string ;
+    rdfs:label "accepted MIME type"@en .
+
+:acceptedExtension
+    a owl:DatatypeProperty ;
+    rdfs:domain :FileDisplayProfile ;
+    rdfs:range xsd:string ;
+    rdfs:label "accepted filename extension"@en ;
+    rdfs:comment
+        "Lowercase filename extension including the leading full stop."@en .
+
+:DrawingFiles
+    a :FileDisplayProfile ;
+    rdfs:label "Drawing files"@en ;
+    :displayCategory "drawings" ;
+    :acceptedMimeType
+        "application/acad" ,
+        "application/dwg" ,
+        "application/dxf" ,
+        "application/x-acad" ,
+        "application/x-autocad" ,
+        "application/x-dwg" ,
+        "application/x-dxf" ,
+        "image/vnd.dwg" ,
+        "image/vnd.dxf" ;
+    :acceptedExtension
+        ".dwg" ,
+        ".dxf" .
+
+:DocumentFiles
+    a :FileDisplayProfile ;
+    rdfs:label "Document files"@en ;
+    :displayCategory "documents" ;
+    :acceptedMimeType
+        "application/json" ,
+        "application/msword" ,
+        "application/pdf" ,
+        "application/rtf" ,
+        "application/vnd.ms-excel" ,
+        "application/vnd.ms-powerpoint" ,
+        "application/vnd.oasis.opendocument.presentation" ,
+        "application/vnd.oasis.opendocument.spreadsheet" ,
+        "application/vnd.oasis.opendocument.text" ,
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation" ,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ,
+        "application/xml" ,
+        "text/csv" ,
+        "text/markdown" ,
+        "text/plain" ,
+        "text/turtle" ,
+        "text/xml" ;
+    :acceptedExtension
+        ".csv" ,
+        ".doc" ,
+        ".docx" ,
+        ".json" ,
+        ".md" ,
+        ".odp" ,
+        ".ods" ,
+        ".odt" ,
+        ".pdf" ,
+        ".ppt" ,
+        ".pptx" ,
+        ".rtf" ,
+        ".ttl" ,
+        ".txt" ,
+        ".xls" ,
+        ".xlsx" ,
+        ".xml" .
+
+:MessageFiles
+    a :FileDisplayProfile ;
+    rdfs:label "Message files"@en ;
+    :displayCategory "messages" ;
+    :acceptedMimeType
+        "application/vnd.ms-outlook" ,
+        "message/rfc822" ;
+    :acceptedExtension
+        ".eml" ,
+        ".msg" .

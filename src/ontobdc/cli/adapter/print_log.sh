@@ -1,94 +1,77 @@
-#!/bin/bash
+#!/usr/bin/env python3
 
-# Define colors
-RESET='\033[0m'
-BOLD='\033[1m'
-GRAY='\033[90m'
-WHITE='\033[37m'
-RED='\033[31m'
-GREEN='\033[32m'
-YELLOW='\033[33m'
-BLUE='\033[34m'
-CYAN='\033[36m'
+import sys
+from datetime import datetime
+from typing import Dict, List, Tuple
 
-# Get timestamp
-get_timestamp() {
-    date "+%H:%M:%S.%3N"
-}
 
-# Log function
-# Usage: log <LEVEL> <MESSAGE> [KEY=VALUE ...]
-log() {
-    local LEVEL=$(echo "$1" | tr '[:lower:]' '[:upper:]')
-    local MESSAGE="$2"
-    shift 2
+RESET: str = "\033[0m"
+BOLD: str = "\033[1m"
+GRAY: str = "\033[90m"
+WHITE: str = "\033[37m"
+RED: str = "\033[31m"
+GREEN: str = "\033[32m"
+YELLOW: str = "\033[33m"
+BLUE: str = "\033[34m"
+CYAN: str = "\033[36m"
 
-    local TIMESTAMP=$(get_timestamp)
-    local LEVEL_COLOR=""
-    local LEVEL_ICON=""
 
-    case "$LEVEL" in
-        "INFO")
-            LEVEL_COLOR="$BLUE"
-            LEVEL_ICON="▶"
-            ;;
-        "WARN"|"WARNING")
-            LEVEL="WARNING"
-            LEVEL_COLOR="$YELLOW"
-            LEVEL_ICON="▶"
-            ;;
-        "ERROR")
-            LEVEL_COLOR="$RED"
-            LEVEL_ICON="▶"
-            ;;
-        "DEBUG")
-            LEVEL_COLOR="$CYAN"
-            LEVEL_ICON="▶"
-            ;;
-        "SUCCESS")
-            LEVEL_COLOR="$GREEN"
-            LEVEL_ICON="✔"
-            ;;
-        *)
-            LEVEL_COLOR="$WHITE"
-            LEVEL_ICON="•"
-            ;;
-    esac
+def _get_level_style(level: str) -> Tuple[str, str, str]:
+    normalized_level: str = level.upper()
+    level_styles: Dict[str, Tuple[str, str, str]] = {
+        "INFO": (BLUE, "▶", "INFO"),
+        "WARN": (YELLOW, "⚠️ ", "WARNING"),
+        "WARNING": (YELLOW, "⚠️ ", "WARNING"),
+        "ERROR": (RED, "❌", "ERROR"),
+        "DEBUG": (CYAN, "▶", "DEBUG"),
+        "SUCCESS": (GREEN, "✔", "SUCCESS"),
+        "NOTICE": (CYAN, "▶", "NOTICE"),
+    }
+    return level_styles.get(normalized_level, (WHITE, "•", normalized_level))
 
-    # Format: [TIMESTAMP] ICON LEVEL MESSAGE key=value...
-    # Example: [19:39:35.583] ▶ INFO Server is running...
 
-    # Print timestamp in gray
-    local TIMESTAMP=$(date "+%H:%M:%S")
-    echo -ne "${GRAY}[${TIMESTAMP}]${RESET} "
-    
-    # Print Icon and Level
-    echo -ne "${LEVEL_COLOR}${LEVEL_ICON} ${LEVEL}${RESET} "
-    
-    # Print Message in white
-    echo -ne "${WHITE}${MESSAGE}${RESET}"
-    
-    # Process remaining arguments as key=value pairs
-    for pair in "$@"; do
-        if [[ "$pair" == *"="* ]]; then
-             # Split pair by first =
-             local KEY="${pair%%=*}"
-             local VAL="${pair#*=}"
-             echo -ne " ${BLUE}${KEY}${RESET}=${GRAY}${VAL}${RESET}"
-        else
-             # Just append as extra text if no =
-             echo -ne " ${GRAY}${pair}${RESET}"
-        fi
-    done
+def _get_timestamp() -> str:
+    return datetime.now().strftime("%H:%M:%S")
 
-    echo ""
-}
 
-# Wrapper function to call log from CLI arguments
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    if [ "$#" -ge 2 ]; then
-        log "$@"
-    else
-        echo "Usage: $0 <LEVEL> <MESSAGE> [KEY=VALUE ...]"
-    fi
-fi
+def log(level: str, message: str, *args: str) -> None:
+    level_color: str
+    level_icon: str
+    normalized_level: str
+    level_color, level_icon, normalized_level = _get_level_style(level)
+
+    output_parts: List[str] = [
+        f"{GRAY}[{_get_timestamp()}]{RESET} ",
+        f"{level_color}{level_icon} {normalized_level}{RESET} ",
+        f"{WHITE}{message}{RESET}",
+    ]
+
+    pair: str
+    for pair in args:
+        if "=" in pair:
+            key: str
+            value: str
+            key, value = pair.split("=", 1)
+            output_parts.append(f" {BLUE}{key}{RESET}={GRAY}{value}{RESET}")
+            continue
+
+        output_parts.append(f" {GRAY}{pair}{RESET}")
+
+    sys.stdout.write("".join(output_parts) + "\n")
+
+
+def main(argv: List[str]) -> int:
+    if len(argv) < 3:
+        script_name: str = argv[0] if argv else "print_log.sh"
+        sys.stdout.write(f"Usage: {script_name} <LEVEL> <MESSAGE> [KEY=VALUE ...]\n")
+        return 1
+
+    level: str = argv[1]
+    message: str = argv[2]
+    extra_args: List[str] = argv[3:]
+    log(level, message, *extra_args)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

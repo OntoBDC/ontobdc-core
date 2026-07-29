@@ -1,0 +1,57 @@
+statechart:
+  name: StandardEntityLearning
+  description: "Statechart for entity learning from source files into context.ttl."
+
+  root state:
+    name: standard_entity_learning
+    initial: undefined
+
+    states:
+      - name: undefined
+        description: "Initial state before any learning step is executed."
+        transitions:
+          - target: identified
+            guard: handler.can_transit_to(to_state = EntityLearningProcessState.IDENTIFIED)
+            action: handler.perform_state_transition(to_state = EntityLearningProcessState.IDENTIFIED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityLearningProcessState.UNDEFINED, to_state = EntityLearningProcessState.IDENTIFIED)
+
+      - name: identified
+        description: "The learning source was identified and stored."
+        transitions:
+          - target: extracted
+            guard: handler.can_transit_to(to_state = EntityLearningProcessState.EXTRACTED)
+            action: handler.perform_state_transition(to_state = EntityLearningProcessState.EXTRACTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityLearningProcessState.IDENTIFIED, to_state = EntityLearningProcessState.EXTRACTED)
+
+      - name: extracted
+        description: "The source file produced extractable text."
+        transitions:
+          - target: spatialized
+            guard: handler.can_transit_to(to_state = EntityLearningProcessState.SPATIALIZED)
+            action: handler.perform_state_transition(to_state = EntityLearningProcessState.SPATIALIZED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityLearningProcessState.EXTRACTED, to_state = EntityLearningProcessState.SPATIALIZED)
+
+      - name: spatialized
+        description: "The extracted content was spatialized."
+        transitions:
+          - target: aligned
+            guard: handler.can_transit_to(to_state = EntityLearningProcessState.ALIGNED)
+            action: handler.perform_state_transition(to_state = EntityLearningProcessState.ALIGNED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityLearningProcessState.SPATIALIZED, to_state = EntityLearningProcessState.ALIGNED)
+
+      - name: aligned
+        description: "The spatialized content produced an aligned vector."
+        transitions:
+          - target: published
+            guard: handler.can_transit_to(to_state = EntityLearningProcessState.PUBLISHED)
+            action: handler.perform_state_transition(to_state = EntityLearningProcessState.PUBLISHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityLearningProcessState.ALIGNED, to_state = EntityLearningProcessState.PUBLISHED)
+
+      - name: published
+        description: "The aligned learning result was published into context.ttl."
+        type: final

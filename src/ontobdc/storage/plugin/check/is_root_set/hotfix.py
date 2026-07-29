@@ -1,38 +1,61 @@
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
 
-import os
-import sys
-from ontobdc.storage import get_storage_file, EMPTY_STORAGE_GRAPH
-from ontobdc.storage.adapter.container import StorageRootContainerAdapter
+from rdflib import Graph, Literal, URIRef
+from rdflib.namespace import DCTERMS, RDF, XSD, Namespace
+
+from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
+from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.storage import get_storage_file
+
+STORAGE_IDENTIFIER: str = "urn:ontobdc:storage/local"
+_ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
+    config_adapter=UnsetProjectRootConfigDataAdapter(),
+)
+OBDC: Namespace = _ontology_adapter.get_ontology_namespace_by_prefix("obdc")
+CT: Namespace = _ontology_adapter.get_ontology_namespace_by_prefix("ct")
+PROV: Namespace = _ontology_adapter.get_ontology_namespace_by_prefix("prov")
 
 
-def main(print_log: callable = None) -> int:
-    def _print_info_log(message: str, print_log: callable = None):
-        if print_log:
-            print_log("INFO", "Hotfix Root Container", message)
+def _build_storage_graph(root_path: Path) -> Graph:
+    graph: Graph = Graph()
+    graph.bind("dcterms", DCTERMS)
+    graph.bind("ct", CT)
+    graph.bind("prov", PROV)
+    graph.bind("xsd", XSD)
+    graph.bind("obdc", OBDC)
 
-    def _print_error_log(message: str, print_log: callable = None):
-        if print_log:
-            print_log("ERROR", "Hotfix Root Container", "Failed to hotfix root container: " + message)
+    storage_reference: URIRef = URIRef(STORAGE_IDENTIFIER)
+    created_at: Literal = Literal(
+        datetime.now(timezone.utc).isoformat(),
+        datatype=XSD.dateTime,
+    )
+    title: Literal = Literal("The Main Storage Index", lang="en")
+    description: Literal = Literal(
+        f"Main storage container for project at {root_path.name or root_path.as_posix()}",
+        lang="en",
+    )
 
+    graph.add((storage_reference, RDF.type, OBDC.DataStorage))
+    graph.add((storage_reference, DCTERMS.identifier, Literal(STORAGE_IDENTIFIER)))
+    graph.add((storage_reference, DCTERMS.title, title))
+    graph.add((storage_reference, CT.creationDate, created_at))
+    graph.add((storage_reference, CT.description, description))
+    graph.add((storage_reference, PROV.atLocation, URIRef(root_path.as_uri())))
+    return graph
+
+def main(root_path: Optional[str] = None) -> int:
     try:
-        storage_path: str = get_storage_file()
-
-        if not os.path.exists(storage_path):
-            os.makedirs(os.path.dirname(storage_path), exist_ok=True)
-            with open(storage_path, "w", encoding="utf-8") as f:
-                f.write(EMPTY_STORAGE_GRAPH)
-            _print_info_log(f"Created storage file at {storage_path}", print_log)
-
-        root_container: StorageRootContainerAdapter = StorageRootContainerAdapter()
-        if not root_container.container_exists():
-            root_container.save()
-            _print_info_log("Created root container in storage file.", print_log)
-
+        storage_file_path: Path = Path(get_storage_file(root_path=root_path))
+        storage_file_path.parent.mkdir(parents=True, exist_ok=True)
+        resolved_root_path: Path = storage_file_path.parent.parent.resolve()
+        storage_graph: Graph = _build_storage_graph(resolved_root_path)
+        storage_graph.serialize(destination=storage_file_path, format="turtle")
         return 0
-    except Exception as e:
-        _print_error_log(f"Error applying hotfix: {e}", print_log)
+    except Exception:
         return 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

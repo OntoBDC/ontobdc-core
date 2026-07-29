@@ -1,0 +1,57 @@
+statechart:
+  name: StandardCliInit
+  description: "Statechart for OntoBDC CLI bootstrap initialization."
+
+  root state:
+    name: standard_cli_init
+    initial: undefined
+
+    states:
+      - name: undefined
+        description: "Initial state before the .__ontobdc__ directory exists."
+        transitions:
+          - target: ontobdc_directory_ready
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.ONTOBDC_DIRECTORY_READY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.ONTOBDC_DIRECTORY_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.UNDEFINED, to_state = CliInitProcessStatePort.ONTOBDC_DIRECTORY_READY)
+
+      - name: ontobdc_directory_ready
+        description: "The .__ontobdc__ directory exists in the command target path."
+        transitions:
+          - target: engine_ready
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.ENGINE_READY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.ENGINE_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.ONTOBDC_DIRECTORY_READY, to_state = CliInitProcessStatePort.ENGINE_READY)
+
+      - name: engine_ready
+        description: "The engine entry exists and conforms to the bootstrap config contract."
+        transitions:
+          - target: storage_index_healthy
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.STORAGE_INDEX_HEALTHY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.STORAGE_INDEX_HEALTHY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.ENGINE_READY, to_state = CliInitProcessStatePort.STORAGE_INDEX_HEALTHY)
+
+      - name: storage_index_healthy
+        description: "The storage.ttl file exists and conforms to the bootstrap checks."
+        transitions:
+          - target: execution_context_healthy
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.EXECUTION_CONTEXT_HEALTHY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.EXECUTION_CONTEXT_HEALTHY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.STORAGE_INDEX_HEALTHY, to_state = CliInitProcessStatePort.EXECUTION_CONTEXT_HEALTHY)
+
+      - name: execution_context_healthy
+        description: "The context.ttl file exists and conforms to the bootstrap checks."
+        transitions:
+          - target: config_adapter_ready
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.CONFIG_ADAPTER_READY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.CONFIG_ADAPTER_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.EXECUTION_CONTEXT_HEALTHY, to_state = CliInitProcessStatePort.CONFIG_ADAPTER_READY)
+
+      - name: config_adapter_ready
+        description: "The config.yaml file exists and conforms to the bootstrap config contract."
+        type: final

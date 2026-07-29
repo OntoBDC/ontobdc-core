@@ -1,8 +1,9 @@
-from typing import List
 
-from ontobdc.cli.adapter.command import CliCommandRequest
-from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.resource.command import CommandResponse
+from typing import List
+from ontobdc.cli.domain.model.command import CliCommandMetadata
+from ontobdc.cli.domain.response.command import CommandResponse
+from ontobdc.cli.domain.request.command import CliCommandRequest
+from ontobdc.cli.domain.port.command import CliCommandPort
 
 
 class CliVersionCommand(CliCommandPort):

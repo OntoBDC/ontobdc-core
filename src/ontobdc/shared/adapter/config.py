@@ -5,16 +5,25 @@ import subprocess
 from pathlib import Path
 from importlib.metadata import distributions
 from typing import Any, Dict, List, Optional
+
 from ontobdc.shared.domain.port.config import ConfigDataPort
-from ontobdc.shared.domain.resource.base import BaseResource
+from ontobdc.shared.domain.model.language import LanguageResource
+from ontobdc.shared.domain.exception.config import ProjectRootDirectoryNotSetError
 
 
 class ConfigDataAdapter(ConfigDataPort):
     """
-    Config data adapter.
+    Adapter for retrieving and managing configuration data for the OntoBDC application.
+    It reads settings from the `.__ontobdc__/config.yaml` file located in the project root.
     """
-    def __init__(self):
-        self._root_dir: str = self._get_root_dir()
+    def __init__(self, root_dir: str = None):
+        self._root_dir: str = root_dir
+        if not isinstance(self._root_dir, str):
+            try:
+                self._root_dir = self._get_root_dir()
+            except ProjectRootDirectoryNotSetError as e:
+                raise e
+
         self._config_dir: str = os.path.join(self._root_dir, ".__ontobdc__")
         self._config_file: str = os.path.join(self._config_dir, "config.yaml")
 
@@ -24,6 +33,9 @@ class ConfigDataAdapter(ConfigDataPort):
 
     @property
     def path(self) -> Path:
+        """
+        Gets the absolute path to the project's config.yaml file.
+        """
         return Path(self._config_file)
 
     @property
@@ -38,26 +50,45 @@ class ConfigDataAdapter(ConfigDataPort):
 
     @property
     def root_dir(self) -> Path:
+        """
+        Gets the absolute path to the project's root directory.
+        """
         return Path(self._root_dir)
 
     @property
     def script_dir(self) -> Path:
+        """
+        Gets the absolute path to the OntoBDC package directory.
+        """
         return Path(self._script_dir)
 
     @property
     def config_dir(self) -> Path:
+        """
+        Gets the absolute path to the configuration directory (.__ontobdc__).
+        """
         return Path(self._config_dir)
 
     @property
     def config_file(self) -> Path:
+        """
+        Gets the absolute path to the config.yaml file.
+        """
         return Path(self._config_file)
 
     @property
-    def available_languages(self) -> List[BaseResource]:
+    def ontology_cache(self) -> Path:
+        """
+        Gets the absolute path to the ontology cache directory.
+        """
+        return Path(self._config_dir) / "ontology"
+
+    @property
+    def available_languages(self) -> List[LanguageResource]:
         """
         Get available languages.
         """
-        languages: List[BaseResource] = []
+        languages: List[LanguageResource] = []
 
         for distribution in distributions():
             package_name = distribution.metadata.get("Name", "").strip()
@@ -68,7 +99,7 @@ class ConfigDataAdapter(ConfigDataPort):
             description = None
 
             languages.append(
-                BaseResource(
+                LanguageResource(
                     id=language_id,
                     name=package_name,
                     description=description,
@@ -166,7 +197,7 @@ class ConfigDataAdapter(ConfigDataPort):
         if discovered_root and discovered_root.exists():
                 return str(discovered_root.resolve())
 
-        raise FileNotFoundError("Project root directory not set.")
+        raise ProjectRootDirectoryNotSetError("Project root directory not set.")
 
     def _get_script_dir(self) -> str:
         """
@@ -226,10 +257,77 @@ class ConfigDataAdapter(ConfigDataPort):
                 if not root.get("absolute_path"):
                     root["absolute_path"] = self._root_dir
 
-                # engine = cfg.get("engine")
-                # if not engine or engine not in VALID_ENGINES:
-                #     return None
-
                 return cfg
         except Exception:
             return None
+
+
+class UnsetProjectRootConfigDataAdapter(ConfigDataAdapter):
+    """
+    Adapter for contexts where the project root directory
+    is intentionally unavailable.
+    """
+    def __init__(self):
+        self._root_dir: Optional[str] = None
+        self._config_dir: Optional[str] = None
+        self._config_file: Optional[str] = None
+        self._config_data: Optional[Dict[str, Any]] = None
+        self._context_data: Dict[str, Any] = {}
+        self._script_dir: str = self._get_script_dir()
+
+    @property
+    def path(self) -> Path:
+        """
+        Gets the absolute path to the config.yaml file.
+        """
+        self._raise_project_root_not_set()
+
+    @property
+    def all(self) -> Optional[Dict[str, Any]]:
+        """
+        Get all config data.
+        """
+        self._raise_project_root_not_set()
+
+    @property
+    def root_dir(self) -> Path:
+        """
+        Gets the absolute path to the project's root directory.
+        """
+        self._raise_project_root_not_set()
+
+    @property
+    def config_dir(self) -> Path:
+        """
+        Gets the absolute path to the configuration directory (.__ontobdc__).
+        """
+        self._raise_project_root_not_set()
+
+    @property
+    def config_file(self) -> Path:
+        """
+        Gets the absolute path to the config.yaml file.
+        """
+        self._raise_project_root_not_set()
+
+    @property
+    def ontology_cache(self) -> Path:
+        """
+        Gets the absolute path to the ontology cache directory.
+        """
+        self._raise_project_root_not_set()
+
+    def get_config_file(self, config_dir: str = None) -> str:
+        """
+        Get the configuration file path (config.yaml) inside the configuration directory.
+        """
+        self._raise_project_root_not_set()
+
+    def find_project_root(self, current_dir: Path) -> Optional[Path]:
+        """
+        Recursively search for project root by looking for .__ontobdc__/config.yaml.
+        """
+        self._raise_project_root_not_set()
+
+    def _raise_project_root_not_set(self) -> None:
+        raise ProjectRootDirectoryNotSetError()

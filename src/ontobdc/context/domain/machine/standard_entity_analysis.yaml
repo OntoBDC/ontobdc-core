@@ -1,0 +1,84 @@
+statechart:
+  name: StandardEntityAnalysis
+  description: "Statechart for analysing source files against entity vectors."
+
+  root state:
+    name: standard_entity_analysis
+    initial: undefined
+
+    states:
+      - name: undefined
+        description: "Initial state before any analysis step is executed."
+        transitions:
+          - target: identified
+            guard: handler.can_transit_to(to_state = EntityAnalysisProcessState.IDENTIFIED)
+            action: handler.perform_state_transition(to_state = EntityAnalysisProcessState.IDENTIFIED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityAnalysisProcessState.UNDEFINED, to_state = EntityAnalysisProcessState.IDENTIFIED)
+
+      - name: identified
+        description: "The analysis source was identified and stored."
+        transitions:
+          - target: extracted
+            guard: handler.can_transit_to(to_state = EntityAnalysisProcessState.EXTRACTED)
+            action: handler.perform_state_transition(to_state = EntityAnalysisProcessState.EXTRACTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityAnalysisProcessState.IDENTIFIED, to_state = EntityAnalysisProcessState.EXTRACTED)
+
+      - name: extracted
+        description: "The source file produced extractable text."
+        transitions:
+          - target: spatialized
+            guard: handler.can_transit_to(to_state = EntityAnalysisProcessState.SPATIALIZED)
+            action: handler.perform_state_transition(to_state = EntityAnalysisProcessState.SPATIALIZED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityAnalysisProcessState.EXTRACTED, to_state = EntityAnalysisProcessState.SPATIALIZED)
+
+      - name: spatialized
+        description: "The extracted content was spatialized."
+        transitions:
+          - target: aligned
+            guard: handler.can_transit_to(to_state = EntityAnalysisProcessState.ALIGNED)
+            action: handler.perform_state_transition(to_state = EntityAnalysisProcessState.ALIGNED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityAnalysisProcessState.SPATIALIZED, to_state = EntityAnalysisProcessState.ALIGNED)
+
+      - name: aligned
+        description: "The spatialized content produced an aligned vector."
+        transitions:
+          - target: origin_resolved
+            guard: handler.can_transit_to(to_state = EntityAnalysisProcessState.ORIGIN_RESOLVED)
+            action: handler.perform_state_transition(to_state = EntityAnalysisProcessState.ORIGIN_RESOLVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityAnalysisProcessState.ALIGNED, to_state = EntityAnalysisProcessState.ORIGIN_RESOLVED)
+
+      - name: origin_resolved
+        description: "The registered vector origins were resolved."
+        transitions:
+          - target: vectors_loaded
+            guard: handler.can_transit_to(to_state = EntityAnalysisProcessState.VECTORS_LOADED)
+            action: handler.perform_state_transition(to_state = EntityAnalysisProcessState.VECTORS_LOADED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityAnalysisProcessState.ORIGIN_RESOLVED, to_state = EntityAnalysisProcessState.VECTORS_LOADED)
+
+      - name: vectors_loaded
+        description: "The registered vector candidates were loaded."
+        transitions:
+          - target: scored
+            guard: handler.can_transit_to(to_state = EntityAnalysisProcessState.SCORED)
+            action: handler.perform_state_transition(to_state = EntityAnalysisProcessState.SCORED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityAnalysisProcessState.VECTORS_LOADED, to_state = EntityAnalysisProcessState.SCORED)
+
+      - name: scored
+        description: "The aligned file vector was scored against the loaded candidates."
+        transitions:
+          - target: analysed
+            guard: handler.can_transit_to(to_state = EntityAnalysisProcessState.ANALYSED)
+            action: handler.perform_state_transition(to_state = EntityAnalysisProcessState.ANALYSED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityAnalysisProcessState.SCORED, to_state = EntityAnalysisProcessState.ANALYSED)
+
+      - name: analysed
+        description: "The aligned content was analysed against vector candidates."
+        type: final

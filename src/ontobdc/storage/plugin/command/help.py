@@ -1,28 +1,30 @@
+from typing import Dict, List, Optional
 
-from typing import Dict, List
-from ontobdc.storage import is_enabled
-from ontobdc.cli.adapter.command import CliCommandRequest
-from ontobdc.shared.adapter.plugin import CommandLoader, PluginResource
-from ontobdc.cli.domain.exception.command import CliCommandArgumentException
-from ontobdc.cli.domain.port.command import CliCommandMetadata, CliCommandPort
-from ontobdc.cli.domain.resource.command import CommandResponse, HelpCommandResponse
+from ontobdc.shared.adapter.loader import CommandLoader
+from ontobdc.shared.facade.port.logger import LogRepositoryPort
+from ontobdc.shared.facade.request.command import CliCommandRequest
+from ontobdc.shared.facade.adapter.logger import NullLogRepository
+from ontobdc.shared.facade.exception.command import CliCommandArgumentException
+from ontobdc.shared.facade.port.command import CliCommandPort
+from ontobdc.cli.domain.model.command import CliCommandMetadata
+from ontobdc.shared.facade.response.command import CommandResponse, HelpCommandResponse
 
 
-class StorageListCommand(CliCommandPort):
+class StorageHelpCommand(CliCommandPort):
     """
-    Command for listing storage resources.
+    Command for displaying help information for the storage component.
     """
     METADATA = CliCommandMetadata(
-        id="list",
+        id="help",
         logical_component="storage",
-        description="List all containers in the storage.",
+        description="Display help information for the storage component.",
         arguments=[
             {
                 "accepts": [
                     "--help",
                     "-h",
                 ],
-                "description": "Display the help message for the list command.",
+                "description": "Display help information for the storage component.",
                 "usage": "ontobdc storage --help",
             },
         ],
@@ -31,15 +33,16 @@ class StorageListCommand(CliCommandPort):
     @staticmethod
     def accepts(args: List[str]) -> bool:
         """
-        Match the storage list command at the CLI routing stage.
+        Match the storage help command at the CLI routing stage.
         """
         return len(args) > 1 and args[0] == "storage" and args[1] in ["--help", "-h"]
 
     def __init__(self, request: CliCommandRequest):
         self._request: CliCommandRequest = request
-        self._print_log : callable = None
+        self._print_log: Optional[callable] = None
+        self._logger: LogRepositoryPort = NullLogRepository()
 
-    def set_print_log(self, print_log: callable):
+    def set_print_log(self, print_log: callable) -> None:
         self._print_log = print_log
 
     def check(self) -> bool:
@@ -47,9 +50,7 @@ class StorageListCommand(CliCommandPort):
         Check if the command is valid.
         Returns True if the command is valid, False otherwise.
         """
-        return (
-            is_enabled()
-            and len(self._request.command_args) == 1
+        return (len(self._request.command_args) == 1
             and self._request.command_args[0] in ["--help", "-h"]
         )
 
@@ -62,7 +63,7 @@ class StorageListCommand(CliCommandPort):
 
         arg_list: Dict[str, str] = {}
         usage_list: Dict[str, str] = {"base": "ontobdc storage <argument> [flags/parameters]"}
-        loader: PluginResource = CommandLoader('storage')
+        loader: CommandLoader = CommandLoader("storage", self._logger)
         for command in loader.get_all():
             if command.METADATA.id != 'base' and hasattr(command.METADATA, 'arguments') and command.METADATA.arguments:
                 arg_key = " | ".join(command.METADATA.arguments[0]["accepts"])
