@@ -1,0 +1,59 @@
+.ontobdc-annotation-form,
+.ontobdc-annotation-editor {
+  display: grid;
+  gap: 14px;
+}
+
+.ontobdc-annotation-field {
+  display: grid;
+  gap: 7px;
+  color: var(--ontobdc-annotation-text, #e5eefc);
+  font-size: .86rem;
+  font-weight: 700;
+}
+
+.ontobdc-annotation-field input,
+.ontobdc-annotation-field select,
+.ontobdc-annotation-field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  color: inherit;
+  border: 1px solid var(--ontobdc-annotation-line, rgba(148, 163, 184, .28));
+  border-radius: 12px;
+  background: var(--ontobdc-annotation-input, rgba(15, 23, 42, .78));
+}
+
+.ontobdc-annotation-field textarea { min-height: 112px; resize: vertical; }
+.ontobdc-annotation-field [aria-invalid="true"] { border-color: #fb7185; }
+.ontobdc-annotation-field-error,
+.ontobdc-annotation-form-error { color: #fda4af; font-size: .78rem; }
+
+.ontobdc-annotation-geometry-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 6px;
+  border: 1px solid var(--ontobdc-annotation-line, rgba(148, 163, 184, .22));
+  border-radius: 14px;
+}
+
+.ontobdc-annotation-geometry-toolbar button[aria-pressed="true"] {
+  color: var(--ontobdc-annotation-accent, #67e8f9);
+  border-color: currentColor;
+  background: rgba(103, 232, 249, .1);
+}
+
+.ontobdc-annotation-geometry-overlay { pointer-events: auto; }
+.ontobdc-annotation-geometry-point,.ontobdc-annotation-geometry-box { cursor: move; }
+.ontobdc-annotation-geometry-handle { fill: #fff; stroke: var(--ontobdc-annotation-accent,#67e8f9); stroke-width: 3px; cursor: nwse-resize; }
+.ontobdc-annotation-geometry-point {
+  fill: var(--ontobdc-annotation-accent, #67e8f9);
+  stroke: #26384a;
+  stroke-width: 4px;
+}
+.ontobdc-annotation-geometry-box {
+  fill: rgba(103, 232, 249, .08);
+  stroke: var(--ontobdc-annotation-accent, #67e8f9);
+  stroke-width: 3px;
+  stroke-dasharray: 10 7;
+}

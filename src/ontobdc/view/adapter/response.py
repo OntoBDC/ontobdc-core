@@ -1,16 +1,19 @@
-
 import json
 import traceback
 from abc import ABC
 from typing import Any, Dict, List, Optional, Type
-from ontobdc.view.domain.port.layout import MessageBoxLayoutRendererPort
+
 from ontobdc.cli.domain.response.command import (
     CommandResponse,
     ExceptionCommandResponse,
     HelpCommandResponse,
     ListCommandResponse,
 )
-from ontobdc.view.domain.port.response import MessageBoxLayoutData, ResponseMessageBoxAdapterPort
+from ontobdc.view.domain.port.layout import MessageBoxLayoutRendererPort
+from ontobdc.view.domain.port.response import (
+    MessageBoxLayoutData,
+    ResponseMessageBoxAdapterPort,
+)
 
 
 class BaseCommandResponseMessageBoxHelper(ABC):
@@ -32,7 +35,11 @@ class BaseCommandResponseMessageBoxHelper(ABC):
             footer=self._resolve_footer(response),
         )
 
-    def render(self, response: CommandResponse, layout: MessageBoxLayoutRendererPort) -> str:
+    def render(
+        self,
+        response: CommandResponse,
+        layout: MessageBoxLayoutRendererPort,
+    ) -> str:
         return layout.render(self.map(response))
 
     def _resolve_title_type(self, response: CommandResponse) -> str:
@@ -46,16 +53,20 @@ class BaseCommandResponseMessageBoxHelper(ABC):
     def _serialize_response_content(self, content: Any) -> str:
         normalized_content: Any = self._normalize_content(content)
         if isinstance(normalized_content, dict):
-            md_content: str = ""
+            markdown_content: str = ""
             for key, item in normalized_content.items():
-                md_content += f"## {self._format_section_title(key)}\n"
-                md_content += self._join_lines(self._format_markdown_block(item))
-                md_content += "\n"
+                markdown_content += f"## {self._format_section_title(key)}\n"
+                markdown_content += self._join_lines(
+                    self._format_markdown_block(item)
+                )
+                markdown_content += "\n"
 
-            return md_content.rstrip()
+            return markdown_content.rstrip()
 
         if isinstance(normalized_content, list):
-            return self._join_lines(self._format_markdown_block(normalized_content))
+            return self._join_lines(
+                self._format_markdown_block(normalized_content)
+            )
 
         return str(content)
 
@@ -89,7 +100,11 @@ class BaseCommandResponseMessageBoxHelper(ABC):
 
         return str(content)
 
-    def _format_markdown_block(self, content: Any, indent: int = 0) -> List[str]:
+    def _format_markdown_block(
+        self,
+        content: Any,
+        indent: int = 0,
+    ) -> List[str]:
         normalized_content: Any = self._normalize_content(content)
 
         if isinstance(normalized_content, dict):
@@ -98,9 +113,16 @@ class BaseCommandResponseMessageBoxHelper(ABC):
         if isinstance(normalized_content, list):
             return self._format_list_block(normalized_content, indent)
 
-        return [f"{self._indent(indent)}{self._stringify_scalar(normalized_content)}"]
+        return [
+            f"{self._indent(indent)}"
+            f"{self._stringify_scalar(normalized_content)}"
+        ]
 
-    def _format_dict_block(self, content: Dict[Any, Any], indent: int) -> List[str]:
+    def _format_dict_block(
+        self,
+        content: Dict[Any, Any],
+        indent: int,
+    ) -> List[str]:
         lines: List[str] = []
 
         for key, value in content.items():
@@ -108,41 +130,69 @@ class BaseCommandResponseMessageBoxHelper(ABC):
             normalized_value: Any = self._normalize_content(value)
 
             if self._is_scalar(normalized_value):
-                lines.append(f"{self._indent(indent)}- {label}: {self._stringify_scalar(normalized_value)}")
+                lines.append(
+                    f"{self._indent(indent)}- {label}: "
+                    f"{self._stringify_scalar(normalized_value)}"
+                )
                 continue
 
             lines.append(f"{self._indent(indent)}- {label}:")
-            lines.extend(self._format_markdown_block(normalized_value, indent + 1))
+            lines.extend(
+                self._format_markdown_block(normalized_value, indent + 1)
+            )
 
         return lines
 
-    def _format_list_block(self, content: List[Any], indent: int) -> List[str]:
+    def _format_list_block(
+        self,
+        content: List[Any],
+        indent: int,
+    ) -> List[str]:
         lines: List[str] = []
 
         for index, item in enumerate(content):
             normalized_item: Any = self._normalize_content(item)
 
             if isinstance(normalized_item, dict):
-                lines.extend(self._format_list_dict_item(normalized_item, indent))
+                lines.extend(
+                    self._format_list_dict_item(normalized_item, indent)
+                )
             elif isinstance(normalized_item, list):
                 lines.append(f"{self._indent(indent)}-")
-                lines.extend(self._format_markdown_block(normalized_item, indent + 1))
+                lines.extend(
+                    self._format_markdown_block(normalized_item, indent + 1)
+                )
             else:
-                lines.append(f"{self._indent(indent)}- {self._stringify_scalar(normalized_item)}")
+                lines.append(
+                    f"{self._indent(indent)}- "
+                    f"{self._stringify_scalar(normalized_item)}"
+                )
 
-            if index < len(content) - 1 and isinstance(normalized_item, dict):
+            if index < len(content) - 1 and isinstance(
+                normalized_item,
+                dict,
+            ):
                 lines.append("")
 
         return lines
 
-    def _format_list_dict_item(self, content: Dict[Any, Any], indent: int) -> List[str]:
+    def _format_list_dict_item(
+        self,
+        content: Dict[Any, Any],
+        indent: int,
+    ) -> List[str]:
         lines: List[str] = []
-        preferred_key: Optional[str] = self._resolve_preferred_item_key(content)
+        preferred_key: Optional[str] = self._resolve_preferred_item_key(
+            content
+        )
 
         if preferred_key is not None:
-            preferred_value: Any = self._normalize_content(content[preferred_key])
+            preferred_value: Any = self._normalize_content(
+                content[preferred_key]
+            )
             lines.append(
-                f"{self._indent(indent)}- {self._format_label(preferred_key)}: "
+                f"{self._indent(indent)}- "
+                f"{self._format_label(preferred_key)}: "
                 f"{self._stringify_scalar(preferred_value)}"
             )
 
@@ -154,12 +204,18 @@ class BaseCommandResponseMessageBoxHelper(ABC):
                 normalized_value: Any = self._normalize_content(value)
                 if self._is_scalar(normalized_value):
                     lines.append(
-                        f"{self._indent(indent + 1)}- {label}: {self._stringify_scalar(normalized_value)}"
+                        f"{self._indent(indent + 1)}- {label}: "
+                        f"{self._stringify_scalar(normalized_value)}"
                     )
                     continue
 
                 lines.append(f"{self._indent(indent + 1)}- {label}:")
-                lines.extend(self._format_markdown_block(normalized_value, indent + 2))
+                lines.extend(
+                    self._format_markdown_block(
+                        normalized_value,
+                        indent + 2,
+                    )
+                )
 
             return lines
 
@@ -167,14 +223,27 @@ class BaseCommandResponseMessageBoxHelper(ABC):
         lines.extend(self._format_dict_block(content, indent + 1))
         return lines
 
-    def _resolve_preferred_item_key(self, content: Dict[Any, Any]) -> Optional[str]:
-        preferred_keys: List[str] = ["repository", "name", "id", "title", "file", "path", "branch"]
+    def _resolve_preferred_item_key(
+        self,
+        content: Dict[Any, Any],
+    ) -> Optional[str]:
+        preferred_keys: List[str] = [
+            "repository",
+            "name",
+            "id",
+            "title",
+            "file",
+            "path",
+            "branch",
+        ]
 
         for preferred_key in preferred_keys:
             if preferred_key not in content:
                 continue
 
-            preferred_value: Any = self._normalize_content(content[preferred_key])
+            preferred_value: Any = self._normalize_content(
+                content[preferred_key]
+            )
             if self._is_scalar(preferred_value):
                 return preferred_key
 
@@ -193,7 +262,9 @@ class BaseCommandResponseMessageBoxHelper(ABC):
         return not isinstance(content, (dict, list))
 
     def _join_lines(self, lines: List[str]) -> str:
-        return "\n".join(lines).rstrip() + ("\n" if len(lines) > 0 else "")
+        return "\n".join(lines).rstrip() + (
+            "\n" if len(lines) > 0 else ""
+        )
 
     def _resolve_color(self, response: CommandResponse) -> str:
         _ = response
@@ -206,23 +277,29 @@ class BaseCommandResponseMessageBoxHelper(ABC):
         return response.title
 
     def _resolve_content(self, response: CommandResponse) -> str:
-        return f"{response.description}\n\n{self._serialize_response_content(response.content)}"
+        return (
+            f"{response.description}\n\n"
+            f"{self._serialize_response_content(response.content)}"
+        )
 
-    def _resolve_subtitle(self, response: CommandResponse) -> Optional[str]:
-        return f"{response.subtitle}"
-
-    def _resolve_subtitle(self, response: CommandResponse) -> Optional[str]:
+    def _resolve_subtitle(
+        self,
+        response: CommandResponse,
+    ) -> Optional[str]:
         _ = response
         return None
 
-    def _resolve_footer(self, response: CommandResponse) -> Optional[str]:
+    def _resolve_footer(
+        self,
+        response: CommandResponse,
+    ) -> Optional[str]:
         _ = response
         return None
 
 
 class CommandResponseMessageBoxAdapter(
     BaseCommandResponseMessageBoxHelper,
-    ResponseMessageBoxAdapterPort
+    ResponseMessageBoxAdapterPort,
 ):
     response_type: Type[CommandResponse] = CommandResponse
     color: str = "GRAY"
@@ -230,7 +307,7 @@ class CommandResponseMessageBoxAdapter(
 
 class ExceptionCommandResponseMessageBoxAdapter(
     BaseCommandResponseMessageBoxHelper,
-    ResponseMessageBoxAdapterPort
+    ResponseMessageBoxAdapterPort,
 ):
     response_type: Type[CommandResponse] = ExceptionCommandResponse
     color: str = "RED"
@@ -239,16 +316,39 @@ class ExceptionCommandResponseMessageBoxAdapter(
     def _serialize_response_content(self, content: Any) -> str:
         response: str = super()._serialize_response_content(content)
         if isinstance(content, dict) and "error" in content.keys():
-            response = f"\033[37mDETAILS\033[90m\n  {content['error']}"
+            response = (
+                "\033[37mDETAILS\033[90m\n  "
+                f"{content['error']}"
+            )
 
-        response = f"{response}\n\n\033[37mTRACEBACK\033[90m\n  {traceback.format_exc()}"
+        traceback_text: str = self._resolve_traceback_text(content)
+        if traceback_text == "":
+            return response
 
-        return response
+        return (
+            f"{response}\n\n"
+            "\033[37mTRACEBACK\033[90m\n  "
+            f"{traceback_text}"
+        )
+
+    def _resolve_traceback_text(self, content: Any) -> str:
+        if isinstance(content, dict):
+            explicit_traceback: str = str(
+                content.get("traceback") or ""
+            ).strip()
+            if explicit_traceback != "":
+                return explicit_traceback
+
+        formatted_traceback: str = traceback.format_exc().strip()
+        if formatted_traceback == "NoneType: None":
+            return ""
+
+        return formatted_traceback
 
 
 class HelpCommandResponseMessageBoxAdapter(
     BaseCommandResponseMessageBoxHelper,
-    ResponseMessageBoxAdapterPort
+    ResponseMessageBoxAdapterPort,
 ):
     response_type: Type[CommandResponse] = HelpCommandResponse
     color: str = "GRAY"
@@ -256,25 +356,35 @@ class HelpCommandResponseMessageBoxAdapter(
 
 class ListCommandResponseMessageBoxAdapter(
     BaseCommandResponseMessageBoxHelper,
-    ResponseMessageBoxAdapterPort
+    ResponseMessageBoxAdapterPort,
 ):
     response_type: Type[CommandResponse] = ListCommandResponse
     color: str = "CYAN"
 
 
 class CommandResponseMessageBoxDataResolverAdapter:
-    def __init__(self, adapters: List[ResponseMessageBoxAdapterPort]) -> None:
+    def __init__(
+        self,
+        adapters: List[ResponseMessageBoxAdapterPort],
+    ) -> None:
         self._adapters: List[ResponseMessageBoxAdapterPort] = adapters
 
     def map(self, response: CommandResponse) -> MessageBoxLayoutData:
-        adapter: ResponseMessageBoxAdapterPort = self._resolve_adapter(response)
+        adapter: ResponseMessageBoxAdapterPort = self._resolve_adapter(
+            response
+        )
         return adapter.map(response)
 
-    def _resolve_adapter(self, response: CommandResponse) -> ResponseMessageBoxAdapterPort:
+    def _resolve_adapter(
+        self,
+        response: CommandResponse,
+    ) -> ResponseMessageBoxAdapterPort:
         adapter: ResponseMessageBoxAdapterPort
 
         for adapter in self._adapters:
             if adapter.accepts(response):
                 return adapter
 
-        raise ValueError(f"Unsupported response type: {type(response).__name__}")
+        raise ValueError(
+            f"Unsupported response type: {type(response).__name__}"
+        )

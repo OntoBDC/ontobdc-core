@@ -2,8 +2,6 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import yaml
-
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.cli.domain.response.command import CommandResponse, ExceptionCommandResponse
 from ontobdc.context.adapter.repository import EntityAnalysisStepRepository, EntityLearningStepRepository
@@ -14,74 +12,6 @@ from ontobdc.shared.adapter.worker import StateWorkerAdapter
 from ontobdc.shared.domain.port.capability import CapabilityPort
 from ontobdc.shared.facade.adapter.logger import NullLogRepository
 from ontobdc.shared.facade.port.logger import LogRepositoryPort
-
-
-def _load_statechart_data(statechart_file_path: Path) -> Dict[str, Any]:
-    with open(statechart_file_path, "r", encoding="utf-8") as file_handle:
-        loaded_data: object = yaml.safe_load(file_handle) or {}
-    if not isinstance(loaded_data, dict):
-        return {}
-    return loaded_data
-
-
-def _find_state_definition(node: Dict[str, Any], state_name: str) -> Optional[Dict[str, Any]]:
-    states: object = node.get("states")
-    if isinstance(states, list):
-        for state_definition in states:
-            if not isinstance(state_definition, dict):
-                continue
-            if str(state_definition.get("name", "")).strip() == state_name:
-                return state_definition
-            nested_state_definition = _find_state_definition(state_definition, state_name)
-            if nested_state_definition is not None:
-                return nested_state_definition
-    return None
-
-
-def _get_declared_transition_targets(statechart_file_path: Path, active_state_name: str) -> List[str]:
-    statechart_data: Dict[str, Any] = _load_statechart_data(statechart_file_path)
-    statechart_definition: object = statechart_data.get("statechart")
-    if not isinstance(statechart_definition, dict):
-        return []
-
-    root_state_definition: object = statechart_definition.get("root state")
-    if not isinstance(root_state_definition, dict):
-        return []
-
-    state_definition: Optional[Dict[str, Any]] = _find_state_definition(root_state_definition, active_state_name)
-    if state_definition is None:
-        return []
-
-    transitions: object = state_definition.get("transitions")
-    if not isinstance(transitions, list):
-        return []
-
-    targets: List[str] = []
-    for transition in transitions:
-        if not isinstance(transition, dict):
-            continue
-        target_name: str = str(transition.get("target", "")).strip()
-        if target_name:
-            targets.append(target_name)
-    return targets
-
-
-def _resolve_declared_transition_target(
-    statechart_file_path: Path,
-    active_state_value: str,
-    observed_state_value: str,
-) -> Optional[str]:
-    active_state_name: str = active_state_value.strip("_")
-    observed_state_name: str = observed_state_value.strip("_")
-    declared_targets: List[str] = _get_declared_transition_targets(
-        statechart_file_path=statechart_file_path,
-        active_state_name=active_state_name,
-    )
-    if not declared_targets:
-        return None
-    if observed_state_name in declared_targets:
-        return observed_state_name
-    return declared_targets[-1]
 
 
 class EntityLearningStateTransitionHandler:
@@ -128,14 +58,7 @@ class EntityLearningStateTransitionHandler:
         return list(EntityLearningProcessState)
 
     def can_transit_to(self, to_state: EntityLearningProcessState) -> bool:
-        next_target_name: Optional[str] = _resolve_declared_transition_target(
-            statechart_file_path=self._get_statechart_file_path(),
-            active_state_value=self.current_state.value,
-            observed_state_value=self.observed_state.value,
-        )
-        if next_target_name is None:
-            return False
-        return to_state.value.strip("_") == next_target_name
+        return self.current_state != to_state
 
     def perform_state_transition(self, to_state: EntityLearningProcessState) -> None:
         if self.observed_state == to_state:
@@ -270,14 +193,7 @@ class EntityAnalysisStateTransitionHandler:
         return list(EntityAnalysisProcessState)
 
     def can_transit_to(self, to_state: EntityAnalysisProcessState) -> bool:
-        next_target_name: Optional[str] = _resolve_declared_transition_target(
-            statechart_file_path=self._get_statechart_file_path(),
-            active_state_value=self.current_state.value,
-            observed_state_value=self.observed_state.value,
-        )
-        if next_target_name is None:
-            return False
-        return to_state.value.strip("_") == next_target_name
+        return self.current_state != to_state
 
     def perform_state_transition(self, to_state: EntityAnalysisProcessState) -> None:
         if self.observed_state == to_state:

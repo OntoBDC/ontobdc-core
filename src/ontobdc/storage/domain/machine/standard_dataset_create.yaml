@@ -12,9 +12,6 @@ statechart:
         transitions:
           - target: invalid_path
             guard: handler.can_transit_to(to_state = DatasetCreateProcessStatePort.INVALID_PATH)
-            action: handler.perform_state_transition(to_state = DatasetCreateProcessStatePort.INVALID_PATH)
-            contract:
-              - after: handler.validate_state_transition(from_state = DatasetCreateProcessStatePort.UNDEFINED, to_state = DatasetCreateProcessStatePort.INVALID_PATH)
           - target: directory_ready
             guard: handler.can_transit_to(to_state = DatasetCreateProcessStatePort.DIRECTORY_READY)
             action: handler.perform_state_transition(to_state = DatasetCreateProcessStatePort.DIRECTORY_READY)

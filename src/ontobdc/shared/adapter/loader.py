@@ -127,7 +127,22 @@ class CapabilityLoader(PluginLoader):
             if not hasattr(package, "__path__"):
                 continue
 
-            for _, name, _ in self._walk_packages_recursive(package.__path__, package.__name__ + ".", current_depth=1, max_depth=10):
+            resource_pkg_name = f"{pkg_name}.{resource}"
+            try:
+                resource_package = importlib.import_module(resource_pkg_name)
+            except ImportError:
+                continue
+
+            if not hasattr(resource_package, "__path__"):
+                continue
+
+            package_prefix = getattr(resource_package, "__name__", resource_pkg_name) + "."
+            for _, name, _ in self._walk_packages_recursive(
+                resource_package.__path__,
+                package_prefix,
+                current_depth=1,
+                max_depth=10,
+            ):
                 try:
                     module = importlib.import_module(name)
                     for _, obj in inspect.getmembers(module):

@@ -1,4 +1,3 @@
-
 from abc import ABC, abstractmethod
 from enum import Enum
 from pathlib import Path
@@ -76,6 +75,77 @@ class ContainerCreateStateTransitionHandlerPort(ABC):
     def execute(self) -> CommandResponse:
         """
         Execute the container creation flow.
+        """
+        ...
+
+
+class ContainerUpdateProcessStatePort(str, Enum):
+    """
+    Base enum contract for storage container update states.
+    """
+
+
+class ContainerUpdateStateEvaluatorPort(ABC):
+    @abstractmethod
+    def evaluate(
+        self,
+        context: CliContextPort,
+    ) -> ContainerUpdateProcessStatePort:
+        ...
+
+    @property
+    @abstractmethod
+    def process_state_class(self) -> Type[ContainerUpdateProcessStatePort]:
+        ...
+
+
+class ContainerUpdateStateTransitionHandlerPort(ABC):
+    @property
+    @abstractmethod
+    def context(self) -> CliContextPort:
+        """
+        Execution context used by the container update flow.
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def target_path(self) -> Path:
+        """
+        Filesystem path of the container being updated.
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def current_state(self) -> ContainerUpdateProcessStatePort:
+        ...
+
+    @property
+    @abstractmethod
+    def state_sequence(self) -> List[ContainerUpdateProcessStatePort]:
+        ...
+
+    @abstractmethod
+    def can_transit_to(self, to_state: ContainerUpdateProcessStatePort) -> bool:
+        ...
+
+    @abstractmethod
+    def perform_state_transition(self, to_state: ContainerUpdateProcessStatePort) -> None:
+        ...
+
+    @abstractmethod
+    def validate_state_transition(
+        self,
+        from_state: ContainerUpdateProcessStatePort,
+        to_state: ContainerUpdateProcessStatePort,
+    ) -> bool:
+        ...
+
+    @abstractmethod
+    def execute(self) -> CommandResponse:
+        """
+        Execute the container update flow.
         """
         ...
 

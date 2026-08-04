@@ -2,7 +2,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 
 @dataclass(frozen=True)
@@ -94,6 +94,10 @@ class EntityWorkbookAdapter:
         package_name: str,
         resource_name: str,
         primary_key: Sequence[str] = (),
+        entity_uri: str = "",
+        entity_identifier: str = "",
+        facade_uri: str = "",
+        instance_uri_template: Optional[str] = None,
     ) -> EntityWorkbookArtifact:
         try:
             from frictionless import Resource, Schema, formats
@@ -160,10 +164,25 @@ class EntityWorkbookAdapter:
             schema=Schema(schema_descriptor),
             control=formats.ExcelControl(sheet=worksheet_name),
         )
+        resource_descriptor: Dict[str, Any] = package_resource.to_descriptor()
+        self._apply_entity_metadata(
+            resource_descriptor=resource_descriptor,
+            entity_uri=entity_uri,
+            entity_identifier=entity_identifier,
+            facade_uri=facade_uri,
+            instance_uri_template=(
+                instance_uri_template
+                if instance_uri_template is not None
+                else self._default_instance_uri_template(
+                    entity_identifier=entity_identifier,
+                    primary_key=primary_key,
+                )
+            ),
+        )
         self._write_datapackage(
             datapackage_path=resolved_datapackage_path,
             package_name=package_name,
-            resource_descriptor=package_resource.to_descriptor(),
+            resource_descriptor=resource_descriptor,
         )
 
         validation_resource = Resource(
@@ -220,6 +239,38 @@ class EntityWorkbookAdapter:
         raise PermissionError(
             f"Could not resolve a writable workbook path under: {output_dir}"
         )
+
+    def _apply_entity_metadata(
+        self,
+        *,
+        resource_descriptor: Dict[str, Any],
+        entity_uri: str,
+        entity_identifier: str,
+        facade_uri: str,
+        instance_uri_template: str,
+    ) -> None:
+        metadata: Dict[str, str] = {
+            "entityUri": str(entity_uri or "").strip(),
+            "entityIdentifier": str(entity_identifier or "").strip(),
+            "facadeUri": str(facade_uri or "").strip(),
+            "instanceUriTemplate": str(instance_uri_template or "").strip(),
+        }
+        for key, value in metadata.items():
+            if value:
+                resource_descriptor[key] = value
+
+    def _default_instance_uri_template(
+        self,
+        *,
+        entity_identifier: str,
+        primary_key: Sequence[str],
+    ) -> str:
+        normalized_identifier: str = str(entity_identifier or "").strip()
+        key_fields: List[str] = [str(key).strip() for key in primary_key if str(key).strip()]
+        if not normalized_identifier or key_fields != ["GlobalId"]:
+            return ""
+
+        return f"urn:ontobdc:entity/{normalized_identifier}/{{GlobalId}}"
 
     def _write_datapackage(
         self,

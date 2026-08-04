@@ -1,5 +1,8 @@
+from typing import Any, Dict
+
 from ontobdc.storage.domain.port.machine import (
     ContainerCreateProcessStatePort,
+    ContainerUpdateProcessStatePort,
     DatasetCreateProcessStatePort,
 )
 
@@ -61,6 +64,69 @@ class ContainerCreateProcessState(ContainerCreateProcessStatePort):
     @staticmethod
     def get_state(state: str) -> "ContainerCreateProcessState":
         return getattr(ContainerCreateProcessState, state.upper())
+
+
+class ContainerUpdateProcessState(ContainerUpdateProcessStatePort):
+    """
+    Enum representing the possible states of the storage container update process.
+    """
+
+    UNDEFINED = "__undefined__"
+    CONTAINER_INVALID = "__container_invalid__"
+    CONTAINER_HEALTHY = "__container_healthy__"
+    CONTAINER_CLEANED = "__container_cleaned__"
+    CONTAINER_DATAPACKAGE_UPDATED = "__container_datapackage_updated__"
+    CONTAINER_RO_CRATE_UPDATED = "__container_ro_crate_updated__"
+    CONTAINER_HTML_VIEW_UPDATED = "__container_html_view_updated__"
+    CONTAINER_UPDATED = "__container_updated__"
+
+    def bind_presentation_metadata(
+        self,
+        label: Any = None,
+        description: Any = None,
+    ) -> None:
+        self._labels = self._normalize_presentation_metadata(label)
+        self._descriptions = self._normalize_presentation_metadata(description)
+
+    def label(self, lang: str = "en") -> str:
+        return self._localized_presentation_metadata(
+            values=getattr(self, "_labels", {}),
+            lang=lang,
+            default=self.value,
+        )
+
+    def description(self, lang: str = "en") -> str:
+        return self._localized_presentation_metadata(
+            values=getattr(self, "_descriptions", {}),
+            lang=lang,
+            default="",
+        )
+
+    @staticmethod
+    def get_state(state: str) -> "ContainerUpdateProcessState":
+        return getattr(ContainerUpdateProcessState, state.upper())
+
+    @staticmethod
+    def _normalize_presentation_metadata(value: Any) -> Dict[str, str]:
+        if isinstance(value, str):
+            return {"en": value}
+        if not isinstance(value, dict):
+            return {}
+
+        return {
+            str(language).strip().lower().replace("_", "-"): str(text)
+            for language, text in value.items()
+            if str(language).strip() and text is not None
+        }
+
+    @staticmethod
+    def _localized_presentation_metadata(
+        values: Dict[str, str],
+        lang: str,
+        default: str,
+    ) -> str:
+        normalized_lang: str = lang.strip().lower().replace("_", "-")
+        return values.get(normalized_lang, values.get("en", default))
 
 
 class DatasetCreateProcessState(DatasetCreateProcessStatePort):

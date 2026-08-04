@@ -24,6 +24,7 @@ class StateWorkerAdapter:
         self._logger: Any = logger
         self._statechart_file_path: Path = statechart_file_path
         self._statechart_data: Dict[str, Any] = self._load_statechart_data()
+        self._bind_state_adapter_metadata()
 
     @property
     def name(self) -> str:
@@ -74,6 +75,49 @@ class StateWorkerAdapter:
         with open(self._statechart_file_path, "r", encoding="utf-8") as file_handle:
             return yaml.safe_load(file_handle) or {}
 
+    def _bind_state_adapter_metadata(self) -> None:
+        statechart_data: object = self._statechart_data.get("statechart")
+        if not isinstance(statechart_data, dict):
+            return
+
+        root_state: object = statechart_data.get("root state")
+        if not isinstance(root_state, dict):
+            return
+
+        self._bind_state_adapter_metadata_in_node(root_state)
+
+    def _bind_state_adapter_metadata_in_node(self, node: Dict[str, Any]) -> None:
+        for collection_name in ("states", "parallel states"):
+            state_definitions: object = node.get(collection_name)
+            if not isinstance(state_definitions, list):
+                continue
+
+            for state_definition in state_definitions:
+                if not isinstance(state_definition, dict):
+                    continue
+
+                state_name: str = str(
+                    state_definition.get("name", "")
+                ).strip()
+                if state_name:
+                    try:
+                        state: Any = self._state_adapter.get_state(state_name)
+                    except (AttributeError, KeyError):
+                        state = None
+
+                    bind_metadata: Any = getattr(
+                        state,
+                        "bind_presentation_metadata",
+                        None,
+                    )
+                    if callable(bind_metadata):
+                        bind_metadata(
+                            label=state_definition.get("label"),
+                            description=state_definition.get("description"),
+                        )
+
+                self._bind_state_adapter_metadata_in_node(state_definition)
+
     def _bind_current_interpreter_state(
         self,
         interpreter: Interpreter,
@@ -90,7 +134,9 @@ class StateWorkerAdapter:
         self._handler.bind_active_state(observed_state)
 
     def _load_sismic_statechart(self) -> Statechart:
-        cleaned_data: Dict[str, Any] = self._remove_descriptions(self._statechart_data)
+        cleaned_data: Dict[str, Any] = self._remove_presentation_metadata(
+            self._statechart_data
+        )
         file_descriptor: int
         temp_path: str
         file_descriptor, temp_path = tempfile.mkstemp(suffix=".yaml")
@@ -137,28 +183,28 @@ class StateWorkerAdapter:
         return False
 
     @classmethod
-    def _remove_descriptions(cls, node: Dict[str, Any]) -> Dict[str, Any]:
+    def _remove_presentation_metadata(cls, node: Dict[str, Any]) -> Dict[str, Any]:
         cleaned_node: Dict[str, Any] = dict(node)
         for key, value in list(cleaned_node.items()):
-            if key == "description":
+            if key in {"description", "label"}:
                 del cleaned_node[key]
                 continue
 
             if isinstance(value, dict):
-                cleaned_node[key] = cls._remove_descriptions(value)
+                cleaned_node[key] = cls._remove_presentation_metadata(value)
                 continue
 
             if isinstance(value, list):
-                cleaned_node[key] = cls._remove_description_list(value)
+                cleaned_node[key] = cls._remove_presentation_metadata_list(value)
 
         return cleaned_node
 
     @classmethod
-    def _remove_description_list(cls, items: List[Any]) -> List[Any]:
+    def _remove_presentation_metadata_list(cls, items: List[Any]) -> List[Any]:
         cleaned_items: List[Any] = []
         for item in items:
             if isinstance(item, dict):
-                cleaned_items.append(cls._remove_descriptions(item))
+                cleaned_items.append(cls._remove_presentation_metadata(item))
                 continue
 
             cleaned_items.append(item)

@@ -1,29 +1,21 @@
 
 import os
 from pathlib import Path
+from typing import Iterable, List, Optional, Tuple, Union
+
 from rdflib import Graph, URIRef, Namespace
 from rdflib.namespace import DCTERMS, PROV, RDF
-from ontobdc.shared.adapter.config import ConfigDataAdapter
-from ontobdc.storage.domain.model.graph import StorageGraphModel
-from typing import Union, Iterable, List, Optional, Tuple, Union
+from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
 from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.storage.domain.model.graph import StorageGraphModel
 from ontobdc.storage.domain.port.graph import StorageGraphRepositoryPort, StorageGraphModelPort
 
 
-ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(ConfigDataAdapter())
+ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
+    UnsetProjectRootConfigDataAdapter(),
+)
 CT: Namespace = ontology_adapter.get_ontology_namespace_by_prefix("ct")
 OBDC: Namespace = ontology_adapter.get_ontology_namespace_by_prefix("obdc")
-# MARKER_DIR_NAME: str = ".__ontobdc__"
-# CONTAINER_STORAGE_FILE: str = "container.ttl"
-# DATASET_STORAGE_FILE: str = "dataset.ttl"
-# DATASET_NID_FILE: str = "nid.ttl"
-# DATASET_INDEX_FILE: str = "index.ttl"
-# DATASET_LINKSET_DIR: str = "linkset"
-# DATASET_PAYLOAD_DIR: str = "payload"
-# DATASET_PAYLOAD_DOCUMENTS_DIR: str = "documents"
-# DATASET_URN_PREFIX: str = f"{STORAGE_URN_PREFIX}dataset/"
-# CT_HTTP_NAMESPACE: str = str(CT)
-# CT_HTTPS_NAMESPACE: str = CT_HTTP_NAMESPACE.replace("http://", "https://", 1)
 
 
 class StorageGraphFileRepository(StorageGraphRepositoryPort):

@@ -40,7 +40,7 @@ class CliBaseCommand(CliCommandPort, LoggerAwarePort):
         if not args:
             return True
 
-        return len(args) == 0
+        return len(args) == 1 and args[0] in ["--help", "-h"]
 
     def set_log_strategy(self, log_strategy: LogStrategyConfig) -> None:
         self._log_strategy = log_strategy

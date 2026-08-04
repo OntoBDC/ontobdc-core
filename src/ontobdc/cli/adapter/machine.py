@@ -75,7 +75,7 @@ class CliInitStateTransitionHandler(CliInitStateTransitionHandlerPort):
         return list(CliInitProcessState)
 
     def can_transit_to(self, to_state: CliInitProcessStatePort) -> bool:
-        return self.observed_state != to_state
+        return self.current_state != to_state
 
     def perform_state_transition(self, to_state: CliInitProcessStatePort) -> None:
         self._logger.log_info(
@@ -99,7 +99,15 @@ class CliInitStateTransitionHandler(CliInitStateTransitionHandlerPort):
         if from_state == to_state:
             return False
 
-        return self.observed_state == to_state
+        observed_state: CliInitProcessStatePort = self.observed_state
+        if observed_state == to_state:
+            return True
+
+        state_sequence: List[CliInitProcessStatePort] = self.state_sequence
+        if to_state not in state_sequence or observed_state not in state_sequence:
+            return False
+
+        return state_sequence.index(observed_state) > state_sequence.index(to_state)
 
     def execute(self) -> CommandResponse:
         worker: StateWorkerAdapter = StateWorkerAdapter(

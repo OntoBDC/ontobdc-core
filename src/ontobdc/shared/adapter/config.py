@@ -149,30 +149,20 @@ class ConfigDataAdapter(ConfigDataPort):
 
         return self.find_project_root(parent_dir)
 
-    def _find_root_dir(self, path: str = os.getcwd()) -> Optional[str]:
-        """
-        Find the root directory of the project.
-        
-        The complex resolution and recursive search has been moved to the
-        'is_root_dir_set' check and hotfix to prevent fatal exceptions during
-        CLI initialization when the config file is missing.
-        """
-        if path.strip() == "/":
-            return None
+    def _find_root_dir(self, path: Optional[str] = None) -> Optional[str]:
+        """Find the nearest project root and stop safely at any filesystem root."""
+        current_path: Path = Path(path or os.getcwd()).expanduser().resolve()
 
-        if not os.path.isdir(path):
-            return self._find_root_dir(str(Path(path).parent))
+        while True:
+            config_file: Path = current_path / ".__ontobdc__" / "config.yaml"
+            if config_file.is_file():
+                return str(current_path)
 
-        config_dir: Path = Path(path) / ".__ontobdc__"
-        if not config_dir.exists():
-            return self._find_root_dir(str(Path(path).parent))
+            parent_path: Path = current_path.parent
+            if parent_path == current_path:
+                return None
 
-        config_file: Optional[str] = self.get_config_file(str(config_dir))
-
-        if not os.path.exists(config_file):
-            return self._find_root_dir(str(Path(path).parent))
-
-        return path
+            current_path = parent_path
 
     def _get_root_dir(self) -> str:
         """
@@ -211,8 +201,14 @@ class ConfigDataAdapter(ConfigDataPort):
         try:
             import ontobdc
             if hasattr(ontobdc, '__path__'):
-                package_path = ontobdc.__path__[0]
-                return package_path
+                package_path: str
+                for package_path in list(ontobdc.__path__):
+                    candidate_path: Path = Path(package_path).expanduser().resolve()
+                    if all((candidate_path / directory_name).is_dir() for directory_name in ["cli", "shared"]):
+                        return str(candidate_path)
+
+                package_path = list(ontobdc.__path__)[0]
+                return str(Path(package_path).expanduser().resolve())
         except Exception:
             pass
 

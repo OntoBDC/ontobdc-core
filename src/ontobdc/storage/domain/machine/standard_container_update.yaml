@@ -1,0 +1,122 @@
+statechart:
+  name: StandardContainerUpdate
+  label:
+    en: "Standard Container Update"
+    pt-br: "Atualização padrão de container"
+  description:
+    en: "Statechart for OntoBDC storage container update."
+    pt-br: "Statechart para atualização de containers de storage do OntoBDC."
+
+  root state:
+    name: standard_container_update
+    initial: undefined
+    label:
+      en: "Standard Container Update"
+      pt-br: "Atualização padrão de container"
+    description:
+      en: "Container update process from validity evaluation and cleanup to synchronized metadata and an optional HTML view."
+      pt-br: "Processo de atualização do container desde a avaliação de validade e limpeza até a sincronização dos metadados e de uma visualização HTML opcional."
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the target container validity is evaluated."
+          pt-br: "Estado inicial antes da avaliação da validade do container alvo."
+        transitions:
+          - target: container_invalid
+            guard: handler.can_transit_to(to_state = ContainerUpdateProcessStatePort.CONTAINER_INVALID)
+          - target: container_healthy
+            guard: handler.can_transit_to(to_state = ContainerUpdateProcessStatePort.CONTAINER_HEALTHY)
+            action: handler.perform_state_transition(to_state = ContainerUpdateProcessStatePort.CONTAINER_HEALTHY)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerUpdateProcessStatePort.UNDEFINED, to_state = ContainerUpdateProcessStatePort.CONTAINER_HEALTHY)
+
+      - name: container_invalid
+        label:
+          en: "Invalid Container"
+          pt-br: "Container inválido"
+        description:
+          en: "The target container is structurally invalid and cannot be updated automatically."
+          pt-br: "O container alvo é estruturalmente inválido e não pode ser atualizado automaticamente."
+        type: final
+
+      - name: container_healthy
+        label:
+          en: "Healthy Container"
+          pt-br: "Container saudável"
+        description:
+          en: "The target container is structurally valid, registered, accessible, and ready for cleanup."
+          pt-br: "O container alvo está estruturalmente válido, registrado, acessível e pronto para limpeza."
+        transitions:
+          - target: container_cleaned
+            guard: handler.can_transit_to(to_state = ContainerUpdateProcessStatePort.CONTAINER_CLEANED)
+            action: handler.perform_state_transition(to_state = ContainerUpdateProcessStatePort.CONTAINER_CLEANED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerUpdateProcessStatePort.CONTAINER_HEALTHY, to_state = ContainerUpdateProcessStatePort.CONTAINER_CLEANED)
+
+      - name: container_cleaned
+        label:
+          en: "Cleaned Container"
+          pt-br: "Container limpo"
+        description:
+          en: "Files configured for cleanup are absent from the container."
+          pt-br: "Os arquivos configurados para limpeza não estão presentes no container."
+        transitions:
+          - target: container_datapackage_updated
+            guard: handler.can_transit_to(to_state = ContainerUpdateProcessStatePort.CONTAINER_DATAPACKAGE_UPDATED)
+            action: handler.perform_state_transition(to_state = ContainerUpdateProcessStatePort.CONTAINER_DATAPACKAGE_UPDATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerUpdateProcessStatePort.CONTAINER_CLEANED, to_state = ContainerUpdateProcessStatePort.CONTAINER_DATAPACKAGE_UPDATED)
+
+      - name: container_datapackage_updated
+        label:
+          en: "Updated Container Data Package"
+          pt-br: "Data Package do container atualizado"
+        description:
+          en: "The container Data Package descriptor is synchronized with the current container resources and is valid."
+          pt-br: "O descritor Data Package do container está sincronizado com os recursos atuais e é válido."
+        transitions:
+          - target: container_ro_crate_updated
+            guard: handler.can_transit_to(to_state = ContainerUpdateProcessStatePort.CONTAINER_RO_CRATE_UPDATED)
+            action: handler.perform_state_transition(to_state = ContainerUpdateProcessStatePort.CONTAINER_RO_CRATE_UPDATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerUpdateProcessStatePort.CONTAINER_DATAPACKAGE_UPDATED, to_state = ContainerUpdateProcessStatePort.CONTAINER_RO_CRATE_UPDATED)
+
+      - name: container_ro_crate_updated
+        label:
+          en: "Updated Container RO-Crate"
+          pt-br: "RO-Crate do container atualizado"
+        description:
+          en: "The container RO-Crate metadata is synchronized with the current container resources and is valid."
+          pt-br: "Os metadados RO-Crate do container estão sincronizados com os recursos atuais e são válidos."
+        transitions:
+          - target: container_html_view_updated
+            guard: handler.can_transit_to(to_state = ContainerUpdateProcessStatePort.CONTAINER_HTML_VIEW_UPDATED)
+            action: handler.perform_state_transition(to_state = ContainerUpdateProcessStatePort.CONTAINER_HTML_VIEW_UPDATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerUpdateProcessStatePort.CONTAINER_RO_CRATE_UPDATED, to_state = ContainerUpdateProcessStatePort.CONTAINER_HTML_VIEW_UPDATED)
+          - target: container_updated
+            guard: handler.can_transit_to(to_state = ContainerUpdateProcessStatePort.CONTAINER_UPDATED)
+
+      - name: container_html_view_updated
+        label:
+          en: "Updated Container HTML View"
+          pt-br: "Visualização HTML do container atualizada"
+        description:
+          en: "The existing container index.html was regenerated from the current container data."
+          pt-br: "O index.html existente do container foi regenerado a partir dos dados atuais do container."
+        transitions:
+          - target: container_updated
+            guard: handler.can_transit_to(to_state = ContainerUpdateProcessStatePort.CONTAINER_UPDATED)
+
+      - name: container_updated
+        label:
+          en: "Updated Container"
+          pt-br: "Container atualizado"
+        description:
+          en: "The container is healthy and clean, its Data Package and RO-Crate metadata are updated, and an existing HTML view was updated when present."
+          pt-br: "O container está saudável e limpo, seus metadados Data Package e RO-Crate estão atualizados e uma visualização HTML existente foi atualizada quando presente."
+        type: final

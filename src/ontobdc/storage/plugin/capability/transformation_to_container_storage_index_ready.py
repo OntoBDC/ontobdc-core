@@ -52,4 +52,3 @@ class ContainerStorageIndexReadyCapability(TransactionCapability):
             "resulting_state": ContainerCreateProcessState.CONTAINER_STORAGE_INDEX_READY,
             "path": target_path,
         }
-

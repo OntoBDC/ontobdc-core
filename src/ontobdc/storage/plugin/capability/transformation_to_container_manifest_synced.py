@@ -52,4 +52,3 @@ class ContainerManifestSyncedCapability(TransactionCapability):
             "resulting_state": ContainerCreateProcessState.CONTAINER_MANIFEST_SYNCED,
             "path": target_path,
         }
-

@@ -1,220 +1,115 @@
-# OntoBDC WIP Board
+# OntoBDC
 
-Internal development board for the OntoBDC working package in `wip/`.
+OntoBDC is an offline-first semantic runtime for portable datasets and containers. Its annotation subsystem lets any host create, validate, persist, render, query, and navigate typed knowledge attached to files, representations, WorkStreams, and dimensions without requiring a central platform.
 
-This file is not a public-facing README. It is the team's quick status board for:
+## Typed annotations
 
-- the current shape of the code in `src/ontobdc/`
-- what is already usable
-- what is still draft, partial, or temporarily disabled
-- where to look first when changing the stack
+OntoBDC persists five concrete categories. The abstract enrichment class is never written as if it were a note.
 
-## Working Definition
+| Category | Purpose | Geometry |
+|---|---|---|
+| Note | Contextual explanation | one or many points |
+| Issue | Problem or question with lifecycle | point, bounding box, or none |
+| Classification | Semantic classification by URI | bounding box or none outside a representation |
+| Location | Representation, geospatial, relative, or positional location | depends on location kind |
+| Record | Evidence such as a photo, document, measurement, or invoice | point, bounding box, or none |
 
-OntoBDC is currently being built as a Python CLI plus semantic runtime for:
+Each annotation separates:
 
-- bootstrapping local project context
-- validating environment and prerequisites
-- discovering and executing capabilities
-- managing local dataset references
-- running artifact-driven semantic workflows such as `a3`
+- the annotated target (`oa:hasTarget`);
+- the organizing Subjects (`dcterms:subject`);
+- creator and modifier;
+- assignee, resolver, and recorder roles;
+- logical source and visual representation;
+- normalized selector geometry.
 
-The current capability vocabulary exposed by the code is:
+> **Illustration placeholder — semantic anatomy:** show one annotation connected independently to its target, two Subjects, creator, assignee, WorkStream dimension, logical source, and representation source.
 
-- **`QueryCapabilityPort`**: capability interface for discovery and read-only inspection.
-- **`TransformationCapabilityPort`**: capability interface for transformations that create or reshape artifacts.
-- **`ActionCapabilityPort`**: capability interface for executable actions in the runtime.
+## Editor
 
-## Current Surface
+The generic editor is category-driven. The host provides labels, theme, actor context, and optional entity resolvers; OntoBDC owns forms, validation, geometry, persistence, and rendering.
 
-The command surface that matters right now:
+The category is selected before category-specific fields and becomes immutable after the first save. Point, multiple-point, and bounding-box tools persist normalized coordinates so the same marker can be restored at the same position.
+
+> **Illustration placeholder — typed editor:** capture the category chooser, an Issue form, geometry toolbar, bounding box, field-level validation, and save action.
+
+## Workspace
+
+The annotation workspace lists spatial and non-spatial annotations and exposes a stable API:
+
+```javascript
+workspace.setAnnotations(annotations);
+workspace.setFilters({ category, subject, person, workStream });
+workspace.selectAnnotation(annotationId);
+workspace.clearSelection();
+workspace.openAnnotation(annotation);
+workspace.refresh();
+```
+
+Filters can combine category, controlled kinds/statuses, people and roles, Subject, source, WorkStream, dimension, date, and geometry presence. Counters and legend are derived from the same data and visual contracts used by the renderer.
+
+> **Illustration placeholder — workspace:** show combined category/status/Subject filters, counters, a selected non-spatial Record, details, and the corresponding highlighted marker.
+
+## Subject Page
+
+A Subject is an optional reusable `skos:Concept`; it is not the annotation target. The Subject Page provides three synchronized views:
+
+- **Space:** groups by representation first and only compares normalized geometry inside the same representation;
+- **Timeline:** distinguishes creation, modification, recording, status, and resolution events;
+- **People:** groups ordinary Person entities by author, modifier, assignee, resolver, and recorder roles.
+
+Annotations without a Subject remain available under **Unassigned subjects**.
+
+> **Illustration placeholder — Subject Page:** three captures of the same Subject in Space, Timeline, and People, including a group without spatial position and a person exercising two roles.
+
+## WorkStream integration
+
+WorkStream is an OntoBDC concept. A host can relate annotations to a WorkStream, one 5W2H dimension, one logical resource, and one representation. Selecting an item in the workspace can reopen its representation and marker; selecting a marker selects the same workspace item.
+
+> **Illustration placeholder — WorkStream flow:** show WorkStream → dimension → resource → representation → annotation, with Subjects and people branching from the annotation.
+
+## Offline persistence
+
+The runtime is designed for local containers and `file://` use:
+
+1. load the strict dataset;
+2. calculate its revision;
+3. validate the complete next serialization;
+4. reject a save if the source changed externally;
+5. write through the File System Access API;
+6. reopen and verify the written content.
+
+Invalid datasets are reported rather than partially ignored. There is no schema-1 reader, legacy fallback, automatic migration, or automatic RDF merge.
+
+> **Illustration placeholder — persistence flow:** diagram load/revision/edit/validate/compare/write/verify, with the conflict and invalid-dataset stop paths highlighted.
+
+## Host integration
+
+Load the packaged annotation modules in dependency order and create the runtime with host-neutral context:
+
+```javascript
+const runtime = OntoBDCAnnotations.createRuntime({
+  actorContext: { actorUri: "urn:person:example", displayName: "Example" },
+  normalizeContext,
+  labels,
+  visual: { contract: OntoBDCAnnotationVisualContract, theme }
+});
+```
+
+The host may implement `entityResolver.search(...)` and `entityResolver.resolve(...)` for people, Subjects, or resources. OntoBDC does not require a database or authentication system.
+
+## Development validation
 
 ```bash
-ontobdc init
-ontobdc check
-ontobdc list
-ontobdc run
-ontobdc storage
-ontobdc dev
-ontobdc a3
+python -m pip install -e '.[dev]'
+pytest
+node --check src/ontobdc/view/plugin/asset/js/annotation/*.js
 ```
 
-Typical local loop:
+Browser coverage targets Edge/Chromium first because directory access depends on the File System Access API. A release candidate must also validate wheel/ZIP package data, an anonymous demo container, reopen-after-save, offline operation, keyboard navigation, and visual contrast.
 
-```bash
-ontobdc init
-ontobdc check
-ontobdc list
-ontobdc run --id <capability_id>
-```
+## Breaking change
 
-Storage loop:
+The annotation contract is strict. Existing schema-1 data must be corrected manually. OntoBDC does not interpret `EnrichmentAnnotation` as a Note and provides no legacy property aliases.
 
-```bash
-ontobdc storage
-ontobdc storage --local [path]
-ontobdc storage --remove <dataset_id>
-```
-
-## Ready / Usable Now
-
-These parts are safe to treat as the current working core of the stack:
-
-- **`init`**: creates `.__ontobdc__/config.yaml` and establishes the minimum local project context.
-- **`check`**: runs environment and infrastructure validation before execution.
-- **`list` + `run`**: expose the main capability discovery and execution surface.
-- **`storage --local` and `storage --remove`**: cover the current dataset registration workflow.
-- **`dev`**: active and useful, but intentionally gated by project config.
-- **`a3 --etl --source <file|url>`**: ingests a textual source and materializes a lifecycle package.
-- **`a3 --work`**: processes lifecycle packages through the current state machine.
-- **Plugin/module split**: the code is already organized around adapters, ports, plugins, and domain modules rather than a monolithic CLI.
-
-## Draft / Partial / In Transition
-
-These items exist in code, scripts, or drafts, but should not be treated as settled:
-
-- **`ontobdc plan`**: legacy command path kept only as historical implementation residue; future planning behavior is expected to be unified under `ontobdc run`.
-- **`ontobdc extra --enable a3`**: referenced by the codebase and help text, but not wired as a finished public flow.
-- **`ontobdc storage --refresh`**: present in scripts, but currently treated as temporarily disabled in the intended workflow.
-- **`ontobdc storage --resource`**: present in scripts, but also treated as temporarily disabled for now.
-- **Entity-related flows**: drafts and checks reference entity support, but it is not a current public command surface.
-- **`a3 --watch`**: appears in draft material, not in the active A3 CLI.
-
-Rule for contributors:
-
-- If it is in this section, do not document it as stable product behavior.
-- If it is referenced by code but not by the intended workflow, treat it as implementation residue, draft work, or a future path.
-
-## Code Map
-
-Short map of `src/ontobdc/`:
-
-- `cli/`
-  - Top-level routing, initialization helpers, CLI messaging, and shared entrypoint logic.
-- `check/`
-  - Environment and infrastructure checks, with shell-backed validation and repair hooks.
-- `run/`
-  - Capability discovery, context/parameter resolution, selection, execution, and rendering.
-- `list/`
-  - Capability catalog output.
-- `storage/`
-  - Dataset registration, storage index handling, and storage adapters.
-- `dev/`
-  - Developer operations across repositories, branches, commits, and related config.
-- `a3/`
-  - Artifact-driven ETL and lifecycle processing.
-- `module/`
-  - Built-in domain modules and capability providers.
-- `shared/`
-  - Shared adapters, ports, ontology helpers, and plugin utilities.
-
-Suggested reading order for newcomers:
-
-1. `cli/`
-2. `run/`
-3. `storage/`
-4. `a3/`
-5. `shared/`
-
-## A3 Notes
-
-`a3` is the most explicit example of the stack's file-driven execution model.
-
-Current entrypoints:
-
-```bash
-ontobdc a3 --etl --source <file|url>
-ontobdc a3 --work
-```
-
-Current behavior:
-
-- `--etl` resolves a source extraction strategy and writes a lifecycle package starting from `raw.txt`.
-- `--work` scans the lifecycle area, creates one worker per package, and advances each package through the state machine.
-
-Current canonical lifecycle:
-
-```text
-undefined -> received -> sanitized -> parsed -> translated -> validated -> reasoned -> dispatched
-```
-
-Current artifact progression:
-
-- `received` -> `raw.txt`
-- `sanitized` -> `sanitized.txt`
-- `parsed` -> `parsed.json`
-- `translated` -> `graph.ttl`
-- `validated` -> `validated.txt`
-- `reasoned` -> `reasoned.ttl`
-- `dispatched` -> `dispatched.jsonld`
-
-Why `a3` matters:
-
-- State is inferred from files already present in the package directory.
-- Processing is resumable from the latest valid artifact.
-- The pipeline leaves a concrete trace for debugging and auditability.
-- It is the clearest current implementation of OntoBDC as an artifact-oriented runtime.
-
-Current caveats:
-
-- A3 enablement UX is still awkward.
-- The repository references `ontobdc extra --enable a3`, but practical setup still depends on installing the Python dependencies correctly.
-- Some surrounding A3 documentation exists in draft form and is ahead of the final CLI UX.
-
-## Important Artifacts
-
-Core files that matter during development:
-
-- `.__ontobdc__/config.yaml`
-  - local project configuration and engine selection
-- `.__ontobdc__/storage.ttl`
-  - dataset storage index
-- `.__ontobdc__/payload/lifecycle/...`
-  - A3 lifecycle packages and intermediate artifacts
-
-Practical point:
-
-- if you need to understand system state, inspect files first
-- OntoBDC currently externalizes a lot of runtime truth into disk artifacts
-
-## Relationship Between `wip/` And `../docs/`
-
-Use this split when deciding where to update documentation:
-
-- `wip/`
-  - internal working package
-  - implementation-first
-  - draft-friendly
-  - team board and near-code notes
-- `../docs/`
-  - more formal stack-level documentation
-  - use cases, specs, ontologies, and publishable material
-
-When `wip/` and `../docs/` disagree:
-
-- prefer `src/ontobdc/` as the source of truth for actual behavior
-- treat documentation as lagging or leading depending on the feature
-
-## Contribution Notes
-
-Before describing something as done, check all three:
-
-- is it routed by `cli/__init__.py`?
-- is it still intended by the current workflow?
-- is it documented as active rather than draft or temporarily disabled?
-
-Before adding new docs in `wip/`, prefer:
-
-- short status notes
-- explicit caveats
-- code-oriented navigation
-
-Avoid turning this file into:
-
-- a marketing README
-- a PyPI landing page
-- a polished product overview detached from implementation reality
-
-## License
-
-Licensed under **Apache 2.0**.
+Licensed under Apache 2.0.
