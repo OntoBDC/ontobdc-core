@@ -8,7 +8,7 @@ from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import CommandResponse
-from ontobdc.context.adapter.repository import EntityContainerInstanceRepository
+from ontobdc.context.adapter.instance import ContainerEntityInstanceRepository
 from ontobdc.context.adapter.vector import EntityVectorRepositoryAdapter
 from ontobdc.shared.adapter.entity_workbook import (
     EntityWorkbookAdapter,
@@ -102,19 +102,21 @@ class ContextEntityCommand(CliCommandPort):
         if container_path is None:
             raise CliCommandArgumentException(f"Invalid container: {container_id}")
 
-        facade: Optional[Dict[str, Any]] = EntityVectorRepositoryAdapter(
-            root_path=root_path,
-        ).resolve_entity_facade(entity_value)
-        if facade is None:
-            raise CliCommandArgumentException(f"Could not resolve entity facade: {entity_value}")
-
         self._request.context.set_parameter_value("container_id", container_id)
         self._request.context.set_parameter_value("container_path", str(container_path))
         self._request.context.set_parameter_value("entity", entity_value)
-        self._request.context.set_parameter_value("entity_uri", str(facade["entity_uri"]))
-        self._request.context.set_parameter_value("entity_facade", facade)
 
         if self._is_entity_create_request():
+            facade: Optional[Dict[str, Any]] = EntityVectorRepositoryAdapter(
+                root_path=root_path,
+            ).resolve_entity_facade(entity_value)
+            if facade is None:
+                raise CliCommandArgumentException(
+                    f"Could not resolve entity facade: {entity_value}"
+                )
+
+            self._request.context.set_parameter_value("entity_uri", str(facade["entity_uri"]))
+            self._request.context.set_parameter_value("entity_facade", facade)
             create_value: str = self._parse_create_argument()
             self._request.context.set_parameter_value("create", create_value)
 
@@ -198,30 +200,37 @@ class ContextEntityCommand(CliCommandPort):
         return create_value
 
     def _run_list_instances(self) -> CommandResponse:
-        facade: Dict[str, Any] = dict(self._request.context.get_parameter_value("entity_facade") or {})
-        repository: EntityContainerInstanceRepository = EntityContainerInstanceRepository(
-            container_path=str(self._request.context.get_parameter_value("container_path") or "").strip(),
-            facade=facade,
+        container_id: str = str(
+            self._request.context.get_parameter_value("container_id") or ""
+        ).strip()
+        container_path: str = str(
+            self._request.context.get_parameter_value("container_path") or ""
+        ).strip()
+        entity_value: str = str(
+            self._request.context.get_parameter_value("entity") or ""
+        ).strip()
+        repository: ContainerEntityInstanceRepository = (
+            ContainerEntityInstanceRepository(
+                container_path=container_path,
+                entity=entity_value,
+            )
         )
         payload: Dict[str, Any] = repository.list_instances()
 
         return CommandResponse(
             title="Context Entity Instances",
             description=(
-                f"Listed {int(payload['instance_count'])} instance(s) of entity '{str(facade.get('entity_name') or '').strip()}' "
-                f"in container '{str(self._request.context.get_parameter_value('container_id') or '').strip()}'."
+                f"Listed {int(payload['instance_count'])} instance(s) of entity "
+                f"'{str(payload['entity'])}' in container '{container_id}'."
             ),
             content={
-                "container_id": str(self._request.context.get_parameter_value("container_id") or "").strip(),
-                "container_path": str(self._request.context.get_parameter_value("container_path") or "").strip(),
+                "container_id": container_id,
+                "container_path": container_path,
                 "entity": str(payload["entity"]),
-                "entity_uri": str(self._request.context.get_parameter_value("entity_uri") or "").strip(),
+                "entity_uri": str(payload["entity_uri"]),
                 "resolution": str(payload["resolution"]),
-                "datapackage_path": str(payload["datapackage_path"]),
-                "resource_count": int(payload["resource_count"]),
-                "resources": list(payload["resources"]),
-                "workbook_path": str(payload["workbook_path"]),
-                "worksheet_name": str(payload["worksheet_name"]),
+                "dataset_count": int(payload["dataset_count"]),
+                "datasets": list(payload["datasets"]),
                 "instance_count": int(payload["instance_count"]),
                 "instances": list(payload["instances"]),
             },

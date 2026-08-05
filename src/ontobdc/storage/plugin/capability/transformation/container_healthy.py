@@ -8,10 +8,16 @@ from ontobdc.shared.adapter.capability import (
 )
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.storage.domain.machine.state import ContainerUpdateProcessState
+from ontobdc.storage.plugin.check.is_container_metadata_ready.check import (
+    main as check_container_metadata_ready,
+)
+from ontobdc.storage.plugin.check.is_container_storage_index_ready.check import (
+    main as check_container_storage_index_ready,
+)
 
 
 class ContainerHealthyCapability(TransactionCapability):
-    """Repair and validate the structural prerequisites of an existing container."""
+    """Repair and validate the prerequisites of an existing container."""
 
     METADATA = CapabilityMetadata(
         id=(
@@ -21,8 +27,8 @@ class ContainerHealthyCapability(TransactionCapability):
         version="1.0.0",
         name="Healthy Container",
         description=(
-            "Ensure that an existing container has valid local metadata and a "
-            "synchronized storage index entry."
+            "Ensure that an existing container has valid local metadata and "
+            "a synchronized storage index entry."
         ),
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "update", "health"],
@@ -34,6 +40,31 @@ class ContainerHealthyCapability(TransactionCapability):
 
     def description(self, lang: str = "en") -> str:
         return ContainerUpdateProcessState.CONTAINER_HEALTHY.description(lang)
+
+    def is_satisfied(self, context: CliContextPort) -> bool:
+        try:
+            container_path = Path(
+                str(context.get_parameter_value("container_path") or "")
+            ).expanduser().resolve()
+            root_path = Path(context.root_path).expanduser().resolve()
+        except (OSError, TypeError, ValueError):
+            return False
+
+        if not container_path.is_dir():
+            return False
+
+        return (
+            check_container_metadata_ready(
+                container_path=str(container_path),
+                root_path=str(root_path),
+            )
+            == 0
+            and check_container_storage_index_ready(
+                container_path=str(container_path),
+                root_path=str(root_path),
+            )
+            == 0
+        )
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         from ontobdc.storage.plugin.capability.transformation.container_metadata_ready import (

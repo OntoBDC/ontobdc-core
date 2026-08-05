@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Type
+from typing import Dict, List, Optional, Type
 
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.cli.domain.response.command import CommandResponse
@@ -17,39 +17,109 @@ from ontobdc.view.domain.port.machine import (
 )
 
 
+_CAPABILITY_ID_BY_STATE: Dict[ContainerViewProcessState, str] = {
+    ContainerViewProcessState.CONTAINER_HEALTHY: (
+        "org.ontobdc.storage.plugin.capability.transformation.target."
+        "container_healthy"
+    ),
+    ContainerViewProcessState.IS_PUBLISHABLE: (
+        "org.ontobdc.view.plugin.capability.transformation.target."
+        "is_publishable"
+    ),
+    ContainerViewProcessState.DATA_GATHERED: (
+        "org.ontobdc.view.plugin.capability.transformation.target."
+        "data_gathered"
+    ),
+    ContainerViewProcessState.HARDCODED: (
+        "org.ontobdc.view.plugin.capability.transformation.target."
+        "hardcoded"
+    ),
+    ContainerViewProcessState.FACADES_SERIALIZED: (
+        "org.ontobdc.view.plugin.capability.transformation.target."
+        "facades_serialized"
+    ),
+    ContainerViewProcessState.DATASET_VIEWS_GENERATED: (
+        "org.ontobdc.view.plugin.capability.transformation.target."
+        "dataset_views_generated"
+    ),
+    ContainerViewProcessState.GENERATED: (
+        "org.ontobdc.view.plugin.capability.transformation.target."
+        "generated"
+    ),
+}
+
+
+def _capability_type_for_state(
+    state: ContainerViewProcessStatePort,
+) -> Type[CapabilityPort]:
+    try:
+        capability_id = _CAPABILITY_ID_BY_STATE[
+            ContainerViewProcessState(state)
+        ]
+    except (KeyError, ValueError) as exc:
+        raise ValueError(
+            f"No transformation capability is mapped to view state: {state}"
+        ) from exc
+
+    capability_type = CapabilityLoader().get(capability_id)
+    if capability_type is None:
+        raise ValueError(
+            f"Container view capability not found: {capability_id}"
+        )
+    return capability_type
+
+
 class ContainerViewStateEvaluatorAdapter(ContainerViewStateEvaluatorPort):
-    """Infer the current state from the artefacts produced by the process."""
+    """Infer the latest satisfied state from executable capabilities."""
 
     @property
     def process_state_class(self) -> Type[ContainerViewProcessStatePort]:
         return ContainerViewProcessState
 
-    def evaluate(self, context: CliContextPort) -> ContainerViewProcessStatePort:
-        if self._generated_check(context):
-            return ContainerViewProcessState.GENERATED
-        if self._data_gathered_check(context):
-            return ContainerViewProcessState.DATA_GATHERED
-        if self._is_publishable_check(context):
-            return ContainerViewProcessState.IS_PUBLISHABLE
-        if self._container_healthy_check(context):
-            return ContainerViewProcessState.CONTAINER_HEALTHY
+    def evaluate(
+        self,
+        context: CliContextPort,
+    ) -> ContainerViewProcessStatePort:
+        for state in reversed(self.state_sequence):
+            if state == ContainerViewProcessState.UNDEFINED:
+                continue
+
+            capability_type = _capability_type_for_state(state)
+            capability = capability_type()
+            is_satisfied = getattr(capability, "is_satisfied", None)
+            if not callable(is_satisfied):
+                raise TypeError(
+                    "Container view state capability does not implement "
+                    f"is_satisfied(context): {capability_type.__name__}"
+                )
+            if bool(is_satisfied(context)):
+                return state
+
         return ContainerViewProcessState.UNDEFINED
 
+    @property
+    def state_sequence(self) -> List[ContainerViewProcessStatePort]:
+        return list(ContainerViewProcessState)
 
-class ContainerViewStateTransitionHandler(ContainerViewStateTransitionHandlerPort):
-    """Execute the transformation that knows how to produce the requested target state."""
+
+class ContainerViewStateTransitionHandler(
+    ContainerViewStateTransitionHandlerPort
+):
+    """Execute the transformation responsible for each target state."""
 
     def __init__(
         self,
         context: CliContextPort,
-        state_evaluator: ContainerViewStateEvaluatorPort,
+        state_evaluator: Optional[ContainerViewStateEvaluatorPort] = None,
         logger: Optional[LogRepositoryPort] = None,
     ) -> None:
         self._context = context
         self._target_path = Path(
-            self._context.get_parameter_value("container_path")
+            str(self._context.get_parameter_value("container_path") or "")
         ).expanduser().resolve()
-        self._state_evaluator = state_evaluator
+        self._state_evaluator = (
+            state_evaluator or ContainerViewStateEvaluatorAdapter()
+        )
         self._logger = logger or NullLogRepository()
         self._active_state: Optional[ContainerViewProcessStatePort] = None
 
@@ -75,15 +145,20 @@ class ContainerViewStateTransitionHandler(ContainerViewStateTransitionHandlerPor
     def state_sequence(self) -> List[ContainerViewProcessStatePort]:
         return list(ContainerViewProcessState)
 
-    def can_transit_to(self, to_state: ContainerViewProcessStatePort) -> bool:
+    def can_transit_to(
+        self,
+        to_state: ContainerViewProcessStatePort,
+    ) -> bool:
         return self.current_state != to_state
 
-    def perform_state_transition(self, to_state: ContainerViewProcessStatePort) -> None:
+    def perform_state_transition(
+        self,
+        to_state: ContainerViewProcessStatePort,
+    ) -> None:
         self._logger.log_info(
             f"Container view target state: {to_state.value}",
         )
-
-        capability_type = self._get_target_state_capability(to_state)
+        capability_type = _capability_type_for_state(to_state)
         capability: CapabilityPort = capability_type()
         CapabilityExecutor.execute(capability, self._context)
 
@@ -100,10 +175,16 @@ class ContainerViewStateTransitionHandler(ContainerViewStateTransitionHandlerPor
             return True
 
         state_sequence = self.state_sequence
-        if to_state not in state_sequence or observed_state not in state_sequence:
+        if (
+            to_state not in state_sequence
+            or observed_state not in state_sequence
+        ):
             return False
 
-        return state_sequence.index(observed_state) > state_sequence.index(to_state)
+        return (
+            state_sequence.index(observed_state)
+            > state_sequence.index(to_state)
+        )
 
     def execute(self) -> CommandResponse:
         worker = StateWorkerAdapter(
@@ -116,47 +197,15 @@ class ContainerViewStateTransitionHandler(ContainerViewStateTransitionHandlerPor
         visited_states = worker.work()
         return CommandResponse(
             title="Container View Generated",
-            description="The container view process reached its generated state.",
+            description=(
+                "The container view process reached its generated state."
+            ),
             content={
                 "container_path": str(self._target_path),
                 "current_state": self.current_state.value,
                 "visited_states": visited_states,
             },
         )
-
-    def _get_target_state_capability(
-        self,
-        to_state: ContainerViewProcessStatePort,
-    ) -> Type[CapabilityPort]:
-        target_suffix = (
-            ".plugin.capability.transformation.target."
-            f"{to_state.value.strip('_')}"
-        )
-        matches = []
-
-        for capability_type in CapabilityLoader().get_all():
-            metadata = getattr(capability_type, "METADATA", None)
-            capability_id = getattr(metadata, "id", "")
-            if isinstance(capability_id, str) and capability_id.endswith(target_suffix):
-                matches.append(capability_type)
-
-        if not matches:
-            raise ValueError(
-                "Transformation capability not found for target state: "
-                f"{to_state.value}"
-            )
-
-        if len(matches) > 1:
-            capability_ids = sorted(
-                getattr(getattr(item, "METADATA", None), "id", "")
-                for item in matches
-            )
-            raise ValueError(
-                "Multiple transformation capabilities found for target state "
-                f"{to_state.value}: {capability_ids}"
-            )
-
-        return matches[0]
 
     def _get_statechart_file_path(self) -> Path:
         return (
@@ -166,5 +215,8 @@ class ContainerViewStateTransitionHandler(ContainerViewStateTransitionHandlerPor
             / "standard_container_view.yaml"
         )
 
-    def bind_active_state(self, state: ContainerViewProcessStatePort) -> None:
+    def bind_active_state(
+        self,
+        state: ContainerViewProcessStatePort,
+    ) -> None:
         self._active_state = state

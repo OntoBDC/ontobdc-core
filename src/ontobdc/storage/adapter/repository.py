@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 from typing import Iterable, List, Optional, Tuple, Union
+from urllib.parse import unquote, urlparse
 
 from rdflib import Graph, URIRef, Namespace
 from rdflib.namespace import DCTERMS, PROV, RDF
@@ -16,11 +17,32 @@ ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
 )
 CT: Namespace = ontology_adapter.get_ontology_namespace_by_prefix("ct")
 OBDC: Namespace = ontology_adapter.get_ontology_namespace_by_prefix("obdc")
+MARKER_DIR_NAME = ".__ontobdc__"
 
 
 class StorageGraphFileRepository(StorageGraphRepositoryPort):
     def __init__(self, file_path: Union[str, Path]):
         self._file_path: Path = Path(file_path)
+
+    def _get_container_location(self, subject: URIRef) -> Optional[str]:
+        location = self.graph.value(subject, PROV.atLocation)
+        normalized = str(location or "").strip()
+        return normalized or None
+
+    @staticmethod
+    def resolve_location_path(location: str) -> Path:
+        parsed = urlparse(location)
+        if parsed.scheme and parsed.scheme != "file":
+            raise ValueError(
+                f"Unsupported container location scheme: {parsed.scheme}"
+            )
+
+        raw_path = unquote(parsed.path if parsed.scheme else location)
+        if os.name == "nt" and raw_path.startswith("/") and len(raw_path) > 2:
+            if raw_path[2] == ":":
+                raw_path = raw_path[1:]
+
+        return Path(raw_path).expanduser().resolve()
 
     @property
     def file_path(self) -> Path:
@@ -75,8 +97,8 @@ class LoadedStorageGraph:
 
             container_path: Path = self.resolve_location_path(location)
             container_config_dir: Path = container_path / MARKER_DIR_NAME
-            container_storage_file: Path = StorageContainerCoreFilesRepository.get_container_storage_file(
-                container_path
+            container_storage_file: Path = (
+                container_config_dir / "container.ttl"
             )
             containers.append((subject, str(container_config_dir), str(container_storage_file)))
 

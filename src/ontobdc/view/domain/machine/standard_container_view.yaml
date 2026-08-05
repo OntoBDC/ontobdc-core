@@ -37,11 +37,38 @@ statechart:
       - name: data_gathered
         description: "The publishing capabilities completed and the data used by the view was materialized."
         transitions:
+          - target: hardcoded
+            guard: handler.can_transit_to(to_state = ContainerViewProcessStatePort.HARDCODED)
+            action: handler.perform_state_transition(to_state = ContainerViewProcessStatePort.HARDCODED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerViewProcessStatePort.DATA_GATHERED, to_state = ContainerViewProcessStatePort.HARDCODED)
+
+      - name: hardcoded
+        description: "The approved hardcoded view behavior was applied to the gathered data."
+        transitions:
+          - target: facades_serialized
+            guard: handler.can_transit_to(to_state = ContainerViewProcessStatePort.FACADES_SERIALIZED)
+            action: handler.perform_state_transition(to_state = ContainerViewProcessStatePort.FACADES_SERIALIZED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerViewProcessStatePort.HARDCODED, to_state = ContainerViewProcessStatePort.FACADES_SERIALIZED)
+
+      - name: facades_serialized
+        description: "The facades of every dataset were serialized as JSON-LD and embedded in the container view."
+        transitions:
+          - target: dataset_views_generated
+            guard: handler.can_transit_to(to_state = ContainerViewProcessStatePort.DATASET_VIEWS_GENERATED)
+            action: handler.perform_state_transition(to_state = ContainerViewProcessStatePort.DATASET_VIEWS_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerViewProcessStatePort.FACADES_SERIALIZED, to_state = ContainerViewProcessStatePort.DATASET_VIEWS_GENERATED)
+
+      - name: dataset_views_generated
+        description: "The WorkStream and IfcWorkSchedule pages declared by datasets were rendered from Jinja templates."
+        transitions:
           - target: generated
             guard: handler.can_transit_to(to_state = ContainerViewProcessStatePort.GENERATED)
             action: handler.perform_state_transition(to_state = ContainerViewProcessStatePort.GENERATED)
             contract:
-              - after: handler.validate_state_transition(from_state = ContainerViewProcessStatePort.DATA_GATHERED, to_state = ContainerViewProcessStatePort.GENERATED)
+              - after: handler.validate_state_transition(from_state = ContainerViewProcessStatePort.DATASET_VIEWS_GENERATED, to_state = ContainerViewProcessStatePort.GENERATED)
 
       - name: generated
         description: "The requested container view representation was generated."

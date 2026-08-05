@@ -1,0 +1,99 @@
+statechart:
+  name: StandardContainerAttach
+  description: "Statechart for attaching an imported container to the current local storage root."
+
+  root state:
+    name: standard_container_attach
+    initial: undefined
+
+    states:
+      - name: undefined
+        description: "No attachment state can be inferred yet."
+        transitions:
+          - target: container_inspected
+            guard: handler.can_transit_to(to_state = ContainerAttachProcessStatePort.CONTAINER_INSPECTED)
+            action: handler.perform_state_transition(to_state = ContainerAttachProcessStatePort.CONTAINER_INSPECTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerAttachProcessStatePort.UNDEFINED, to_state = ContainerAttachProcessStatePort.CONTAINER_INSPECTED)
+
+      - name: container_inspected
+        description: "The imported container and its datasets were inspected without changing their metadata."
+        transitions:
+          - target: identity_resolved
+            guard: handler.can_transit_to(to_state = ContainerAttachProcessStatePort.IDENTITY_RESOLVED)
+            action: handler.perform_state_transition(to_state = ContainerAttachProcessStatePort.IDENTITY_RESOLVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerAttachProcessStatePort.CONTAINER_INSPECTED, to_state = ContainerAttachProcessStatePort.IDENTITY_RESOLVED)
+
+      - name: identity_resolved
+        description: "The target local identities and locations were calculated and checked for conflicts."
+        transitions:
+          - target: container_metadata_attached
+            guard: handler.can_transit_to(to_state = ContainerAttachProcessStatePort.CONTAINER_METADATA_ATTACHED)
+            action: handler.perform_state_transition(to_state = ContainerAttachProcessStatePort.CONTAINER_METADATA_ATTACHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerAttachProcessStatePort.IDENTITY_RESOLVED, to_state = ContainerAttachProcessStatePort.CONTAINER_METADATA_ATTACHED)
+
+      - name: container_metadata_attached
+        description: "The container metadata graph uses the target local identity and location."
+        transitions:
+          - target: datasets_attached
+            guard: handler.can_transit_to(to_state = ContainerAttachProcessStatePort.DATASETS_ATTACHED)
+            action: handler.perform_state_transition(to_state = ContainerAttachProcessStatePort.DATASETS_ATTACHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerAttachProcessStatePort.CONTAINER_METADATA_ATTACHED, to_state = ContainerAttachProcessStatePort.DATASETS_ATTACHED)
+
+      - name: datasets_attached
+        description: "Every dataset graph and the dataset index inside the container graph use the target identities and locations."
+        transitions:
+          - target: storage_index_attached
+            guard: handler.can_transit_to(to_state = ContainerAttachProcessStatePort.STORAGE_INDEX_ATTACHED)
+            action: handler.perform_state_transition(to_state = ContainerAttachProcessStatePort.STORAGE_INDEX_ATTACHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerAttachProcessStatePort.DATASETS_ATTACHED, to_state = ContainerAttachProcessStatePort.STORAGE_INDEX_ATTACHED)
+
+      - name: storage_index_attached
+        description: "The local storage index contains the canonical entry copied from the attached container metadata."
+        transitions:
+          - target: context_attached
+            guard: handler.can_transit_to(to_state = ContainerAttachProcessStatePort.CONTEXT_ATTACHED)
+            action: handler.perform_state_transition(to_state = ContainerAttachProcessStatePort.CONTEXT_ATTACHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerAttachProcessStatePort.STORAGE_INDEX_ATTACHED, to_state = ContainerAttachProcessStatePort.CONTEXT_ATTACHED)
+
+      - name: context_attached
+        description: "The execution context points to the attached container and no stale update selector remains."
+        transitions:
+          - target: container_attached
+            guard: handler.can_transit_to(to_state = ContainerAttachProcessStatePort.CONTAINER_ATTACHED)
+            action: handler.perform_state_transition(to_state = ContainerAttachProcessStatePort.CONTAINER_ATTACHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerAttachProcessStatePort.CONTEXT_ATTACHED, to_state = ContainerAttachProcessStatePort.CONTAINER_ATTACHED)
+
+      - name: container_attached
+        description: "The container, datasets, storage index, and execution context are mutually consistent."
+        type: final
+
+      - name: invalid_container_path
+        description: "The requested path is not an attachable container directory inside the current project root."
+        type: final
+
+      - name: invalid_container_graph
+        description: "The imported container metadata cannot be parsed or does not identify exactly one data container."
+        type: final
+
+      - name: identity_conflict
+        description: "The target container or dataset identity conflicts with another local object."
+        type: final
+
+      - name: dataset_attach_failed
+        description: "A dataset could not be migrated or validated safely."
+        type: final
+
+      - name: storage_index_attach_failed
+        description: "The local storage index could not be reconciled with the attached container."
+        type: final
+
+      - name: attach_rollback_failed
+        description: "The original metadata files could not be restored after a failed attachment."
+        type: final

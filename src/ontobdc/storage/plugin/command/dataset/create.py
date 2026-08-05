@@ -1,23 +1,20 @@
-
 from pathlib import Path
 from typing import List, Optional
-from ontobdc.shared.facade.response.command import CommandResponse
-from ontobdc.shared.facade.request.command import CliCommandRequest
+
 from ontobdc.cli.domain.exception.command import CliCommandArgumentException
-from ontobdc.storage.adapter.machine import DatasetCreateStateTransitionHandler
-from ontobdc.storage.plugin.check.is_container_id_registered.check import (
-    get_registered_container_location,
-    main as check_container_id_registered,
-)
-from ontobdc.shared.facade.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
-from ontobdc.storage.domain.port.machine import DatasetCreateStateTransitionHandlerPort
+from ontobdc.shared.facade.port.command import CliCommandPort
+from ontobdc.shared.facade.request.command import CliCommandRequest
+from ontobdc.shared.facade.response.command import CommandResponse
+from ontobdc.storage.adapter.machine import DatasetCreateStateTransitionHandler
+from ontobdc.storage.domain.port.machine import (
+    DatasetCreateStateTransitionHandlerPort,
+)
+from ontobdc.storage.plugin.parameter.container import ContainerIdStrategy
 
 
 class DatasetCreateCommand(CliCommandPort):
-    """
-    Command for creating a new dataset inside a storage container.
-    """
+    """Create a new dataset inside a resolved storage container."""
 
     METADATA = CliCommandMetadata(
         id="ds_create",
@@ -25,129 +22,136 @@ class DatasetCreateCommand(CliCommandPort):
         description="Create a new dataset inside a local storage container.",
         arguments=[
             {
-                "accepts": ["--container-id"],
+                "accepts": ["--container-id", "--container"],
                 "valued": True,
-                "description": "Select the target storage container identifier.",
-                "usage": "ontobdc storage --container-id <container_id> --create <path>",
+                "description": (
+                    "Select a registered container by ID, or use --container "
+                    "with either an ID or filesystem path."
+                ),
+                "usage": (
+                    "ontobdc storage --container <id-or-path> "
+                    "--create <path>"
+                ),
             },
             {
                 "accepts": ["--create"],
                 "valued": True,
-                "description": "Create a new dataset at the given path inside the selected container.",
-                "usage": "ontobdc storage --container-id <container_id> --create <path>",
+                "description": (
+                    "Create a new dataset at the given path inside the "
+                    "selected container."
+                ),
+                "usage": (
+                    "ontobdc storage --container <id-or-path> "
+                    "--create <path>"
+                ),
             },
         ],
     )
 
+    _CONTAINER_FLAGS = {"--container-id", "--container"}
+
     @staticmethod
     def accepts(args: List[str]) -> bool:
-        """
-        Match the storage dataset creation command at the CLI routing stage.
-        """
         return (
-            len(args) > 4
+            len(args) == 5
             and args[0] == "storage"
-            and "--container-id" in args
-            and "--create" in args
+            and args[1] in DatasetCreateCommand._CONTAINER_FLAGS
+            and bool(str(args[2]).strip())
+            and args[3] == "--create"
+            and bool(str(args[4]).strip())
         )
 
     def __init__(self, request: CliCommandRequest):
-        self._request: CliCommandRequest = request
+        self._request = request
 
     def check(self) -> bool:
-        """
-        Check if the command is valid.
-        Returns True if the command is valid, False otherwise.
-        """
-        command_args: List[str] = self._request.command_args
-
+        command_args = self._request.command_args
         if not (
             len(command_args) == 4
-            and command_args[0] == "--container-id"
+            and command_args[0] in self._CONTAINER_FLAGS
             and command_args[2] == "--create"
         ):
             return False
 
-        container_id: str = command_args[1].strip()
-        if not container_id:
+        selector_flag = command_args[0]
+        selector_value = str(command_args[1] or "").strip()
+        dataset_path = str(command_args[3] or "").strip()
+        if not selector_value or not dataset_path:
             return False
 
-        if check_container_id_registered(
-            container_id=container_id,
-            root_path=str(self._request.context.root_path),
-        ) != 0:
-            raise CliCommandArgumentException(f"Invalid container-id: {container_id}")
+        context = self._request.context
+        for parameter_name in (
+            "container",
+            "container_id",
+            "container_path",
+            "dataset_path",
+        ):
+            context.delete_parameter(parameter_name)
 
-        dataset_path: str = command_args[3].strip()
-        if not dataset_path:
-            return False
+        selector_parameter = selector_flag.removeprefix("--").replace("-", "_")
+        context.set_parameter_value(selector_parameter, selector_value)
+        ContainerIdStrategy().execute(context)
 
-        resolved_dataset_path: Optional[Path] = self._resolve_dataset_path(
-            container_id=container_id,
+        resolved_container_id = str(
+            context.get_parameter_value("container_id") or ""
+        ).strip()
+        resolved_container_path_value = str(
+            context.get_parameter_value("container_path") or ""
+        ).strip()
+        if not resolved_container_id or not resolved_container_path_value:
+            raise CliCommandArgumentException(
+                f"Invalid container selector: {selector_value}"
+            )
+
+        resolved_dataset_path = self._resolve_dataset_path(
+            container_path=Path(resolved_container_path_value),
             dataset_path=dataset_path,
         )
         if resolved_dataset_path is None:
             raise CliCommandArgumentException(
-                f"Invalid dataset_path: {dataset_path}. It must be a single child directory inside container {container_id}."
+                f"Invalid dataset_path: {dataset_path}. It must be a single "
+                f"child directory inside container {resolved_container_id}."
             )
 
-        self._request.context.delete_parameter("container_path")
-        self._request.context.set_parameter_value("container_id", container_id)
-        self._request.context.set_parameter_value("dataset_path", str(resolved_dataset_path))
-
+        context.set_parameter_value("dataset_path", str(resolved_dataset_path))
         return True
 
+    @staticmethod
     def _resolve_dataset_path(
-        self,
-        container_id: str,
+        container_path: Path,
         dataset_path: str,
     ) -> Optional[Path]:
-        container_path: Optional[Path] = get_registered_container_location(
-            container_id=container_id,
-            root_path=str(self._request.context.root_path),
+        resolved_container_path = container_path.expanduser().resolve()
+        dataset_candidate = Path(dataset_path).expanduser()
+        resolved_dataset_path = (
+            dataset_candidate.resolve()
+            if dataset_candidate.is_absolute()
+            else (resolved_container_path / dataset_candidate).resolve()
         )
-        if container_path is None:
+
+        if resolved_dataset_path == resolved_container_path:
             return None
 
-        dataset_candidate: Path = Path(dataset_path).expanduser()
-        root_path: Path = Path(self._request.context.root_path).expanduser().resolve()
-        candidate_paths: List[Path] = []
-        if dataset_candidate.is_absolute():
-            candidate_paths.append(dataset_candidate.resolve())
-        else:
-            candidate_paths.append((root_path / dataset_candidate).resolve())
-            candidate_paths.append((container_path / dataset_candidate).resolve())
+        try:
+            relative_dataset_path = resolved_dataset_path.relative_to(
+                resolved_container_path
+            )
+        except ValueError:
+            return None
 
-        unique_candidates: List[Path] = []
-        for candidate_path in candidate_paths:
-            if candidate_path not in unique_candidates:
-                unique_candidates.append(candidate_path)
-
-        for resolved_dataset_path in unique_candidates:
-            if resolved_dataset_path == container_path:
-                continue
-
-            try:
-                relative_dataset_path: Path = resolved_dataset_path.relative_to(container_path)
-            except ValueError:
-                continue
-
-            if len(relative_dataset_path.parts) != 1:
-                continue
-
-            if resolved_dataset_path.exists() and not resolved_dataset_path.is_dir():
-                continue
-
-            return resolved_dataset_path
-
-        return None
+        if len(relative_dataset_path.parts) != 1:
+            return None
+        if (
+            resolved_dataset_path.exists()
+            and not resolved_dataset_path.is_dir()
+        ):
+            return None
+        return resolved_dataset_path
 
     def run(self) -> CommandResponse:
-        """
-        Execute the command to create a new local dataset.
-        """
-        handler: DatasetCreateStateTransitionHandlerPort = DatasetCreateStateTransitionHandler(
-            context=self._request.context,
+        handler: DatasetCreateStateTransitionHandlerPort = (
+            DatasetCreateStateTransitionHandler(
+                context=self._request.context,
+            )
         )
-
         return handler.execute()
