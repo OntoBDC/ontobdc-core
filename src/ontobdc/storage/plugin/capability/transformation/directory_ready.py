@@ -28,11 +28,12 @@ class DirectoryReadyCapability(TransactionCapability):
         return "Creates the target directory for the storage container or dataset."
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-        target_path_value = context.get_parameter_value("container_path")
-        resulting_state = ContainerCreateProcessState.DIRECTORY_READY
+        # dataset_path first: a dataset flow always also carries container_path (its parent), so checking that first would misidentify it.
+        target_path_value = context.get_parameter_value("dataset_path")
+        resulting_state = DatasetCreateProcessState.DIRECTORY_READY
         if not isinstance(target_path_value, str) or not target_path_value.strip():
-            target_path_value = context.get_parameter_value("dataset_path")
-            resulting_state = DatasetCreateProcessState.DIRECTORY_READY
+            target_path_value = context.get_parameter_value("container_path")
+            resulting_state = ContainerCreateProcessState.DIRECTORY_READY
 
         if not isinstance(target_path_value, str) or not target_path_value.strip():
             raise ValueError("Storage target path is missing from the command context.")

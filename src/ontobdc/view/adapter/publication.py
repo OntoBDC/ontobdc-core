@@ -22,6 +22,12 @@ from ontobdc.storage.adapter.manifest import (
     ContainerDataPackageSynchronizer,
     list_container_resource_paths,
 )
+from ontobdc.storage.plugin.check.is_container_datapackage_frictionless_valid.hotfix import (
+    main as hotfix_container_datapackage_frictionless_valid,
+)
+from ontobdc.storage.plugin.check.is_container_datapackage_ro_crate_synced.hotfix import (
+    main as hotfix_container_datapackage_ro_crate_synced,
+)
 
 VIEW_DATA_DIRECTORY = "view"
 VIEW_DATA_FILE = "data.json"
@@ -78,6 +84,20 @@ def ensure_publishable(context: CliContextPort) -> Dict[str, Any]:
     container_path = resolve_container_path(context)
     metadata = _container_metadata(container_path)
     sync_result = ContainerDataPackageSynchronizer().sync(container_path)
+
+    # sync() is blind to format on purpose, so re-running it here would undo
+    # container_healthy's frictionless pruning. Re-apply both hotfixes so
+    # this stays consistent with the same "compatible files already in the
+    # RO-Crate" definition instead of drifting back to "every local file".
+    root_path = str(context.root_path)
+    hotfix_container_datapackage_frictionless_valid(
+        container_path=str(container_path),
+        root_path=root_path,
+    )
+    hotfix_container_datapackage_ro_crate_synced(
+        container_path=str(container_path),
+        root_path=root_path,
+    )
 
     return {
         "container_path": str(container_path),

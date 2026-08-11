@@ -58,6 +58,7 @@ def _write_fixture(container_path: Path) -> None:
     asset_directory.mkdir(parents=True)
     (asset_directory / "pyodide_bootstrap.js").write_text(
         'async function loadWorkstreamBoardModule() {\n'
+        '    loadStyle("../css/workstream_board.css");\n'
         '    await loadScript("workstream_schedule_relations.js");\n'
         '    await loadScript("workstream_board.js");\n'
         '    await loadScript("workstream_schedule_board.js");\n'
@@ -82,29 +83,34 @@ def test_reads_when_dimension_schedule_relation(tmp_path: Path) -> None:
     }
 
 
-def test_materializes_single_integrated_board_runtime(tmp_path: Path) -> None:
+def test_materializes_single_compact_board_runtime(tmp_path: Path) -> None:
     _write_fixture(tmp_path)
 
     result = materialize_workstream_schedule_relations(tmp_path)
 
     assert result["workstream_schedule_relation_count"] == 1
     assert are_workstream_schedule_relations_materialized(tmp_path)
-    asset_directory = (
+    asset_root = (
         tmp_path
         / ".__ontobdc__"
         / "asset"
         / "infobim-view"
-        / "js"
     )
-    bootstrap = (asset_directory / "pyodide_bootstrap.js").read_text(
+    js_directory = asset_root / "js"
+    css_directory = asset_root / "css"
+    bootstrap = (js_directory / "pyodide_bootstrap.js").read_text(
         encoding="utf-8"
     )
-    board = (asset_directory / "workstream_board.js").read_text(
+    board = (js_directory / "workstream_board.js").read_text(
         encoding="utf-8"
     )
+    summary_css = (
+        css_directory / "workstream_schedule_summary.css"
+    ).read_text(encoding="utf-8")
     assert 'loadScript("workstream_schedule_relations.js")' in bootstrap
     assert 'loadScript("workstream_schedule_board.js")' not in bootstrap
-    assert not (asset_directory / "workstream_schedule_board.js").exists()
+    assert 'loadStyle("../css/workstream_schedule_summary.css")' in bootstrap
+    assert not (js_directory / "workstream_schedule_board.js").exists()
     assert "linkedScheduleUris" in board
     assert "const calendarDayCount = 11;" in board
     assert "const previousCalendarDays = 5;" in board
@@ -113,3 +119,5 @@ def test_materializes_single_integrated_board_runtime(tmp_path: Path) -> None:
     assert "const generalSchedules = scheduleUris(records);" in board
     assert ".filter((scheduleUri) => !linked.has(scheduleUri))" not in board
     assert '"2 / -1"' in board
+    assert "grid-template-rows: 26px" in summary_css
+    assert ".general-schedule-task-bar:first-child" in summary_css

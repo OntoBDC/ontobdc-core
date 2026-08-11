@@ -1,3 +1,4 @@
+import shutil
 import webbrowser
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -7,7 +8,9 @@ from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import CommandResponse
 from ontobdc.storage.plugin.parameter.container import ContainerIdStrategy
-from ontobdc.view.adapter.machine import ContainerViewStateTransitionHandler
+from ontobdc.view.adapter.surface.context import surface_path_from_context
+from ontobdc.view.adapter.surface.machine import SurfaceGenerationStateTransitionHandler
+from ontobdc.view.plugin.capability.transformation.data_gathered import DataGatheredCapability
 
 
 class ContainerViewCommand(CliCommandPort):
@@ -127,15 +130,29 @@ class ContainerViewCommand(CliCommandPort):
         return True
 
     def run(self) -> CommandResponse:
-        handler = ContainerViewStateTransitionHandler(
-            context=self._request.context,
+        context = self._request.context
+
+        # Avoid a failed prior run leaving a stale index.html frozen mid-state.
+        existing_surface_path = surface_path_from_context(context)
+        if existing_surface_path.is_file():
+            existing_surface_path.unlink()
+
+        # DataGatheredCapability.check() passes as long as this ETL artifact
+        # is present, so leaving it behind makes the state machine resume
+        # from a stale DATA_GATHERED instead of re-running it this call.
+        etl_state_directory = DataGatheredCapability.state_directory(context)
+        if etl_state_directory.is_dir():
+            shutil.rmtree(etl_state_directory)
+
+        handler = SurfaceGenerationStateTransitionHandler(
+            context=context,
         )
         response = handler.execute()
 
         index_path = (
             Path(
                 str(
-                    self._request.context.get_parameter_value(
+                    context.get_parameter_value(
                         "container_path"
                     )
                     or ""
@@ -147,7 +164,7 @@ class ContainerViewCommand(CliCommandPort):
         )
         if not index_path.is_file():
             raise FileNotFoundError(
-                "The container view process finished without generating "
+                "The Surface generation process finished without generating "
                 f"{index_path}."
             )
 
@@ -158,8 +175,8 @@ class ContainerViewCommand(CliCommandPort):
             browser_opened = bool(webbrowser.open(index_uri, new=2))
             if not browser_opened:
                 runtime_error = (
-                    "The view was generated, but the default browser did not "
-                    f"open {index_uri}."
+                    "The Surface was generated, but the default browser did "
+                    f"not open {index_uri}."
                 )
         except Exception as error:
             runtime_error = str(error)
@@ -174,20 +191,20 @@ class ContainerViewCommand(CliCommandPort):
         content.update(
             {
                 "container_id": (
-                    self._request.context.get_parameter_value(
+                    context.get_parameter_value(
                         "container_id"
                     )
                 ),
                 "view_type": (
-                    self._request.context.get_parameter_value("view_type")
+                    context.get_parameter_value("view_type")
                 ),
                 "representation": (
-                    self._request.context.get_parameter_value(
+                    context.get_parameter_value(
                         "representation"
                     )
                 ),
                 "language": (
-                    self._request.context.get_parameter_value("language")
+                    context.get_parameter_value("language")
                 ),
                 "index_path": str(index_path),
                 "index_uri": index_uri,

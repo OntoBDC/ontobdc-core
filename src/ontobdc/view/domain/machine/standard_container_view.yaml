@@ -1,6 +1,6 @@
 statechart:
   name: StandardContainerView
-  description: "Statechart for generating a container view independently of its view type."
+  description: "Legacy statechart for materializing the pre-Surface container view after publication prerequisites are satisfied by the Surface FSM."
 
   root state:
     name: standard_container_view
@@ -8,34 +8,16 @@ statechart:
 
     states:
       - name: undefined
-        description: "No later container view state can be inferred from the current artefacts."
-        transitions:
-          - target: container_healthy
-            guard: handler.can_transit_to(to_state = ContainerViewProcessStatePort.CONTAINER_HEALTHY)
-            action: handler.perform_state_transition(to_state = ContainerViewProcessStatePort.CONTAINER_HEALTHY)
-            contract:
-              - after: handler.validate_state_transition(from_state = ContainerViewProcessStatePort.UNDEFINED, to_state = ContainerViewProcessStatePort.CONTAINER_HEALTHY)
-
-      - name: container_healthy
-        description: "The container satisfies its general structural and semantic health requirements."
-        transitions:
-          - target: is_publishable
-            guard: handler.can_transit_to(to_state = ContainerViewProcessStatePort.IS_PUBLISHABLE)
-            action: handler.perform_state_transition(to_state = ContainerViewProcessStatePort.IS_PUBLISHABLE)
-            contract:
-              - after: handler.validate_state_transition(from_state = ContainerViewProcessStatePort.CONTAINER_HEALTHY, to_state = ContainerViewProcessStatePort.IS_PUBLISHABLE)
-
-      - name: is_publishable
-        description: "The healthy container has a valid publishing dataset and all resources required to gather publication data."
+        description: "No later legacy container view state can be inferred from the current artefacts."
         transitions:
           - target: data_gathered
             guard: handler.can_transit_to(to_state = ContainerViewProcessStatePort.DATA_GATHERED)
             action: handler.perform_state_transition(to_state = ContainerViewProcessStatePort.DATA_GATHERED)
             contract:
-              - after: handler.validate_state_transition(from_state = ContainerViewProcessStatePort.IS_PUBLISHABLE, to_state = ContainerViewProcessStatePort.DATA_GATHERED)
+              - after: handler.validate_state_transition(from_state = ContainerViewProcessStatePort.UNDEFINED, to_state = ContainerViewProcessStatePort.DATA_GATHERED)
 
       - name: data_gathered
-        description: "The publishing capabilities completed and the data used by the view was materialized."
+        description: "The publishing capabilities completed and the data used by the legacy view was materialized."
         transitions:
           - target: hardcoded
             guard: handler.can_transit_to(to_state = ContainerViewProcessStatePort.HARDCODED)
@@ -71,5 +53,5 @@ statechart:
               - after: handler.validate_state_transition(from_state = ContainerViewProcessStatePort.DATASET_VIEWS_GENERATED, to_state = ContainerViewProcessStatePort.GENERATED)
 
       - name: generated
-        description: "The requested container view representation was generated."
+        description: "The requested legacy container view representation was generated."
         type: final

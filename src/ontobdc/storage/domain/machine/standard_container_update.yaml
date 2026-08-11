@@ -51,11 +51,25 @@ statechart:
           en: "The target container is structurally valid, registered, accessible, and ready for cleanup."
           pt-br: "O container alvo está estruturalmente válido, registrado, acessível e pronto para limpeza."
         transitions:
+          - target: container_datasets_healthy
+            guard: handler.can_transit_to(to_state = ContainerUpdateProcessStatePort.CONTAINER_DATASETS_HEALTHY)
+            action: handler.perform_state_transition(to_state = ContainerUpdateProcessStatePort.CONTAINER_DATASETS_HEALTHY)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerUpdateProcessStatePort.CONTAINER_HEALTHY, to_state = ContainerUpdateProcessStatePort.CONTAINER_DATASETS_HEALTHY)
+
+      - name: container_datasets_healthy
+        label:
+          en: "Datasets Healthy"
+          pt-br: "Datasets saudáveis"
+        description:
+          en: "Every dataset registered in the container was checked and repaired where possible."
+          pt-br: "Todos os datasets registrados no container foram verificados e reparados quando possível."
+        transitions:
           - target: container_cleaned
             guard: handler.can_transit_to(to_state = ContainerUpdateProcessStatePort.CONTAINER_CLEANED)
             action: handler.perform_state_transition(to_state = ContainerUpdateProcessStatePort.CONTAINER_CLEANED)
             contract:
-              - after: handler.validate_state_transition(from_state = ContainerUpdateProcessStatePort.CONTAINER_HEALTHY, to_state = ContainerUpdateProcessStatePort.CONTAINER_CLEANED)
+              - after: handler.validate_state_transition(from_state = ContainerUpdateProcessStatePort.CONTAINER_DATASETS_HEALTHY, to_state = ContainerUpdateProcessStatePort.CONTAINER_CLEANED)
 
       - name: container_cleaned
         label:

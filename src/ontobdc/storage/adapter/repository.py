@@ -91,11 +91,12 @@ class LoadedStorageGraph:
             if "urn:ontobdc:storage/local" in identifier_values:
                 continue
 
-            location: Optional[str] = self._get_container_location(subject)
+            location_value = self.graph.value(subject, PROV.atLocation)
+            location: Optional[str] = str(location_value or "").strip() or None
             if not location:
                 continue
 
-            container_path: Path = self.resolve_location_path(location)
+            container_path: Path = StorageGraphFileRepository.resolve_location_path(location)
             container_config_dir: Path = container_path / MARKER_DIR_NAME
             container_storage_file: Path = (
                 container_config_dir / "container.ttl"

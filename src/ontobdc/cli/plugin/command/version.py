@@ -61,7 +61,7 @@ class CliVersionCommand(CliCommandPort):
             pass
 
         return CommandResponse(
-            title="OntoBDC Version",
+            title="Version",
             description="Display the package version.",
             content={
                 "version": version

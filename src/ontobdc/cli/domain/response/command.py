@@ -61,7 +61,7 @@ class HelpCommandResponse(CommandResponse):
 
 @dataclass
 class ExceptionCommandResponse(CommandResponse):
-    title: str = "OntoBDC Run Exception"
+    title: str = "Run Exception"
     description: str = "Command execution failed."
     content: Dict[str, Any] = field(default_factory=dict)
 
@@ -76,3 +76,10 @@ class WelcomeCommandResponse(CommandResponse):
     title: str = "InfoBIM Welcome"
     description: str = "Display the InfoBIM welcome experience."
     content: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class GridCommandResponse(CommandResponse):
+    title: str = "Presentation Grid"
+    description: str = "Visualize the terminal PresentationSurface's Tile grid."
+    content: Dict[str, int] = field(default_factory=dict)

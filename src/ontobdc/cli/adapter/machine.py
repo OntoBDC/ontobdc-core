@@ -122,7 +122,7 @@ class CliInitStateTransitionHandler(CliInitStateTransitionHandlerPort):
         root_path: Path = get_init_root_path(context=self._context)
         self._logger.log_notice("OntoBDC init bootstrap finished successfully.")
         return CommandResponse(
-            title="OntoBDC Init",
+            title="Init",
             description="Bootstrap initialization executed successfully.",
             content={
                 "root_path": str(root_path),
