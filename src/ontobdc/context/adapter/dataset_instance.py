@@ -196,7 +196,7 @@ class DatasetEntityInstanceRepository(EntityInstanceRepositorySupport):
         resource_descriptor: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
         try:
-            from frictionless import Resource
+            from frictionless import Resource, system
         except ModuleNotFoundError as exc:
             raise ValueError(
                 "The 'frictionless' package is required to read entity "
@@ -210,7 +210,13 @@ class DatasetEntityInstanceRepository(EntityInstanceRepositorySupport):
             runtime_descriptor.get("name") or "<unnamed>"
         ).strip()
         try:
-            rows: List[Any] = list(Resource(runtime_descriptor).read_rows())
+            # The resolved path is always an absolute path under our own
+            # dataset directory (never user/remote-supplied), so it is safe
+            # to bypass frictionless' relative-path-only safety check.
+            with system.use_context(trusted=True):
+                rows: List[Any] = list(
+                    Resource(runtime_descriptor).read_rows()
+                )
         except Exception as exc:
             raise ValueError(
                 f"Could not read entity resource '{resource_name}' from "

@@ -17,6 +17,8 @@ _IGNORED_MARKER_DIR_NAMES: Set[str] = {ONTOBDC_DIRECTORY_NAME, ".__onmtobdc__"}
 _DATASET_MARKER_FILE_NAMES: Set[str] = {"dataset.ttl", "nid.ttl"}
 _DATASET_LINKSET_DIR_NAME: str = "linkset"
 _DATASET_DATAPACKAGE_FILE_NAME: str = "datapackage.json"
+# Generated Surface output, not source content — same exclusion is_container_publishable already applies to the Data Package.
+_GENERATED_SURFACE_FILE_NAME: str = "index.html"
 
 
 def _resolve_path(path_value: Optional[str]) -> Optional[Path]:
@@ -51,7 +53,7 @@ def _iter_container_files(container_path: Path) -> List[str]:
         for file_name in file_names:
             file_path: Path = root_path / file_name
             relative_path: str = file_path.relative_to(container_path).as_posix()
-            if not relative_path.strip():
+            if not relative_path.strip() or relative_path == _GENERATED_SURFACE_FILE_NAME:
                 continue
             files.append(relative_path)
 

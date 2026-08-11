@@ -6,13 +6,27 @@ from urllib.request import url2pathname
 
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.storage.adapter.manifest import list_container_resource_paths
+from ontobdc.storage.plugin.check.is_container_datapackage_frictionless_valid.check import (
+    FRICTIONLESS_COMPATIBLE_FORMATS,
+)
 from ontobdc.storage.plugin.check.is_container_metadata_ready.check import (
     main as check_container_metadata_ready,
 )
 
 
 def is_container_publishable(context: CliContextPort) -> bool:
-    """Return whether local publication metadata matches container files."""
+    """Return whether publication metadata matches source container files.
+
+    The active generated Presentation Surface is an output of publication, not
+    a source resource. Therefore it is ignored on both sides of the comparison:
+    the current container inventory and the already synchronized descriptor.
+
+    Files whose format isn't frictionless-compatible are excluded from the
+    comparison too — `ContainerDataPackageFrictionlessValidCapability`
+    (run by `container_healthy`, which always precedes this check) prunes
+    them from the descriptor on purpose, so requiring them back would put
+    this check permanently at odds with that pruning.
+    """
     try:
         container_path = _container_path(context)
         root_path = Path(context.root_path).expanduser().resolve()
@@ -25,14 +39,50 @@ def is_container_publishable(context: CliContextPort) -> bool:
         ):
             return False
 
-        descriptor = _load_descriptor(container_path)
-        expected_paths = set(list_container_resource_paths(container_path))
+        expected_paths = {
+            path
+            for path in list_container_resource_paths(container_path)
+            if path.rsplit(".", 1)[-1].lower() in FRICTIONLESS_COMPATIBLE_FORMATS
+        }
         described_paths = set(
-            _local_descriptor_paths(container_path, descriptor)
+            _local_descriptor_paths(
+                container_path,
+                _load_descriptor(container_path),
+            )
         )
+
+        generated_surface_path = _generated_surface_relative_path(
+            context=context,
+            container_path=container_path,
+        )
+        if generated_surface_path:
+            expected_paths.discard(generated_surface_path)
+            described_paths.discard(generated_surface_path)
+
         return expected_paths == described_paths
     except (OSError, TypeError, ValueError, json.JSONDecodeError):
         return False
+
+
+def _generated_surface_relative_path(
+    *,
+    context: CliContextPort,
+    container_path: Path,
+) -> str:
+    """Resolve the active Surface output relative to the source container."""
+    raw_surface_path = context.get_parameter_value("surface_path")
+    if not raw_surface_path:
+        # ``surface_path_from_context`` defaults to ``container/index.html``.
+        # Publishability runs before surface_initialized, so the context may not
+        # have an explicit surface_path yet even when a previous index.html is
+        # already present and described by datapackage.json.
+        raw_surface_path = container_path / "index.html"
+
+    try:
+        surface_path = Path(str(raw_surface_path)).expanduser().resolve()
+        return surface_path.relative_to(container_path).as_posix()
+    except (OSError, RuntimeError, TypeError, ValueError):
+        return ""
 
 
 def _container_path(context: CliContextPort) -> Path:

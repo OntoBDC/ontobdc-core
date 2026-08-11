@@ -14,9 +14,9 @@ from ontobdc.cli.domain.port.logger import LoggerAwarePort, LogRepositoryPort
 from ontobdc.cli.domain.response.command import CommandResponse, ExceptionCommandResponse
 from ontobdc.shared.adapter.loader import ParameterLoader
 from ontobdc.shared.domain.port.loader import PluginLoaderPort
-from ontobdc.view.adapter.loader import ResponseMessageBoxAdapterLoader
-from ontobdc.view.domain.port.response import ResponseMessageBoxAdapterPort
-from ontobdc.view.plugin.render.rich.layout import RichMessageBoxLayout
+from ontobdc.cli.adapter.loader import ResponseWidgetAdapterLoader
+from ontobdc.view.component.logo.python import LogoComponent
+from ontobdc.view.component.surface.python import TerminalSurface
 
 
 def main() -> None:
@@ -35,6 +35,7 @@ def main() -> None:
             render_type = 'html'
 
         silent: bool = "--silent" in sys.argv or "-s" in sys.argv
+        large_logo: bool = "--large-logo" in sys.argv
 
         logger: LogRepositoryPort = StandardConsoleLogger()
         if render_type == 'json':
@@ -64,18 +65,18 @@ def main() -> None:
 
             response: CommandResponse = cli_command_run.run()
             if not silent:
-                _render_response(response, logger, render_type)
+                _render_response(response, logger, render_type, large_logo)
 
             sys.exit(0)
 
     except Exception as e:
         response: CommandResponse = ExceptionCommandResponse(
-            title="OntoBDC Run",
+            title="Run",
             description="Command execution failed.",
             content={"error": str(e)},
         )
         if not silent:
-            _render_response(response, logger, render_type)
+            _render_response(response, logger, render_type, large_logo)
 
         sys.exit(1)
 
@@ -84,7 +85,11 @@ def _parse_incoming_args() -> List[str]:
     """
     Parse command line arguments.
     """
-    return [arg for arg in sys.argv[1:] if arg not in ["--json", "--rich", "--html", "--silent", "-s"]]
+    return [
+        arg
+        for arg in sys.argv[1:]
+        if arg not in ["--json", "--rich", "--html", "--silent", "-s", "--large-logo"]
+    ]
 
 
 def _check_command(
@@ -226,29 +231,30 @@ def _configure_parameter_strategy(parameter_strategy: Any, logger: LogRepository
         parameter_strategy.set_prompt_raw_text(prompt_raw_text)
 
 
-def _render_response(response: CommandResponse, _logger: BaseLoggerAdapter, render_type: str) -> None:
+def _render_response(
+    response: CommandResponse,
+    _logger: BaseLoggerAdapter,
+    render_type: str,
+    large_logo: bool = False,
+) -> None:
     """
     Render a command response to the console.
-    
+
     Supports JSON, rich, and HTML rendering.
 
     Args:
         response: The command response object to render
         render_type: The type of rendering to perform (e.g., 'json' or 'rich')
+        large_logo: Whether the rich banner should use the large ANSI-art logo
     """
-    def _resolve_render_type(render_type: str) -> str:
-        if render_type == 'json':
-            return _render_json_response
-        elif render_type == 'rich':
-            return _render_rich_response
-        elif render_type == 'html':
-            return _render_html_response
-        else:
-            raise ValueError(f"Unknown render type: {render_type}")
-    
-    render_function = _resolve_render_type(render_type)
-
-    render_function(response)
+    if render_type == 'json':
+        _render_json_response(response)
+    elif render_type == 'rich':
+        _render_rich_response(response, large_logo=large_logo)
+    elif render_type == 'html':
+        _render_html_response(response)
+    else:
+        raise ValueError(f"Unknown render type: {render_type}")
 
 
 def _render_json_response(response: CommandResponse) -> None:
@@ -262,17 +268,30 @@ def _render_json_response(response: CommandResponse) -> None:
     print(response)
 
 
-def _render_rich_response(response: CommandResponse) -> None:
+def _render_rich_response(response: CommandResponse, large_logo: bool = False) -> None:
     """
-    Render a rich command response to the console.
-    
+    Render a command response onto the terminal PresentationSurface.
+
+    A one-time logo banner is printed above the response; the response
+    itself is decomposed into Widgets and placed on a `TerminalSurface`,
+    which materializes each one against the current terminal width. The
+    banner defaults to its compact one-line Tile; `--large-logo` opts into
+    the large ANSI-art Tile instead.
+
     Args:
         response: The command response object to render
+        large_logo: Whether to print the large ANSI-art logo instead of the
+            compact default
     """
-    view_loader: PluginLoaderPort = ResponseMessageBoxAdapterLoader()
-    box_layout: ResponseMessageBoxAdapterPort = view_loader.get(response)
+    surface = TerminalSurface()
+    logo = LogoComponent()
+    banner: str = logo.render(terminal_width=surface.columns) if large_logo else logo.render_compact()
 
-    print(box_layout.render(response, RichMessageBoxLayout()))
+    loader = ResponseWidgetAdapterLoader()
+    adapter = loader.get(response)
+    body: str = surface.place(adapter.widgets(response))
+
+    print(f"{banner}\n\n{body}" if body else banner)
 
 
 def _render_html_response(response: CommandResponse) -> None:

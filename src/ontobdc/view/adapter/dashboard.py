@@ -408,6 +408,8 @@ _LAYOUT_CSS = r"""
 }
 """
 
+_PACKAGED_LOGO_PNG = Path(__file__).resolve().parent.parent / "asset" / "image" / "logo.png"
+
 _FALLBACK_LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
 <defs>
   <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
@@ -601,7 +603,15 @@ def _ensure_dashboard_assets(container_path: Path) -> None:
 
     if not css_path.is_file():
         _atomic_write_text(css_path, _BASE_CSS.strip() + "\n")
-    if not logo_png.is_file() and not logo_svg.is_file():
+
+    if _PACKAGED_LOGO_PNG.is_file():
+        packaged_logo_bytes = _PACKAGED_LOGO_PNG.read_bytes()
+        # Dashboards generated before the packaged logo was materialized (or
+        # generated against an older packaged logo) keep a stale logo.png
+        # forever unless we actively resync it here on every render.
+        if not logo_png.is_file() or logo_png.read_bytes() != packaged_logo_bytes:
+            _atomic_write_bytes(logo_png, packaged_logo_bytes)
+    elif not logo_png.is_file() and not logo_svg.is_file():
         _atomic_write_text(logo_svg, _FALLBACK_LOGO_SVG)
 
 
@@ -832,6 +842,13 @@ def _atomic_write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = path.with_name(f".{path.name}.tmp")
     temporary_path.write_text(content, encoding="utf-8")
+    temporary_path.replace(path)
+
+
+def _atomic_write_bytes(path: Path, content: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = path.with_name(f".{path.name}.tmp")
+    temporary_path.write_bytes(content)
     temporary_path.replace(path)
 
 

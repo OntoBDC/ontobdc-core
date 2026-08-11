@@ -9,6 +9,9 @@ from ontobdc.storage.adapter.manifest import (
     ContainerDataPackageSyncResult,
 )
 from ontobdc.storage.domain.machine.state import ContainerUpdateProcessState
+from ontobdc.storage.plugin.check.is_container_datapackage_updated.check import (
+    main as check_container_datapackage_updated,
+)
 
 
 class ContainerDataPackageUpdatedCapability(TransactionCapability):
@@ -49,6 +52,14 @@ class ContainerDataPackageUpdatedCapability(TransactionCapability):
         result: ContainerDataPackageSyncResult = (
             ContainerDataPackageSynchronizer().sync(container_path)
         )
+
+        if check_container_datapackage_updated(
+            container_path=str(container_path),
+            root_path=str(context.root_path),
+        ) != 0:
+            raise ValueError(
+                "Container Data Package descriptor is still stale after synchronization."
+            )
 
         return {
             "resulting_state": (

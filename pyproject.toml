@@ -7,11 +7,12 @@ name = "ontobdc"
 authors = [
     { name = "Elias Magalhães", email = "elias@brasidata.com" }
 ]
-version = "0.13.0"
+version = "0.14.0"
 description = "OntoBDC (Ontology-Based Datasets & Containers)"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "hatchling>=1.26",
     "setuptools",
     "requests",
     "rdflib",
@@ -21,6 +22,7 @@ dependencies = [
     "sismic",
     "rocrate",
     "rich",
+    "pyfiglet",
     "pymupdf4llm",
     "langid",
     "openpyxl",
@@ -58,6 +60,7 @@ package-dir = {"" = "src"}
     "module/**",
     "prompt/**",
     "plugin/**",
+    "view/asset/**",
 ]
 
 [tool.setuptools.packages.find]

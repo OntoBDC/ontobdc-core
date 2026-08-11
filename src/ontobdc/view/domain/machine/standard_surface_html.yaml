@@ -1,0 +1,102 @@
+statechart:
+  name: StandardHtmlSurface
+  description: "Statechart for generating an offline HTML Presentation Surface. Runtime viewport sizing and responsive rearrangement are intentionally outside this generation machine."
+
+  root state:
+    name: standard_html_surface
+    initial: undefined
+
+    states:
+      - name: undefined
+        description: "No HTML Presentation Surface artefact exists yet."
+        transitions:
+          - target: container_healthy
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.CONTAINER_HEALTHY)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.CONTAINER_HEALTHY)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.UNDEFINED, to_state = SurfaceGenerationProcessStatePort.CONTAINER_HEALTHY)
+
+      - name: container_healthy
+        description: "The source container satisfies its structural and semantic health requirements."
+        transitions:
+          - target: is_publishable
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.IS_PUBLISHABLE)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.IS_PUBLISHABLE)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.CONTAINER_HEALTHY, to_state = SurfaceGenerationProcessStatePort.IS_PUBLISHABLE)
+
+      - name: is_publishable
+        description: "The healthy source container has a valid publication descriptor and all resources required for presentation generation."
+        transitions:
+          - target: data_gathered
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.DATA_GATHERED)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.DATA_GATHERED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.IS_PUBLISHABLE, to_state = SurfaceGenerationProcessStatePort.DATA_GATHERED)
+
+      - name: data_gathered
+        description: "Presentation source data has been materialized as the JSON-LD state artefact consumed by subsequent Surface transformations."
+        transitions:
+          - target: surface_initialized
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_INITIALIZED)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_INITIALIZED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.DATA_GATHERED, to_state = SurfaceGenerationProcessStatePort.SURFACE_INITIALIZED)
+
+      - name: surface_initialized
+        description: "The minimal offline HTML document and Presentation Surface host exist."
+        transitions:
+          - target: surface_enriched
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_ENRICHED)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_ENRICHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_INITIALIZED, to_state = SurfaceGenerationProcessStatePort.SURFACE_ENRICHED)
+
+      - name: surface_enriched
+        description: "Semantic data and metadata are embedded in the HTML document as JSON-LD."
+        transitions:
+          - target: surface_set
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_SET)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_SET)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_ENRICHED, to_state = SurfaceGenerationProcessStatePort.SURFACE_SET)
+
+      - name: surface_set
+        description: "Surface regions and presentation rules are declared without fixing runtime viewport geometry."
+        transitions:
+          - target: surface_matched
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_MATCHED)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_MATCHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_SET, to_state = SurfaceGenerationProcessStatePort.SURFACE_MATCHED)
+
+      - name: surface_matched
+        description: "Presentation data are matched to compatible Tile definitions and support envelopes."
+        transitions:
+          - target: surface_assembled
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_ASSEMBLED)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_ASSEMBLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_MATCHED, to_state = SurfaceGenerationProcessStatePort.SURFACE_ASSEMBLED)
+
+      - name: surface_assembled
+        description: "Operation, content and pinned regions are composed with matched Tiles and runtime layout constraints."
+        transitions:
+          - target: surface_packaged
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_PACKAGED)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_PACKAGED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_ASSEMBLED, to_state = SurfaceGenerationProcessStatePort.SURFACE_PACKAGED)
+
+      - name: surface_packaged
+        description: "Required browser component implementations are embedded for offline execution."
+        transitions:
+          - target: surface_validated
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_VALIDATED)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_VALIDATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_PACKAGED, to_state = SurfaceGenerationProcessStatePort.SURFACE_VALIDATED)
+
+      - name: surface_validated
+        description: "The packaged HTML Surface satisfies the offline Surface generation checks."
+        type: final

@@ -74,6 +74,8 @@ class ContainerIdStrategy(
                     match = self._find_by_id(explicit_id, registered)
                     if match is not None:
                         self._bind(context, *match)
+                    else:
+                        self._clear(context)
                 return context
 
             if "--container" in raw_args:
@@ -84,6 +86,8 @@ class ContainerIdStrategy(
                         match = self._find_by_path(selector, registered)
                     if match is not None:
                         self._bind(context, *match)
+                    else:
+                        self._clear(context)
                 return context
 
             match = self._find_by_path(Path(os.getcwd()), registered)
@@ -100,6 +104,8 @@ class ContainerIdStrategy(
             match = self._find_by_id(explicit_id, registered)
             if match is not None:
                 self._bind(context, *match)
+            else:
+                self._clear(context)
             return context
 
         generic_selector = self._context_value(context, "container")
@@ -109,6 +115,8 @@ class ContainerIdStrategy(
                 match = self._find_by_path(generic_selector, registered)
             if match is not None:
                 self._bind(context, *match)
+            else:
+                self._clear(context)
             return context
 
         match = self._find_by_path(Path(os.getcwd()), registered)
@@ -213,7 +221,8 @@ class ContainerIdStrategy(
         registered: Iterable[Tuple[str, Path]],
     ) -> Optional[Tuple[str, Path]]:
         candidate = cls._resolve_path(selector)
-        if candidate is None:
+        # Must actually exist — otherwise any non-path selector resolves relative to cwd and spuriously matches the current container.
+        if candidate is None or not candidate.exists():
             return None
 
         matches = []
@@ -247,6 +256,12 @@ class ContainerIdStrategy(
     ) -> None:
         context.set_parameter_value("container_id", container_id)
         context.set_parameter_value("container_path", str(container_path))
+
+    @staticmethod
+    def _clear(context: CliContextPort) -> None:
+        """Drop a stale container_id/container_path rather than leaving an unmatched explicit selector silently falling back to whatever was previously resolved."""
+        context.delete_parameter("container_id")
+        context.delete_parameter("container_path")
 
     @classmethod
     def _infer_container_id_from_current_path(cls) -> Optional[str]:

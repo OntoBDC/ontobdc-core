@@ -62,13 +62,13 @@ class ContextBaseCommand(CliCommandPort):
             context_data: Dict[str, Any] = self._load_context_data(context_file_path)
 
             return CommandResponse(
-                title="OntoBDC Context",
+                title="Context",
                 description="Display the persisted execution context.",
                 content={"context": context_data},
             )
         except Exception as error:
             return ExceptionCommandResponse(
-                title="OntoBDC Context",
+                title="Context",
                 description="Failed to display the persisted execution context.",
                 content={"error": str(error)},
             )

@@ -251,6 +251,15 @@ class ContainerUpdateStateEvaluatorAdapter(ContainerUpdateStateEvaluatorPort):
         if metadata_result != 0 or storage_index_result != 0:
             return ContainerUpdateProcessState.UNDEFINED
 
+        # Best-effort, not re-checked here: a dataset with no known repair
+        # path (see DatasetHealthyCapability) must not block this state
+        # forever, so this is a "ran once" flag, the same contract
+        # container_html_view_updated uses.
+        if not bool(
+            context.get_parameter_value("container_datasets_healthy")
+        ):
+            return ContainerUpdateProcessState.CONTAINER_HEALTHY
+
         cleanup_result: int = evaluate_container_cleaned(
             container_path=str(target_path),
             file_names=self._cleanup_capability.file_names_to_clean,
@@ -258,7 +267,7 @@ class ContainerUpdateStateEvaluatorAdapter(ContainerUpdateStateEvaluatorPort):
         if cleanup_result == 2:
             return ContainerUpdateProcessState.CONTAINER_INVALID
         if cleanup_result != 0:
-            return ContainerUpdateProcessState.CONTAINER_HEALTHY
+            return ContainerUpdateProcessState.CONTAINER_DATASETS_HEALTHY
 
         datapackage_result: int = evaluate_container_datapackage_updated(
             str(target_path)
@@ -500,6 +509,7 @@ class ContainerUpdateStateTransitionHandler(
         ordered_states: List[ContainerUpdateProcessStatePort] = [
             ContainerUpdateProcessState.UNDEFINED,
             ContainerUpdateProcessState.CONTAINER_HEALTHY,
+            ContainerUpdateProcessState.CONTAINER_DATASETS_HEALTHY,
             ContainerUpdateProcessState.CONTAINER_CLEANED,
             ContainerUpdateProcessState.CONTAINER_DATAPACKAGE_UPDATED,
             ContainerUpdateProcessState.CONTAINER_RO_CRATE_UPDATED,
@@ -516,6 +526,7 @@ class ContainerUpdateStateTransitionHandler(
     def _clear_process_markers(self) -> None:
         for parameter_name in (
             "container_html_view_updated",
+            "container_datasets_healthy",
             "container_update_completed",
         ):
             if self._context.has_parameter(parameter_name):

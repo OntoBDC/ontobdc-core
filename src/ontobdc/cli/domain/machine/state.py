@@ -7,8 +7,8 @@ class CliInitProcessState(CliInitProcessStatePort):
     """
 
     UNDEFINED = "__undefined__"
-    ENGINE_READY = "__engine_ready__"
     ONTOBDC_DIRECTORY_READY = "__ontobdc_directory_ready__"
+    ENGINE_READY = "__engine_ready__"
     STORAGE_INDEX_HEALTHY = "__storage_index_healthy__"
     EXECUTION_CONTEXT_HEALTHY = "__execution_context_healthy__"
     CONFIG_ADAPTER_READY = "__config_adapter_ready__"

@@ -18,14 +18,6 @@ from ontobdc.view.domain.port.machine import (
 
 
 _CAPABILITY_ID_BY_STATE: Dict[ContainerViewProcessState, str] = {
-    ContainerViewProcessState.CONTAINER_HEALTHY: (
-        "org.ontobdc.storage.plugin.capability.transformation.target."
-        "container_healthy"
-    ),
-    ContainerViewProcessState.IS_PUBLISHABLE: (
-        "org.ontobdc.view.plugin.capability.transformation.target."
-        "is_publishable"
-    ),
     ContainerViewProcessState.DATA_GATHERED: (
         "org.ontobdc.view.plugin.capability.transformation.target."
         "data_gathered"
@@ -58,19 +50,19 @@ def _capability_type_for_state(
         ]
     except (KeyError, ValueError) as exc:
         raise ValueError(
-            f"No transformation capability is mapped to view state: {state}"
+            f"No transformation capability is mapped to legacy view state: {state}"
         ) from exc
 
     capability_type = CapabilityLoader().get(capability_id)
     if capability_type is None:
         raise ValueError(
-            f"Container view capability not found: {capability_id}"
+            f"Legacy container view capability not found: {capability_id}"
         )
     return capability_type
 
 
 class ContainerViewStateEvaluatorAdapter(ContainerViewStateEvaluatorPort):
-    """Infer the latest satisfied state from executable capabilities."""
+    """Infer the latest satisfied legacy view state from executable capabilities."""
 
     @property
     def process_state_class(self) -> Type[ContainerViewProcessStatePort]:
@@ -89,7 +81,7 @@ class ContainerViewStateEvaluatorAdapter(ContainerViewStateEvaluatorPort):
             is_satisfied = getattr(capability, "is_satisfied", None)
             if not callable(is_satisfied):
                 raise TypeError(
-                    "Container view state capability does not implement "
+                    "Legacy container view state capability does not implement "
                     f"is_satisfied(context): {capability_type.__name__}"
                 )
             if bool(is_satisfied(context)):
@@ -105,7 +97,7 @@ class ContainerViewStateEvaluatorAdapter(ContainerViewStateEvaluatorPort):
 class ContainerViewStateTransitionHandler(
     ContainerViewStateTransitionHandlerPort
 ):
-    """Execute the transformation responsible for each target state."""
+    """Execute the remaining legacy view transformations after publication prerequisites."""
 
     def __init__(
         self,
@@ -156,7 +148,7 @@ class ContainerViewStateTransitionHandler(
         to_state: ContainerViewProcessStatePort,
     ) -> None:
         self._logger.log_info(
-            f"Container view target state: {to_state.value}",
+            f"Legacy container view target state: {to_state.value}",
         )
         capability_type = _capability_type_for_state(to_state)
         capability: CapabilityPort = capability_type()
@@ -198,7 +190,7 @@ class ContainerViewStateTransitionHandler(
         return CommandResponse(
             title="Container View Generated",
             description=(
-                "The container view process reached its generated state."
+                "The legacy container view process reached its generated state."
             ),
             content={
                 "container_path": str(self._target_path),

@@ -29,6 +29,7 @@ class OntologyConfigAdapter(OntologyConfigPort):
             "obdc": Namespace("http://ontobdc.org/ontology/domain/ns.ttl#"),
             "obdc_code": Namespace("http://ontobdc.org/ontology/domain/code.ttl#"),
             "obdc_test": Namespace("http://ontobdc.org/ontology/domain/test.ttl#"),
+            "obdc_view": Namespace("http://datacenter.app.br/ontology/ontobdc/domain/view.ttl#"),
             "olia": Namespace("http://purl.org/olia/olia.owl#"),
             "ct": Namespace("http://standards.iso.org/iso/21597/-1/ed-1/en/Container#"),
             "fnct": Namespace("http://w3id.org/function/ontology#"),

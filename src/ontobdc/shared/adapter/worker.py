@@ -1,7 +1,7 @@
 import os
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Optional, Type
 
 import yaml
 from sismic.interpreter import Interpreter
@@ -31,7 +31,7 @@ class StateWorkerAdapter:
         statechart_data: Dict[str, Any] = self._statechart_data.get("statechart", {})
         return str(statechart_data.get("name", self._statechart_file_path.stem))
 
-    def work(self) -> List[str]:
+    def work(self, stop_state: Optional[Any] = None) -> List[str]:
         initial_state: Any = self._handler.current_state
         if hasattr(self._logger, "log_info"):
             self._logger.log_info(
@@ -49,6 +49,9 @@ class StateWorkerAdapter:
         interpreter: Interpreter = Interpreter(statechart, initial_context=context)
         self._bind_current_interpreter_state(interpreter, fallback_state=initial_state)
         visited_states: List[str] = [self._handler.current_state.value]
+
+        if stop_state is not None and self._handler.current_state == stop_state:
+            return visited_states
 
         if self._is_final_state(initial_state_code):
             return visited_states
@@ -68,6 +71,9 @@ class StateWorkerAdapter:
 
             if visited_states[-1] != current_state.value:
                 visited_states.append(current_state.value)
+
+            if stop_state is not None and current_state == stop_state:
+                break
 
         return visited_states
 
