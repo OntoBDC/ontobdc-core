@@ -1,7 +1,7 @@
 (function (global) {
   "use strict";
 
-  const SCHEMA_VERSION = 2;
+  const SCHEMA_VERSION = 3;
   const NAMESPACE = (
     "http://datacenter.app.br/ontology/productivity/entity/"
     + "enrichment_annotation/type.ttl#"
@@ -449,9 +449,10 @@
     if (!value || typeof value !== "object") {
       throw new TypeError("annotation must be an object.");
     }
-    if (value.schemaVersion !== SCHEMA_VERSION) {
+    const sourceVersion = Number(value.schemaVersion);
+    if (![2, SCHEMA_VERSION].includes(sourceVersion)) {
       throw new TypeError(
-        "annotation.schemaVersion must be " + SCHEMA_VERSION + ".",
+        "annotation.schemaVersion must be 2 or " + SCHEMA_VERSION + ".",
       );
     }
     const type = expandTerm(value.type, TYPES, "annotation.type");
@@ -462,6 +463,9 @@
         "annotation.representationSource is required for visual selectors.",
       );
     }
+    const threadValues = sourceVersion === 2
+      ? (value.threads || value.subjects || [])
+      : (value.threads || []);
     return {
       schemaVersion: SCHEMA_VERSION,
       id: requiredString(value.id, "annotation.id"),
@@ -485,8 +489,8 @@
         return requiredString(item, "annotation.assignedTo");
       }))),
       resolvedBy: optionalString(value.resolvedBy),
-      subjects: Array.from(new Set((value.subjects || []).map(function (item) {
-        return requiredString(item, "annotation.subjects");
+      threads: Array.from(new Set(threadValues.map(function (item) {
+        return requiredString(item, "annotation.threads");
       }))),
     };
   }

@@ -30,7 +30,7 @@
       if(filters.issueKind&&local(p.issueKind)!==local(filters.issueKind))return false;
       if(filters.recordKind&&local(p.recordKind)!==local(filters.recordKind))return false;
       if(filters.locationKind&&local(p.locationKind)!==local(filters.locationKind))return false;
-      if(filters.subject&&!values(a.subjects).includes(filters.subject))return false;
+      if(filters.thread&&!values(a.threads).includes(filters.thread))return false;
       if(filters.person&&!roles.some(x=>x.uri===filters.person))return false;
       if(filters.personRole&&!roles.some(x=>x.role===filters.personRole&&(!filters.person||x.uri===filters.person)))return false;
       if(filters.logicalSource&&a.logicalSource!==filters.logicalSource)return false;
@@ -47,7 +47,7 @@
     function counts(items) {
       const categories={}, statuses={}, records={};
       items.forEach(a=>{const category=local(a.type),p=a.properties||{};categories[category]=(categories[category]||0)+1;if(category==="IssueAnnotation"){const status=local(p.issueStatus);statuses[status]=(statuses[status]||0)+1;}if(category==="RecordAnnotation"){const kind=local(p.recordKind);records[kind]=(records[kind]||0)+1;}});
-      return {total:items.length,categories:categories,issueStatuses:statuses,recordKinds:records,withoutGeometry:items.filter(a=>!a.selector).length,withoutSubject:items.filter(a=>!values(a.subjects).length).length,openIssues:statuses.Open||0,inProgressIssues:statuses.InProgress||0,resolvedIssues:statuses.Resolved||0};
+      return {total:items.length,categories:categories,issueStatuses:statuses,recordKinds:records,withoutGeometry:items.filter(a=>!a.selector).length,withoutThread:items.filter(a=>!values(a.threads).length).length,openIssues:statuses.Open||0,inProgressIssues:statuses.InProgress||0,resolvedIssues:statuses.Resolved||0};
     }
 
     function renderLegend(items) {
@@ -58,11 +58,11 @@
     function selectAnnotation(id){selectedId=id;render();const a=annotations.find(x=>x.id===id);if(a)options.onSelect(a);}
     function render(){
       const items=annotations.filter(match),c=counts(items);
-      summary.textContent=(options.labels.total||"Total")+": "+c.total+" · "+(options.labels.openIssues||"Open issues")+": "+c.openIssues+" · "+(options.labels.inProgressIssues||"In progress")+": "+c.inProgressIssues+" · "+(options.labels.resolvedIssues||"Resolved")+": "+c.resolvedIssues+" · "+(options.labels.withoutGeometry||"Without geometry")+": "+c.withoutGeometry+" · "+(options.labels.withoutSubject||"Without Subject")+": "+c.withoutSubject;
+      summary.textContent=(options.labels.total||"Total")+": "+c.total+" · "+(options.labels.openIssues||"Open issues")+": "+c.openIssues+" · "+(options.labels.inProgressIssues||"In progress")+": "+c.inProgressIssues+" · "+(options.labels.resolvedIssues||"Resolved")+": "+c.resolvedIssues+" · "+(options.labels.withoutGeometry||"Without geometry")+": "+c.withoutGeometry+" · "+(options.labels.withoutThread||"Without Thread")+": "+c.withoutThread;
       renderLegend(items); list.replaceChildren();
       items.forEach(a=>{const b=document.createElement("button");b.type="button";b.className="ontobdc-annotation-workspace-item";b.dataset.annotationId=a.id;b.setAttribute("role","listitem");b.setAttribute("aria-pressed",String(a.id===selectedId));b.textContent=(options.labels[local(a.type)]||local(a.type))+" — "+(a.body||a.id);b.onclick=()=>selectAnnotation(a.id);b.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();selectAnnotation(a.id);}};list.appendChild(b);});
       const selected=items.find(a=>a.id===selectedId);detail.replaceChildren();
-      if(selected){const h=document.createElement("h3");h.textContent=selected.body||selected.id;const meta=document.createElement("pre");meta.textContent=JSON.stringify({type:local(selected.type),properties:selected.properties||{},subjects:selected.subjects||[],people:personRoles(selected),events:lifecycle?lifecycle.events(selected):[]},null,2);const open=document.createElement("button");open.type="button";open.textContent=options.labels.open||"Open";open.onclick=()=>options.onOpen(selected);detail.append(h,meta,open);}
+      if(selected){const h=document.createElement("h3");h.textContent=selected.body||selected.id;const meta=document.createElement("pre");meta.textContent=JSON.stringify({type:local(selected.type),properties:selected.properties||{},threads:selected.threads||[],people:personRoles(selected),events:lifecycle?lifecycle.events(selected):[]},null,2);const open=document.createElement("button");open.type="button";open.textContent=options.labels.open||"Open";open.onclick=()=>options.onOpen(selected);detail.append(h,meta,open);}
     }
     function setAnnotations(value){annotations=values(value).slice();render();}
     function setFilters(value){filters=Object.assign({},value||{});render();}

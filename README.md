@@ -1,5 +1,7 @@
 # OntoBDC
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 OntoBDC is an offline-first semantic runtime for portable datasets and containers. Its annotation subsystem lets any host create, validate, persist, render, query, and navigate typed knowledge attached to files, representations, WorkStreams, and dimensions without requiring a central platform.
 
 ## Typed annotations

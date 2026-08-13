@@ -12,9 +12,11 @@ class SurfaceGenerationProcessState(SurfaceGenerationProcessStatePort):
     SURFACE_ENRICHED = "__surface_enriched__"
     SURFACE_SET = "__surface_set__"
     SURFACE_MATCHED = "__surface_matched__"
+    SURFACE_OPERATIONAL_MATCHED = "__surface_operational_matched__"
     SURFACE_ASSEMBLED = "__surface_assembled__"
     SURFACE_PACKAGED = "__surface_packaged__"
     SURFACE_VALIDATED = "__surface_validated__"
+    ENTITY_VIEWS_PUBLISHED = "__entity_views_published__"
 
     def label(self, lang: str = "en") -> str:
         labels = {
@@ -27,9 +29,11 @@ class SurfaceGenerationProcessState(SurfaceGenerationProcessStatePort):
                 self.SURFACE_ENRICHED: "Surface Enriched",
                 self.SURFACE_SET: "Surface Set",
                 self.SURFACE_MATCHED: "Surface Matched",
+                self.SURFACE_OPERATIONAL_MATCHED: "Surface Operational Matched",
                 self.SURFACE_ASSEMBLED: "Surface Assembled",
                 self.SURFACE_PACKAGED: "Surface Packaged",
                 self.SURFACE_VALIDATED: "Surface Validated",
+                self.ENTITY_VIEWS_PUBLISHED: "Entity Views Published",
             },
             "pt-br": {
                 self.UNDEFINED: "Indefinida",
@@ -40,9 +44,11 @@ class SurfaceGenerationProcessState(SurfaceGenerationProcessStatePort):
                 self.SURFACE_ENRICHED: "Surface Enriquecida",
                 self.SURFACE_SET: "Surface Configurada",
                 self.SURFACE_MATCHED: "Surface Correlacionada",
+                self.SURFACE_OPERATIONAL_MATCHED: "Surface Operacional Correlacionada",
                 self.SURFACE_ASSEMBLED: "Surface Montada",
                 self.SURFACE_PACKAGED: "Surface Empacotada",
                 self.SURFACE_VALIDATED: "Surface Validada",
+                self.ENTITY_VIEWS_PUBLISHED: "Views de Entidade Publicadas",
             },
         }
         return labels.get(lang, labels["en"]).get(self, self.value)
@@ -58,9 +64,11 @@ class SurfaceGenerationProcessState(SurfaceGenerationProcessStatePort):
                 self.SURFACE_ENRICHED: "Semantic data and metadata are embedded in the HTML document as JSON-LD.",
                 self.SURFACE_SET: "Surface regions and presentation rules are declared without fixing runtime viewport geometry.",
                 self.SURFACE_MATCHED: "Presentation data are matched to compatible Tile definitions and their support envelopes.",
+                self.SURFACE_OPERATIONAL_MATCHED: "Operational Tiles declared by any configured DefaultSurfaceLayout/PresentationSurface RDF are matched and the resolved layout candidates are embedded for client-side selection.",
                 self.SURFACE_ASSEMBLED: "Operation, content and pinned regions are composed with matched Tiles and runtime layout constraints.",
                 self.SURFACE_PACKAGED: "Required browser component implementations are embedded for offline execution.",
                 self.SURFACE_VALIDATED: "The packaged HTML Surface satisfies the offline Surface generation checks.",
+                self.ENTITY_VIEWS_PUBLISHED: "A standalone detail page was published for every entity ontobdc_view has a Page renderer for.",
             },
             "pt-br": {
                 self.UNDEFINED: "Ainda nao existe artefato HTML de Presentation Surface.",
@@ -71,9 +79,11 @@ class SurfaceGenerationProcessState(SurfaceGenerationProcessStatePort):
                 self.SURFACE_ENRICHED: "Dados e metadados semanticos estao incorporados ao HTML como JSON-LD.",
                 self.SURFACE_SET: "As regioes e regras da Surface estao declaradas sem fixar a geometria do viewport em runtime.",
                 self.SURFACE_MATCHED: "Os dados de apresentacao estao correlacionados a Tiles compativeis e aos seus envelopes de suporte.",
+                self.SURFACE_OPERATIONAL_MATCHED: "Os Tiles operacionais declarados por qualquer DefaultSurfaceLayout/PresentationSurface RDF configurado estao correlacionados e os candidatos de layout resolvidos estao incorporados para selecao no navegador.",
                 self.SURFACE_ASSEMBLED: "As regioes operation, content e pinned estao compostas com Tiles e restricoes de layout de runtime.",
                 self.SURFACE_PACKAGED: "As implementacoes browser necessarias estao incorporadas para execucao offline.",
                 self.SURFACE_VALIDATED: "A Surface HTML empacotada atende aos checks da geracao offline.",
+                self.ENTITY_VIEWS_PUBLISHED: "Foi publicada uma pagina de detalhe para cada entidade com uma Page registrada no ontobdc_view.",
             },
         }
         return descriptions.get(lang, descriptions["en"]).get(self, "")

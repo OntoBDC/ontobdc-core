@@ -7,11 +7,16 @@ name = "ontobdc"
 authors = [
     { name = "Elias Magalhães", email = "elias@brasidata.com" }
 ]
-version = "0.14.0"
+version = "0.15.0"
 description = "OntoBDC (Ontology-Based Datasets & Containers)"
 readme = "README.md"
+license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+]
 dependencies = [
+    "ontobdc-view>=0.3.0",
     "hatchling>=1.26",
     "setuptools",
     "requests",

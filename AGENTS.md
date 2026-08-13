@@ -21,8 +21,8 @@ The core architectural objective is **data with executable context**: the datase
 
 ## 2. Branch and release discipline
 
-- The active development branch for this file is `v0.14`.
-- `v0.13` is a released line and must not receive new development changes unless explicitly instructed.
+- The active development branch for this file is `v0.15`.
+- `v0.14` is the release line immediately preceding this branch and must not receive new development changes unless explicitly instructed.
 - Do not modify `master`, another release branch, or `ontobdc-core` unless explicitly instructed.
 - Do not merge, rebase, tag, publish, or open a pull request unless explicitly requested.
 - Keep changes narrowly scoped to the requested behavior.
@@ -140,7 +140,7 @@ OntoBDC is semantic-first. Treat URIs, RDF classes, predicates, shapes, linksets
 
 ## 8. Current annotation contract
 
-The strict annotation contract introduced in v0.13 remains authoritative in v0.14 unless the current task explicitly changes it.
+The strict annotation contract introduced in v0.13 remains authoritative in v0.15 unless the current task explicitly changes it.
 
 ### Concrete annotation categories
 
@@ -349,3 +349,23 @@ Be literal and operational.
 - Do not hide failures behind optimistic summaries.
 - When a task is underspecified, inspect the repository before asking a question.
 - Ask only when a decision cannot be recovered from existing code, tests, documentation, or branch history.
+
+## 17. v0.15 WorkStream generalization — Claudia
+
+The `lab/workstream-generalization/` directory contains reference material copied from the latest rich InfoBIM WorkStream 5W2H implementation (`EliasMPJunior/infobim-wip`, branch `v0.4`). Treat those files as **source evidence**, not as code to move verbatim into production.
+
+The v0.15 task is to transpose the useful behavior into a **general OntoBDC WorkStream surface**:
+
+- keep the 5W2H presentation as one supported WorkStream profile/view;
+- keep generic resource trees, relation controls, previews, annotations, annotation workspace, Subject Page integration, and offline/local operation;
+- remove the assumption that a WorkStream belongs to an InfoBIM `Project`;
+- remove InfoBIM branding and project-specific labels/state such as `projectId`, `projectName`, "open project", and project inventory refresh semantics;
+- do not carry BIM-specific resource policy into generic OntoBDC: no hard-coded Drawings/DWG/DXF categories and no DWG-to-PDF/PNG same-stem fallback in the generic implementation;
+- do not port `annotation_bim_resolver.js` or other BIM-specific resolution behavior into generic OntoBDC;
+- model resource categories and display/representation behavior declaratively so domain packages such as InfoBIM may add BIM-specific profiles later;
+- preserve semantic resource identity independently from the representation selected for display;
+- preserve the existing native OntoBDC annotation modules and WorkStream modules when they already provide the required generic behavior; do not fork or duplicate them merely because the reference files include old copies/integration glue;
+- treat ICDD/ISO 21597 serialization as an adapter/serialization option when possible, not as the definition of WorkStream itself;
+- before writing or restoring ontology assets, read `lab/workstream-generalization/ONTOLOGY_REVIEW.md`. The old InfoBIM renderer expects packaged TTL files that are not present in the current v0.15 tree; do not resurrect those paths blindly.
+
+The target is not "InfoBIM moved into OntoBDC". The target is the generic semantic/UI mechanism that InfoBIM happened to prove first, with InfoBIM/BIM/project assumptions left behind.

@@ -218,8 +218,8 @@
       predicates.push("ea:assignedTo " + iri(person));
     });
     if (annotation.resolvedBy) predicates.push("ea:resolvedBy " + iri(annotation.resolvedBy));
-    (annotation.subjects || []).forEach(function (subject) {
-      predicates.push("dcterms:subject " + iri(subject));
+    (annotation.threads || []).forEach(function (thread) {
+      predicates.push("ea:thread " + iri(thread));
     });
 
     if (annotation.body) {
@@ -282,7 +282,7 @@
 
     if (payloads.length === 0) {
       throw new Error(
-        "The annotation dataset does not contain schema version 2 payloads.",
+        "The annotation dataset does not contain supported schema payloads.",
       );
     }
     return payloads;
@@ -310,15 +310,17 @@
       }).join("");
     }
 
+    async function walkDirectory(rootHandle, path) {
+      let directory = rootHandle;
+      for (const segment of String(path).split("/").filter(Boolean)) {
+        directory = await directory.getDirectoryHandle(segment, { create: true });
+      }
+      return directory;
+    }
+
     async function datasetFileHandle(containerHandle) {
-      const metadata = await containerHandle.getDirectoryHandle(
-        options.metadataDirectory,
-        { create: true },
-      );
-      const dataset = await metadata.getDirectoryHandle(
-        options.datasetDirectory,
-        { create: true },
-      );
+      const metadata = await walkDirectory(containerHandle, options.metadataDirectory);
+      const dataset = await walkDirectory(metadata, options.datasetDirectory);
       return dataset.getFileHandle(options.datasetFileName, { create: true });
     }
 
@@ -363,7 +365,7 @@
       if (next.trim()) parseAnnotations(next);
       let writable = null;
       try {
-        writable = await handle.createWritable({ keepExistingData: true });
+        writable = await handle.createWritable();
         await writable.write(next);
         await writable.close();
       } catch (error) {

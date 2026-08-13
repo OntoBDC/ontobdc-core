@@ -111,13 +111,46 @@
           onSelect: selectAnnotation,
         });
       }
+      // setTools() (inside editor.setCategory()) always marks "select" as
+      // the pressed tool in the toolbar, but geometry's own internal mode
+      // is never touched by category changes — it just keeps whatever a
+      // previous toolbar click last set it to (e.g. "point", from creating
+      // the last annotation). That mismatch — toolbar visually showing
+      // "Select" active while the controller is still actually in "point"
+      // mode — is why dragging an existing marker's handle (which only
+      // works when mode is really "select") silently stopped doing
+      // anything after switching tools once.
+      function syncToolbarMode(tool) {
+        const button = editor.toolbar.querySelector('[data-geometry-tool="' + tool + '"]');
+        if (!button) return;
+        editor.toolbar.querySelectorAll("[data-geometry-tool]").forEach(function (item) { item.setAttribute("aria-pressed", String(item === button)); });
+        geometry.setMode(tool);
+      }
+      let saveToastTimer = null;
+      function showSavedToast() {
+        let toast = editor.root.querySelector("." + options.prefix + "-annotation-toast");
+        if (!toast) {
+          toast = document.createElement("div");
+          toast.className = options.prefix + "-annotation-toast";
+          toast.setAttribute("role", "status");
+          editor.root.appendChild(toast);
+        }
+        toast.textContent = options.labels.saved || "Saved";
+        toast.classList.remove("is-visible");
+        void toast.offsetWidth; // restart the transition if a toast is already showing
+        toast.classList.add("is-visible");
+        if (saveToastTimer) clearTimeout(saveToastTimer);
+        saveToastTimer = setTimeout(function () { toast.classList.remove("is-visible"); }, 2200);
+      }
       function reset() {
         session.selectedId = null; editor.lockCategory(false); editor.setCategory("NoteAnnotation"); editor.deleteButton.disabled = true; editor.showError(""); geometry.clear(); renderAnnotations();
+        syncToolbarMode("point");
       }
       function selectAnnotation(annotation) {
         session.selectedId = annotation.id; const category = model.localName(annotation.type);
         const form = editor.setCategory(category); form.load(annotation); editor.lockCategory(true); editor.deleteButton.disabled = false;
         geometry.setSelector(annotation.selector); renderAnnotations();
+        syncToolbarMode("select");
       }
       editor.root.addEventListener("ontobdc:categorychange", function () { geometry.clear(); editor.showError(""); });
       editor.toolbar.addEventListener("click", function (event) {
@@ -148,12 +181,21 @@
           });
           annotation = model.normalizeAnnotation(lifecycle.apply(annotation, context, existing));
           store.upsert(annotation); await store.persist(context.containerHandle); selectAnnotation(annotation);
+          showSavedToast();
         } catch (error) { editor.showError((error && error.message) || options.labels.saveError); }
       });
       editor.deleteButton.addEventListener("click", async function () {
         if (!session.selectedId) return; store.remove(session.selectedId); await store.persist(context.containerHandle); reset();
       });
-      renderAnnotations();
+      // geometry's internal mode defaults to "select" (see
+      // annotation_geometry_controller.js), which used to match the
+      // toolbar's own default pressed state when "select" was a real,
+      // visible tool. Now that "select" is commented out of every
+      // category's tool list, nothing ever switches mode away from it
+      // on a fresh open, so clicking the stage silently did nothing.
+      // reset() (via syncToolbarMode) puts both the toolbar and the
+      // controller in "point" mode from the start.
+      reset();
     }
 
     async function openWorkspace(element, raw, configuration) {

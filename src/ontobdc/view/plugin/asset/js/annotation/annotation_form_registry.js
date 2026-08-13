@@ -7,7 +7,16 @@
 
   const DEFINITIONS = Object.freeze({
     NoteAnnotation: {
-      tools: ["select", "point", "multiple-points", "clear"],
+      // Scoped down for the first real release: only single-point
+      // placement. Select/Multiple points/Clear geometry (and every
+      // other category) go back in once multi-shape/multi-category
+      // annotation editing is revisited — see the tracking issue.
+      tools: [
+        "point",
+        // "select",
+        // "multiple-points",
+        // "clear",
+      ],
       fields: [
         { kind: "textarea", name: "body", label: "Body", required: true },
         { kind: "color", name: "markerColor", label: "Marker color", required: true, defaultValue: "#67e8f9" },
@@ -85,7 +94,7 @@
     root.className = "ontobdc-annotation-form";
     const controls = {};
     const commonFields = [
-      { kind: "text", name: "subjects", label: "Subjects" },
+      { kind: "text", name: "threads", label: "Threads" },
     ];
     const roleFields = category === "IssueAnnotation" ? [
       { kind: "text", name: "assignedTo", label: "Assigned to" },
@@ -131,9 +140,9 @@
         if (values[key] === "" || values[key] == null) delete values[key];
       });
       const result = { body: body, properties: values };
-      if (result.properties.subjects) {
-        result.subjects = result.properties.subjects.split(",").map(function (item) { return item.trim(); }).filter(Boolean);
-        delete result.properties.subjects;
+      if (result.properties.threads) {
+        result.threads = result.properties.threads.split(",").map(function (item) { return item.trim(); }).filter(Boolean);
+        delete result.properties.threads;
       }
       if (result.properties.assignedTo) {
         result.assignedTo = result.properties.assignedTo.split(",").map(function (item) { return item.trim(); }).filter(Boolean);
@@ -151,7 +160,7 @@
       Object.keys(annotation.properties || {}).forEach(function (key) {
         if (controls[key]) controls[key].setValue(annotation.properties[key]);
       });
-      if (controls.subjects) controls.subjects.setValue((annotation.subjects || []).join(", "));
+      if (controls.threads) controls.threads.setValue((annotation.threads || []).join(", "));
       if (controls.assignedTo) controls.assignedTo.setValue((annotation.assignedTo || []).join(", "));
       if (controls.resolvedBy) controls.resolvedBy.setValue(annotation.resolvedBy || "");
       refresh();

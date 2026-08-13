@@ -9,6 +9,8 @@ STATE_META_NAME = "ontobdc:surface-state"
 JSONLD_ID = "ontobdc-surface-jsonld"
 CONFIG_ID = "ontobdc-surface-config"
 MATCHES_ID = "ontobdc-surface-matches"
+DEFAULT_LAYOUTS_ID = "ontobdc-surface-default-layouts"
+DEFAULT_LAYOUTS_BOOTSTRAP_ID = "ontobdc-surface-default-layouts-bootstrap"
 COMPONENT_SCRIPT_ATTR = "data-ontobdc-surface-component"
 SURFACE_TAG = "onto-presentation-surface"
 _CUSTOM_ELEMENT_RE = re.compile(r"^[a-z][a-z0-9._-]*-[a-z0-9._-]+$")
@@ -38,6 +40,25 @@ def make_initial_html(lang: str = "en") -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="{STATE_META_NAME}" content="surface_initialized">
   <title>OntoBDC Presentation Surface</title>
+  <style>
+    /* Without this, the default UA body margin shows through as a light
+       border around a dark-themed Surface (the theme tile sets
+       --onto-theme-background on documentElement, which onto-presentation-
+       surface's :host already reads, but nothing before this covered the
+       page canvas itself). Invisible in a light theme, hence unnoticed
+       until dark mode. */
+    html, body {{
+      margin: 0;
+      padding: 0;
+      block-size: 100%;
+      background: var(--onto-theme-background, #ffffff);
+    }}
+    {SURFACE_TAG} {{
+      display: block;
+      inline-size: 100%;
+      block-size: 100dvh;
+    }}
+  </style>
 </head>
 <body>
   <{SURFACE_TAG}></{SURFACE_TAG}>
@@ -290,6 +311,34 @@ def embed_component_scripts(
     if not insertion:
         return without_existing
     return _insert_before_closing_tag(without_existing, "body", insertion)
+
+
+def embed_default_layouts_bootstrap(document: str) -> str:
+    """Idempotently embed the small runtime script that applies whatever
+    `DefaultSurfaceLayout` candidates `SURFACE_OPERATIONAL_MATCHED` wrote to
+    `DEFAULT_LAYOUTS_ID`. `customElements.whenDefined` makes this safe to
+    embed before the `onto-presentation-surface` component script itself —
+    selection stays entirely client-side (see claude2.md); this only wires
+    the already-resolved candidates into the property that drives it.
+    """
+    script = (
+        f'<script type="module" id="{DEFAULT_LAYOUTS_BOOTSTRAP_ID}">\n'
+        'customElements.whenDefined("onto-presentation-surface").then(() => {\n'
+        f'  const dataScript = document.getElementById("{DEFAULT_LAYOUTS_ID}");\n'
+        f'  const surface = document.querySelector("{SURFACE_TAG}");\n'
+        '  if (!dataScript || !surface) return;\n'
+        '  surface.defaultSurfaceLayouts = JSON.parse(dataScript.textContent);\n'
+        '});\n'
+        '</script>'
+    )
+    pattern = re.compile(
+        rf"<script\b[^>]*\bid=[\"']{re.escape(DEFAULT_LAYOUTS_BOOTSTRAP_ID)}[\"'][^>]*>"
+        rf".*?</script>",
+        re.IGNORECASE | re.DOTALL,
+    )
+    if pattern.search(document):
+        return pattern.sub(script, document, count=1)
+    return _insert_before_closing_tag(document, "body", script)
 
 
 def contains_external_runtime_reference(document: str) -> bool:

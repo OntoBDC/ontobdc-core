@@ -5,6 +5,7 @@ from typing import Optional
 
 from ontobdc.view.adapter.surface.document import (
     CONFIG_ID,
+    DEFAULT_LAYOUTS_ID,
     JSONLD_ID,
     MATCHES_ID,
     SURFACE_TAG,
@@ -98,6 +99,18 @@ def has_surface_matches(document: str) -> bool:
     return True
 
 
+def has_valid_default_layouts(document: str) -> bool:
+    try:
+        payload = extract_json_script(document, DEFAULT_LAYOUTS_ID)
+    except (ValueError, json.JSONDecodeError):
+        # Absence is fine — SURFACE_OPERATIONAL_MATCHED is a legal no-op
+        # when no DefaultSurfaceLayout/PresentationSurface RDF is configured.
+        return True
+    return isinstance(payload, list) and all(
+        isinstance(item, dict) and "iri" in item for item in payload
+    )
+
+
 def has_assembled_tiles(document: str) -> bool:
     if re.search(
         rf"<{SURFACE_TAG}\b[^>]*\bdata-ontobdc-assembled=[\"']true[\"']",
@@ -162,8 +175,12 @@ def is_matched_surface(document: str) -> bool:
     return is_set_surface(document) and has_surface_matches(document)
 
 
+def is_operational_matched_surface(document: str) -> bool:
+    return is_matched_surface(document) and has_valid_default_layouts(document)
+
+
 def is_assembled_surface(document: str) -> bool:
-    return is_matched_surface(document) and has_assembled_tiles(document)
+    return is_operational_matched_surface(document) and has_assembled_tiles(document)
 
 
 def is_packaged_surface(document: str) -> bool:

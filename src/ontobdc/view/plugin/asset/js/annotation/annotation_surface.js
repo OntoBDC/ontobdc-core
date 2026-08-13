@@ -23,9 +23,33 @@
     };
   }
 
+  // Chrome refuses to construct a Worker from a URL that involves a
+  // cross-origin redirect ("Refused to cross-origin redirects of the
+  // top-level worker script") — which is exactly what pdf.js's CDN worker
+  // URL does. Fetching the script as plain text (not subject to that
+  // Worker-specific restriction) and handing pdf.js a local blob: URL
+  // sidesteps it entirely: the Worker is then constructed from a same-
+  // origin URL no matter where the bytes actually came from.
+  let cachedWorkerBlobUrl = null;
+  let cachedWorkerSourceUrl = null;
+
+  async function blobWorkerUrl(sourceUrl) {
+    if (cachedWorkerBlobUrl && cachedWorkerSourceUrl === sourceUrl) {
+      return cachedWorkerBlobUrl;
+    }
+    const response = await fetch(sourceUrl);
+    if (!response.ok) {
+      throw new Error(`Could not fetch the PDF worker script (${response.status}).`);
+    }
+    const code = await response.text();
+    cachedWorkerBlobUrl = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
+    cachedWorkerSourceUrl = sourceUrl;
+    return cachedWorkerBlobUrl;
+  }
+
   async function pdfSurface(file, options) {
     const pdfjs = await import(options.pdfModuleUrl);
-    pdfjs.GlobalWorkerOptions.workerSrc = options.pdfWorkerUrl;
+    pdfjs.GlobalWorkerOptions.workerSrc = await blobWorkerUrl(options.pdfWorkerUrl);
     const task = pdfjs.getDocument({
       data: new Uint8Array(await file.arrayBuffer()),
     });

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransformationCapability
@@ -14,20 +14,6 @@ from ontobdc.view.adapter.surface.document import (
 from ontobdc.view.adapter.surface.transformation import SurfaceTransformationAdapter
 from ontobdc.view.domain.machine.surface_state import SurfaceGenerationProcessState
 from ontobdc.view.plugin.check.is_surface_packaged.check import main as check_surface_packaged
-
-
-_BUILD_PLACEHOLDER = "__ONTOBDC_BUILD_"
-
-# Tags whose packaged JS needs a build-time payload resolved first — plain
-# `read_component()` would return the raw template with the placeholder
-# still in it. Maps the custom-element tag to the `ontobdc_view` builder
-# that produces the ready-to-embed source with project defaults.
-_BUILDER_NAME_BY_TAG: Dict[str, str] = {
-    "onto-logo-tile": "build_logo_tile",
-    "onto-theme-tile": "build_theme_tile",
-    "onto-language-tile": "build_language_tile",
-    "onto-photo-tile": "build_photo_tile",
-}
 
 
 class SurfacePackagedCapability(TransformationCapability):
@@ -108,35 +94,11 @@ class SurfacePackagedCapability(TransformationCapability):
 
         scripts: List[str] = []
         for tag in self._required_component_tags(document):
-            source = self._build_component_source(ontobdc_view, tag)
-            if source is None:
+            try:
+                source = ontobdc_view.component_source(tag)
+            except Exception:
+                return []
+            if not isinstance(source, str) or not source.strip():
                 return []
             scripts.append(source)
         return scripts
-
-    def _build_component_source(self, ontobdc_view: Any, tag: str) -> Optional[str]:
-        builder_name = _BUILDER_NAME_BY_TAG.get(tag)
-        if builder_name is not None:
-            builder = getattr(ontobdc_view, builder_name, None)
-            if builder is None:
-                return None
-            try:
-                return str(builder())
-            except Exception:
-                return None
-
-        try:
-            source = ontobdc_view.read_component(f"{tag}.js")
-        except Exception:
-            return None
-
-        if not isinstance(source, str) or not source.strip():
-            return None
-        if _BUILD_PLACEHOLDER in source:
-            # A component with an unresolved build-time placeholder and no
-            # known builder above must be supplied already built through
-            # context — silently embedding the raw template would ship a
-            # broken component.
-            return None
-
-        return source

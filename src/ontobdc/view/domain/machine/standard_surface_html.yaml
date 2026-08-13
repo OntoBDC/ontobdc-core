@@ -73,11 +73,20 @@ statechart:
       - name: surface_matched
         description: "Presentation data are matched to compatible Tile definitions and support envelopes."
         transitions:
+          - target: surface_operational_matched
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_OPERATIONAL_MATCHED)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_OPERATIONAL_MATCHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_MATCHED, to_state = SurfaceGenerationProcessStatePort.SURFACE_OPERATIONAL_MATCHED)
+
+      - name: surface_operational_matched
+        description: "Operational Tiles declared by any configured DefaultSurfaceLayout/PresentationSurface RDF are matched and the resolved layout candidates are embedded for client-side selection."
+        transitions:
           - target: surface_assembled
             guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_ASSEMBLED)
             action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_ASSEMBLED)
             contract:
-              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_MATCHED, to_state = SurfaceGenerationProcessStatePort.SURFACE_ASSEMBLED)
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_OPERATIONAL_MATCHED, to_state = SurfaceGenerationProcessStatePort.SURFACE_ASSEMBLED)
 
       - name: surface_assembled
         description: "Operation, content and pinned regions are composed with matched Tiles and runtime layout constraints."
@@ -99,4 +108,13 @@ statechart:
 
       - name: surface_validated
         description: "The packaged HTML Surface satisfies the offline Surface generation checks."
+        transitions:
+          - target: entity_views_published
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.ENTITY_VIEWS_PUBLISHED)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.ENTITY_VIEWS_PUBLISHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_VALIDATED, to_state = SurfaceGenerationProcessStatePort.ENTITY_VIEWS_PUBLISHED)
+
+      - name: entity_views_published
+        description: "A standalone detail page was published for every entity ontobdc_view has a Page renderer for."
         type: final

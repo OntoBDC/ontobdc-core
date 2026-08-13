@@ -10,9 +10,9 @@
     }
     return result;
   }
-  function unique(values) {
+  function unique(values, field) {
     return Array.from(new Set((values || []).map(function (value) {
-      return uri(value, "subject");
+      return uri(value, field);
     }).filter(Boolean)));
   }
   function apply(annotation, context, previous) {
@@ -23,8 +23,8 @@
     result.annotatedAt = previous ? previous.annotatedAt : (annotation.annotatedAt || annotation.created || now);
     result.modified = previous ? now : (annotation.modified || null);
     result.modifiedBy = previous ? uri(actor.actorUri, "actorContext.actorUri") : (annotation.modifiedBy || null);
-    result.subjects = unique(annotation.subjects);
-    result.assignedTo = unique(annotation.assignedTo);
+    result.threads = unique(annotation.threads, "thread");
+    result.assignedTo = unique(annotation.assignedTo, "assignedTo");
     result.resolvedBy = uri(annotation.resolvedBy, "resolvedBy");
     return result;
   }
@@ -35,5 +35,9 @@
     if (annotation.properties && annotation.properties.resolvedAt) result.push({ type: "resolved", at: annotation.properties.resolvedAt, actor: annotation.resolvedBy });
     return result.filter(function (event) { return event.at; });
   }
-  global.OntoBDCAnnotationLifecycle = Object.freeze({ apply: apply, events: events, uniqueUris: unique });
+  global.OntoBDCAnnotationLifecycle = Object.freeze({
+    apply: apply,
+    events: events,
+    uniqueUris: function (values) { return unique(values, "URI"); },
+  });
 }(globalThis));
