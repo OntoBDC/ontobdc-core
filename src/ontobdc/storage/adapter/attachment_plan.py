@@ -158,9 +158,13 @@ def resolve_identity(context: CliContextPort) -> Dict[str, Any]:
     for dataset in attachment_plan["datasets"]:
         dataset_path = Path(dataset["path"]).resolve()
         relative_dataset_path = dataset_path.relative_to(root_path)
+        encoded_relative_dataset_path = quote(
+            relative_dataset_path.as_posix(),
+            safe="/",
+        )
         target_dataset_id = (
             "urn:ontobdc:storage/dataset/"
-            f"{relative_dataset_path.as_posix()}"
+            f"{encoded_relative_dataset_path}"
         )
         if target_dataset_id in dataset_ids:
             raise IdentityConflictError(

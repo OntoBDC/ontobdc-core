@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.16.1
+
+### Fixed
+
+- `is_dataset_metadata_ready/check.py` and `hotfix.py` built the storage dataset's `urn:ontobdc:storage/dataset/<path>` identifier by concatenating the dataset's relative filesystem path with no URI encoding. Any path with characters invalid in a URI — spaces, parentheses, etc. (e.g. a real `OneDrive - Digicorner/Real Estate Brazil (Official)-Obras - Exp LabSea2025/...` folder) — produced a `URIRef` rdflib silently accepted but then refused to serialize, which `dataset_metadata_ready.py` surfaced only as a generic `"Failed to hotfix dataset metadata during storage dataset creation."`, with no hint the real cause was an unescaped path. Broke `infobim project --create` (and any storage-dataset-creation flow) for any project under a path with spaces or punctuation — most real Windows paths. Now percent-encodes with `urllib.parse.quote(path, safe="/")`, the same treatment `is_container_metadata_ready`'s builders already used; `attachment_plan.py`'s `resolve_identity()` gets the same fix for consistency.
+
 ## Unreleased
 
 ## Unreleased — v0.15

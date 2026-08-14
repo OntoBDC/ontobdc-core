@@ -2,6 +2,7 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
+from urllib.parse import quote
 
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, OWL, PROV, RDF, XSD
@@ -35,7 +36,8 @@ def _build_dataset_id(dataset_path: Path, root_path: Path) -> Optional[str]:
     except ValueError:
         return None
 
-    return f"urn:ontobdc:storage/dataset/{relative_dataset_path.as_posix()}"
+    encoded_relative_path: str = quote(relative_dataset_path.as_posix(), safe="/")
+    return f"urn:ontobdc:storage/dataset/{encoded_relative_path}"
 
 
 def _build_dataset_title(dataset_path: Path) -> str:

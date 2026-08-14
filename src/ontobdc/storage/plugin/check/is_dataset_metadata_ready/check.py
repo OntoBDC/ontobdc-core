@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
+from urllib.parse import quote
 
 from rdflib import Graph, URIRef
 from rdflib.namespace import DCTERMS, OWL, PROV, RDF
@@ -37,7 +38,8 @@ def _build_expected_dataset_id(dataset_path: Path, root_path: Path) -> Optional[
     except ValueError:
         return None
 
-    return f"urn:ontobdc:storage/dataset/{relative_dataset_path.as_posix()}"
+    encoded_relative_path: str = quote(relative_dataset_path.as_posix(), safe="/")
+    return f"urn:ontobdc:storage/dataset/{encoded_relative_path}"
 
 
 def _load_dataset_graph(dataset_storage_file_path: Path) -> Optional[Graph]:
