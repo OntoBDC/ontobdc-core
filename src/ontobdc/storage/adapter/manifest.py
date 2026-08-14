@@ -9,7 +9,10 @@ from typing import Any, Dict, List, Optional, Set
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
-from ontobdc.storage.adapter.bootstrap import ONTOBDC_DIRECTORY_NAME
+from ontobdc.storage.adapter.bootstrap import (
+    ONTOBDC_DIRECTORY_NAME,
+    to_extended_length_path,
+)
 
 
 _IGNORED_MARKER_DIR_NAMES: Set[str] = {
@@ -242,7 +245,7 @@ class ContainerDataPackageSynchronizer:
             descriptor.get("name") or self._resource_name(relative_path)
         ).strip()
         descriptor["path"] = descriptor_path
-        descriptor["bytes"] = file_path.stat().st_size
+        descriptor["bytes"] = to_extended_length_path(file_path).stat().st_size
 
         file_format: str = file_path.suffix.lower().lstrip(".")
         if file_format:

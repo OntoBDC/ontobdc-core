@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.16.2
+
+### Fixed
+
+- `infobim view` (and any command that syncs the container Data Package: `container_healthy`, `is_container_datapackage_ro_crate_synced`'s hotfix, `ensure_publishable`/`gather_view_data`) crashed with `WinError 3: The system cannot find the path specified` on Windows whenever a container file's full absolute path exceeded the 260-character `MAX_PATH` limit — routine under a nested OneDrive tree (e.g. `OneDrive - Digicorner/Real Estate Brazil (Official)-Obras - Exp LabSea2025/0. Doc Preliminar/4. BID/Elétrica e rede/Tecnigel/<long filename>.doc`, ~288 characters). `manifest.py`'s `_build_local_descriptor()` and `publication.py`'s `_resource_records()`/`_update_file_digest()` called `Path.stat()`/`Path.open()` directly on the raw path, which Windows rejects past `MAX_PATH` unless given the `\\?\` extended-length prefix. Added `bootstrap.to_extended_length_path()` and applied it at all three call sites; no-op outside Windows.
+
 ## v0.16.1
 
 ### Fixed

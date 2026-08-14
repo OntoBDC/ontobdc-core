@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+import os
 
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, OWL, RDF, XSD, Namespace
@@ -27,6 +28,28 @@ OBDC: Namespace = _ontology_adapter.get_ontology_namespace_by_prefix("obdc")
 CT: Namespace = _ontology_adapter.get_ontology_namespace_by_prefix("ct")
 PROV: Namespace = _ontology_adapter.get_ontology_namespace_by_prefix("prov")
 BASE_CONTEXT_URI: Namespace = Namespace("urn:ontobdc:context/")
+
+
+def to_extended_length_path(path: Path) -> Path:
+    """Return a Windows extended-length path form of ``path``.
+
+    Windows rejects absolute paths longer than MAX_PATH (260 characters)
+    unless they carry the extended-length prefix, which deeply nested
+    container trees (e.g. under OneDrive) routinely exceed. No-op outside
+    Windows and for paths that already carry the prefix.
+    """
+    if os.name != "nt":
+        return path
+
+    extended_prefix = "\\\\?\\"
+    unc_prefix = "\\\\"
+
+    raw_path: str = str(path)
+    if raw_path.startswith(extended_prefix):
+        return path
+    if raw_path.startswith(unc_prefix):
+        return Path(extended_prefix + "UNC\\" + raw_path[len(unc_prefix):])
+    return Path(extended_prefix + raw_path)
 
 
 def get_init_root_path(

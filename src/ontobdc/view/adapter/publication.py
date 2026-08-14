@@ -17,6 +17,7 @@ from ontobdc.storage.adapter.bootstrap import (
     CT,
     OBDC,
     get_container_storage_file_path,
+    to_extended_length_path,
 )
 from ontobdc.storage.adapter.manifest import (
     ContainerDataPackageSynchronizer,
@@ -274,7 +275,7 @@ def _update_file_digest(
 ) -> None:
     digest.update(relative_path.encode("utf-8"))
     digest.update(b"\0")
-    with file_path.open("rb") as stream:
+    with to_extended_length_path(file_path).open("rb") as stream:
         while True:
             chunk = stream.read(1024 * 1024)
             if not chunk:
@@ -399,7 +400,7 @@ def _resource_records(container_path: Path) -> List[Dict[str, Any]]:
                 "media_type": (
                     media_type or "application/octet-stream"
                 ),
-                "bytes": file_path.stat().st_size,
+                "bytes": to_extended_length_path(file_path).stat().st_size,
             }
         )
     return records
