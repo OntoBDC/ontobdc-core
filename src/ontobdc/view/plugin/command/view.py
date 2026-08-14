@@ -1,4 +1,3 @@
-import shutil
 import webbrowser
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -7,6 +6,7 @@ from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import CommandResponse
+from ontobdc.shared.adapter.filesystem import remove_directory_tree
 from ontobdc.storage.plugin.parameter.container import ContainerIdStrategy
 from ontobdc.view.adapter.surface.context import surface_path_from_context
 from ontobdc.view.adapter.surface.machine import SurfaceGenerationStateTransitionHandler
@@ -142,7 +142,7 @@ class ContainerViewCommand(CliCommandPort):
         # from a stale DATA_GATHERED instead of re-running it this call.
         etl_state_directory = DataGatheredCapability.state_directory(context)
         if etl_state_directory.is_dir():
-            shutil.rmtree(etl_state_directory)
+            remove_directory_tree(etl_state_directory)
 
         handler = SurfaceGenerationStateTransitionHandler(
             context=context,

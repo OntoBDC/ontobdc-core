@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OntoBDC Tile Browser Prototype 08</title>
+  <style>
+    :root {
+      color-scheme: dark light;
+      --app-bg: #05070c;
+      --app-fg: #f8fafc;
+      --status-bg: rgba(10, 15, 24, .72);
+      --status-border: rgba(248, 250, 252, .18);
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--app-bg);
+      color: var(--app-fg);
+      font-family: system-ui, sans-serif;
+      transition: background .22s ease, color .22s ease;
+    }
+
+    body { min-height: 100vh; }
+    presentation-surface { display: block; min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <presentation-surface></presentation-surface>
+
+  <script>
+  (() => {
+    const CONTRACT_VERSION = "0.2";
+
+    const ICONS = {
+      gear: `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.14 7.14 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.49-.42h-3.84a.5.5 0 0 0-.49.42l-.36 2.54c-.57.23-1.12.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.84a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.23.4.32.64.22l2.39-.96c.5.39 1.05.71 1.63.94l.36 2.54c.04.24.25.42.49.42h3.84c.24 0 .45-.18.49-.42l.36-2.54c.57-.23 1.12-.54 1.63-.94l2.39.96c.24.1.51.01.64-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z" fill="currentColor"/>
+        </svg>`,
+      theme: `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 1 12 2Z" fill="currentColor" opacity=".9"/>
+          <path d="M12 2v20A10 10 0 0 1 12 2Z" fill="currentColor" opacity=".4"/>
+        </svg>`
+    };
+
+    class OntoTile extends HTMLElement {
+      #root;
+      #allocation = { columns: 1, rows: 1 };
+
+      static capabilities = Object.freeze({
+        dimensions: {
+          minColumns: 1,
+          minRows: 1,
+          preferredColumns: 4,
+          preferredRows: 2,
+          maxColumns: 8,
+          maxRows: 6
+        },
+        required: ["language", "availableArea", "theme"],
+        optional: [
+          "transparentBackground",
+          "font",
+          "colors",
+          "borderWidth",
+          "borderRadius"
+        ]
+      });
+
+      constructor() {
+        super();
+        this.#root = this.attachShadow({ mode: "closed" });
+        this.#root.innerHTML = `
+          <style>
+            :host {
+              all: initial;
+              display: block;
+              box-sizing: border-box;
+              min-width: 0;
+              min-height: 0;
+              container-type: inline-size;
+              cursor: default;
+            }
+            *, *::before, *::after { box-sizing: border-box; }
+
+            .tile {
+              width: 100%;
+              height: 100%;
+              min-height: 100%;
+              border-radius: clamp(14px, 7cqw, 20px);
+              overflow: hidden;
+              border: 1px solid rgba(56,189,248,.55);
+              background:
+                radial-gradient(circle at 20% 0%, rgba(103,232,249,.26), transparent 42%),
+                linear-gradient(145deg, #0f172a 0%, #111827 100%);
+              color: #f8fafc;
+              box-shadow: 0 18px 50px rgba(2,8,23,.20);
+              padding: clamp(10px, 6cqw, 18px);
+              display: grid;
+              grid-template-rows: auto 1fr auto;
+              gap: clamp(6px, 3cqw, 12px);
+              font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+              transition:
+                transform .14s ease,
+                box-shadow .14s ease,
+                border-color .14s ease,
+                background .22s ease,
+                color .22s ease,
+                opacity .14s ease;
+            }
+
+            .tile.light {
+              background:
+                radial-gradient(circle at 20% 0%, rgba(103,232,249,.24), transparent 42%),
+                linear-gradient(145deg, #ffffff 0%, #eef4fb 100%);
+              color: #0f172a;
+              box-shadow: 0 14px 34px rgba(15,23,42,.09);
+            }
+
+            .tile.transparent {
+              background: transparent;
+              box-shadow: none;
+            }
+
+            :host([data-interactive="true"]) { cursor: pointer; }
+            :host([data-interactive="true"]):hover .tile {
+              transform: translateY(-1px);
+              box-shadow: 0 18px 42px rgba(14, 165, 233, .14);
+              border-color: rgba(103,232,249,.85);
+            }
+            :host([data-interactive="true"]):active .tile,
+            :host([data-pressed="true"]) .tile {
+              transform: translateY(0) scale(.985);
+              opacity: .92;
+            }
+
+            .eyebrow {
+              font-size: clamp(9px, 3.5cqw, 11px);
+              line-height: 1;
+              font-weight: 800;
+              letter-spacing: .14em;
+              text-transform: uppercase;
+              opacity: .62;
+            }
+
+            .main { align-self: center; }
+
+            .compact-title {
+              display: none;
+              font-size: clamp(8px, 15cqw, 10px);
+              line-height: 1;
+              font-weight: 800;
+              letter-spacing: .12em;
+              text-transform: uppercase;
+              opacity: .65;
+            }
+
+            .value {
+              font-size: clamp(28px, 18cqw, 52px);
+              line-height: .95;
+              font-weight: 900;
+              letter-spacing: -.055em;
+            }
+
+            .label {
+              margin-top: 8px;
+              font-size: clamp(12px, 5cqw, 16px);
+              line-height: 1.2;
+              font-weight: 750;
+            }
+
+            .meta {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              font-size: clamp(9px, 3cqw, 11px);
+              opacity: .62;
+            }
+
+            .pill {
+              display: inline-flex;
+              align-items: center;
+              min-height: 24px;
+              padding: 4px 9px;
+              border: 1px solid currentColor;
+              border-radius: 999px;
+              opacity: .75;
+              white-space: nowrap;
+            }
+
+            .icon {
+              display: none;
+              inline-size: min(54cqw, 34px);
+              block-size: min(54cqw, 34px);
+            }
+            .icon svg {
+              width: 100%;
+              height: 100%;
+              display: block;
+            }
+
+            :host([data-icon-only="true"]) .eyebrow,
+            :host([data-icon-only="true"]) .compact-title,
+            :host([data-icon-only="true"]) .label,
+            :host([data-icon-only="true"]) .meta,
+            :host([data-icon-only="true"]) .value.text-value {
+              display: none;
+            }
+
+            :host([data-icon-only="true"]) .icon {
+              display: block;
+            }
+
+            :host([data-icon-only="true"]) .tile {
+              display: grid;
+              place-items: center;
+              padding: clamp(6px, 12cqw, 10px);
+              border-radius: clamp(12px, 22cqw, 16px);
+            }
+
+            :host([data-icon-only="true"]) .main {
+              align-self: center;
+              display: grid;
+              place-items: center;
+            }
+
+            :host([data-compact="true"]) .label,
+            :host([data-compact="true"]) .eyebrow,
+            :host([data-compact="true"]) .meta {
+              display: none;
+            }
+
+            :host([data-compact="true"]) .compact-title {
+              display: block;
+            }
+
+            :host([data-compact="true"]) .tile {
+              display: grid;
+              grid-template-rows: auto 1fr;
+              align-items: start;
+              padding: clamp(6px, 12cqw, 10px);
+              border-radius: clamp(12px, 22cqw, 16px);
+              gap: clamp(3px, 7cqw, 5px);
+            }
+
+            :host([data-compact="true"]) .main {
+              align-self: start;
+            }
+
+            :host([data-compact="true"]) .value.text-value {
+              font-size: clamp(20px, 42cqw, 30px);
+            }
+          </style>
+
+          <article class="tile" part="tile">
+            <div class="eyebrow">OntoBDC · Tile</div>
+            <div class="compact-title">Tile</div>
+            <div class="main">
+              <div class="icon"></div>
+              <div class="value text-value">7</div>
+              <div class="label">tarefas hoje · 2 atrasadas</div>
+            </div>
+            <div class="meta">
+              <span class="allocation">1 × 1</span>
+              <span class="pill">offline</span>
+            </div>
+          </article>
+        `;
+
+        this.addEventListener('pointerdown', () => {
+          if (this.dataset.interactive === 'true') this.dataset.pressed = 'true';
+        });
+        const clearPress = () => { this.dataset.pressed = 'false'; };
+        this.addEventListener('pointerup', clearPress);
+        this.addEventListener('pointerleave', clearPress);
+      }
+
+      setContent({ eyebrow, compactTitle, value, label, badge, iconOnly, icon } = {}) {
+        if (eyebrow != null) this.#root.querySelector('.eyebrow').textContent = eyebrow;
+        if (compactTitle != null) this.#root.querySelector('.compact-title').textContent = compactTitle;
+        if (value != null) this.#root.querySelector('.value').textContent = value;
+        if (label != null) this.#root.querySelector('.label').textContent = label;
+        if (badge != null) this.#root.querySelector('.pill').textContent = badge;
+        this.dataset.iconOnly = iconOnly === true ? 'true' : 'false';
+
+        const iconEl = this.#root.querySelector('.icon');
+        if (icon && ICONS[icon]) {
+          iconEl.innerHTML = ICONS[icon];
+        } else {
+          iconEl.innerHTML = '';
+        }
+      }
+
+      setInteractive(flag) {
+        this.dataset.interactive = flag ? 'true' : 'false';
+        this.tabIndex = flag ? 0 : -1;
+      }
+
+      present(request) {
+        const result = this.#negotiate(request);
+
+        if (!result.ok) {
+          this.dispatchEvent(new CustomEvent('tile-presentation-failed', {
+            bubbles: true,
+            composed: true,
+            detail: result
+          }));
+          return result;
+        }
+
+        this.#apply(request);
+
+        this.dispatchEvent(new CustomEvent('tile-presented', {
+          bubbles: true,
+          composed: true,
+          detail: {
+            contractVersion: CONTRACT_VERSION,
+            tile: this.tagName.toLowerCase(),
+            allocation: this.#allocation
+          }
+        }));
+
+        return result;
+      }
+
+      allocate(columns, rows) {
+        const cap = this.constructor.capabilities.dimensions;
+        const c = Math.max(cap.minColumns, Math.min(cap.maxColumns, columns));
+        const r = Math.max(cap.minRows, Math.min(cap.maxRows, rows));
+
+        this.#allocation = { columns: c, rows: r };
+        this.style.gridColumn = `span ${c}`;
+        this.style.gridRow = `span ${r}`;
+        this.dataset.compact = (c === 1 && r === 1) ? 'true' : 'false';
+        this.#root.querySelector('.allocation').textContent = `${c} × ${r}`;
+      }
+
+      #negotiate(request) {
+        const required = request?.required ?? {};
+        const missing = [];
+
+        for (const key of this.constructor.capabilities.required) {
+          if (!(key in required)) missing.push(key);
+        }
+
+        if (missing.length) {
+          return { ok: false, type: 'MissingRequirement', unsupported: missing };
+        }
+
+        if (!["light", "dark", "system"].includes(required.theme)) {
+          return {
+            ok: false,
+            type: 'UnsupportedRequirement',
+            unsupported: ['theme'],
+            value: required.theme
+          };
+        }
+
+        return { ok: true, type: 'PresentationAccepted' };
+      }
+
+      #apply(request) {
+        const required = request.required;
+        const optional = request.optional ?? {};
+        const tile = this.#root.querySelector('.tile');
+
+        const resolvedTheme =
+          required.theme === 'system'
+            ? (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
+            : required.theme;
+
+        tile.classList.toggle('light', resolvedTheme === 'light');
+
+        if (optional.transparentBackground === true) {
+          tile.classList.add('transparent');
+        } else {
+          tile.classList.remove('transparent');
+        }
+
+        if (typeof optional.font === 'string' && optional.font.trim()) {
+          tile.style.fontFamily = `${optional.font}, ui-sans-serif, system-ui, sans-serif`;
+        }
+
+        if (optional.colors && typeof optional.colors === 'object') {
+          if (optional.colors.foreground) tile.style.color = optional.colors.foreground;
+          if (optional.colors.background && !tile.classList.contains('transparent')) {
+            tile.style.background = optional.colors.background;
+          }
+        } else {
+          tile.style.color = '';
+        }
+
+        if (Number.isFinite(optional.borderWidth)) {
+          tile.style.borderWidth = `${optional.borderWidth}px`;
+          tile.style.borderStyle = optional.borderWidth > 0 ? 'solid' : 'none';
+        } else {
+          tile.style.borderWidth = '';
+          tile.style.borderStyle = '';
+        }
+
+        if (Number.isFinite(optional.borderRadius)) {
+          tile.style.borderRadius = `${optional.borderRadius}px`;
+        } else {
+          tile.style.borderRadius = '';
+        }
+
+        this.lang = required.language;
+        const area = required.availableArea;
+        this.allocate(area.columns, area.rows);
+      }
+    }
+
+    customElements.define('onto-tile', OntoTile);
+
+    class PresentationSurface extends HTMLElement {
+      #root;
+      #grid;
+      #mainTile;
+      #sideTile;
+      #settingsTile;
+      #themeTile;
+      #observer;
+      #slotTarget = 72;
+      #gap = 12;
+      #padding = 16;
+      #themeMode = 'dark';
+
+      constructor() {
+        super();
+        this.#root = this.attachShadow({ mode: 'open' });
+        this.#root.innerHTML = `
+          <style>
+            :host {
+              display: block;
+              min-height: 100vh;
+              background: transparent;
+              color: inherit;
+            }
+
+            .surface {
+              min-height: 100vh;
+              padding: var(--surface-padding, 16px);
+            }
+
+            .grid {
+              display: grid;
+              grid-auto-rows: var(--slot-size, 64px);
+              gap: var(--surface-gap, 12px);
+              align-items: stretch;
+            }
+
+            .status {
+              position: fixed;
+              right: 10px;
+              bottom: 10px;
+              z-index: 1000;
+              border: 1px solid var(--status-border);
+              background: var(--status-bg);
+              color: var(--app-fg);
+              border-radius: 999px;
+              padding: 7px 10px;
+              font: 600 11px/1 system-ui, sans-serif;
+              backdrop-filter: blur(12px);
+              opacity: .88;
+            }
+          </style>
+
+          <main class="surface">
+            <section class="grid" aria-label="Presentation Surface"></section>
+            <div class="status"></div>
+          </main>
+        `;
+      }
+
+      connectedCallback() {
+        this.#applyDocumentTheme(this.#themeMode);
+
+        this.#grid = this.#root.querySelector('.grid');
+
+        this.#mainTile = document.createElement('onto-tile');
+        this.#mainTile.dataset.role = 'main';
+        this.#mainTile.setContent({
+          eyebrow: 'OntoBDC · Tarefas',
+          value: '7',
+          label: 'tarefas hoje · 2 atrasadas',
+          badge: 'offline'
+        });
+
+        this.#sideTile = document.createElement('onto-tile');
+        this.#sideTile.dataset.role = 'side';
+        this.#sideTile.setContent({
+          eyebrow: 'OntoBDC · Obra',
+          value: '3',
+          label: 'alertas ativos',
+          badge: '2 × 2'
+        });
+
+        this.#settingsTile = document.createElement('onto-tile');
+        this.#settingsTile.dataset.role = 'settings';
+        this.#settingsTile.setContent({ iconOnly: true, icon: 'gear' });
+        this.#settingsTile.setInteractive(true);
+        this.#settingsTile.setAttribute('aria-label', 'Configurações');
+        this.#settingsTile.addEventListener('click', () => {
+          console.log('[Component Event] settings-tile-clicked');
+          this.#flashStatus('Configurações clicadas');
+        });
+
+        this.#themeTile = document.createElement('onto-tile');
+        this.#themeTile.dataset.role = 'theme';
+        this.#themeTile.setContent({ iconOnly: true, icon: 'theme' });
+        this.#themeTile.setInteractive(true);
+        this.#themeTile.setAttribute('aria-label', 'Alternar tema');
+        this.#themeTile.addEventListener('click', () => {
+          this.#themeMode = this.#themeMode === 'dark' ? 'light' : 'dark';
+          this.#applyDocumentTheme(this.#themeMode);
+          this.#layout();
+          this.#flashStatus(`Tema: ${this.#themeMode}`);
+        });
+
+        this.#grid.append(this.#mainTile, this.#sideTile, this.#settingsTile, this.#themeTile);
+
+        this.#observer = new ResizeObserver(() => this.#layout());
+        this.#observer.observe(this);
+
+        this.#layout();
+      }
+
+      disconnectedCallback() {
+        this.#observer?.disconnect();
+      }
+
+      #applyDocumentTheme(mode) {
+        document.documentElement.dataset.theme = mode;
+
+        if (mode === 'light') {
+          document.documentElement.style.setProperty('--app-bg', '#f5f9ff');
+          document.documentElement.style.setProperty('--app-fg', '#0f172a');
+          document.documentElement.style.setProperty('--status-bg', 'rgba(255,255,255,.82)');
+          document.documentElement.style.setProperty('--status-border', 'rgba(15,23,42,.12)');
+        } else {
+          document.documentElement.style.setProperty('--app-bg', '#05070c');
+          document.documentElement.style.setProperty('--app-fg', '#f8fafc');
+          document.documentElement.style.setProperty('--status-bg', 'rgba(10,15,24,.72)');
+          document.documentElement.style.setProperty('--status-border', 'rgba(248,250,252,.18)');
+        }
+      }
+
+      #flashStatus(message) {
+        const status = this.#root.querySelector('.status');
+        status.textContent = message;
+        clearTimeout(this._statusTimer);
+        this._statusTimer = setTimeout(() => this.#layout(), 900);
+      }
+
+      #layout() {
+        this.#gap = 12;
+        this.#padding = 16;
+
+        this.#root.querySelector('.surface').style.setProperty('--surface-padding', `${this.#padding}px`);
+        this.#grid.style.setProperty('--surface-gap', `${this.#gap}px`);
+
+        const width = Math.max(1, this.getBoundingClientRect().width - this.#padding * 2);
+        const pitchTarget = this.#slotTarget + this.#gap;
+        const columns = Math.max(1, Math.floor((width + this.#gap) / pitchTarget));
+        const slotSize = (width - ((columns - 1) * this.#gap)) / columns;
+
+        this.#grid.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+        this.#grid.style.setProperty('--slot-size', `${slotSize}px`);
+
+        const makeRequest = (c, r, optionalOverrides = {}) => ({
+          contractVersion: CONTRACT_VERSION,
+          required: {
+            language: 'pt-BR',
+            theme: 'system',
+            availableArea: { columns: c, rows: r }
+          },
+          optional: {
+            transparentBackground: false,
+            font: 'Inter',
+            ...optionalOverrides
+          },
+          extra: {
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            viewport: { width: window.innerWidth, height: window.innerHeight }
+          }
+        });
+
+        const mainCols = Math.min(4, columns);
+        const mainRows = 2;
+        const sideCols = Math.min(2, columns);
+        const sideRows = 2;
+
+        const mainResult = this.#mainTile.present(makeRequest(mainCols, mainRows));
+        const sideResult = this.#sideTile.present(makeRequest(sideCols, sideRows));
+        const settingsResult = this.#settingsTile.present(makeRequest(1, 1, {
+          transparentBackground: true,
+          borderWidth: 1,
+          borderRadius: 16
+        }));
+        const themeResult = this.#themeTile.present(makeRequest(1, 1, {
+          transparentBackground: true,
+          borderWidth: 0,
+          borderRadius: 16
+        }));
+
+        if (columns >= 6) {
+          this.#mainTile.style.gridColumn = '1 / span 4';
+          this.#mainTile.style.gridRow = '1 / span 2';
+
+          this.#sideTile.style.gridColumn = '5 / span 2';
+          this.#sideTile.style.gridRow = '1 / span 2';
+
+          this.#settingsTile.style.gridColumn = '1 / span 1';
+          this.#settingsTile.style.gridRow = '3 / span 1';
+
+          this.#themeTile.style.gridColumn = '2 / span 1';
+          this.#themeTile.style.gridRow = '3 / span 1';
+        } else {
+          this.#mainTile.style.gridColumn = `1 / span ${mainCols}`;
+          this.#mainTile.style.gridRow = `span ${mainRows}`;
+
+          this.#sideTile.style.gridColumn = `1 / span ${sideCols}`;
+          this.#sideTile.style.gridRow = `span ${sideRows}`;
+
+          this.#settingsTile.style.gridColumn = '1 / span 1';
+          this.#settingsTile.style.gridRow = 'span 1';
+
+          this.#themeTile.style.gridColumn = columns >= 2 ? '2 / span 1' : '1 / span 1';
+          this.#themeTile.style.gridRow = 'span 1';
+        }
+
+        const ok = mainResult.ok && sideResult.ok && settingsResult.ok && themeResult.ok;
+        this.#root.querySelector('.status').textContent =
+          ok
+            ? `Tema ${this.#themeMode} · Surface ${columns} col · slot ${slotSize.toFixed(1)}px · 4×2 + 2×2 + 1×1 + 1×1`
+            : 'Um Tile recusou a apresentação';
+      }
+    }
+
+    customElements.define('presentation-surface', PresentationSurface);
+
+    window.addEventListener('tile-presented', event => {
+      console.log('[Presentation Global Event] tile-presented', event.detail);
+    });
+
+    window.addEventListener('tile-presentation-failed', event => {
+      console.error('[Presentation Global Event] tile-presentation-failed', event.detail);
+    });
+  })();
+  </script>
+</body>
+</html>

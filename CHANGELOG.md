@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.16.3
+
+### Fixed
+
+- `ontobdc view`/`infobim view` crashed with `PermissionError: [WinError 5] Access is denied` (or `OSError: [WinError 32]`) removing their ETL state directory (`.__ontobdc__/etl/view/surface`) on every run — the unprotected `shutil.rmtree()` call had no tolerance for a cloud-sync client (OneDrive, Dropbox, etc.) briefly holding an open handle on a file while indexing/uploading it, a lock that normally clears within a second. Added `shared.adapter.filesystem.remove_directory_tree()`, a drop-in `shutil.rmtree()` replacement that retries with a short backoff before giving up (and raises a clear message pointing at the real cause instead of a raw traceback); wired into both `ontobdc view` and (via `infobim-wip`) `infobim view`.
+
 ## v0.16.2
 
 ### Fixed
