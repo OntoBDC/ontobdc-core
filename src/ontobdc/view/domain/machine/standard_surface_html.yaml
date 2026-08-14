@@ -80,7 +80,7 @@ statechart:
               - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_MATCHED, to_state = SurfaceGenerationProcessStatePort.SURFACE_OPERATIONAL_MATCHED)
 
       - name: surface_operational_matched
-        description: "Operational Tiles declared by any configured DefaultSurfaceLayout/PresentationSurface RDF are matched and the resolved layout candidates are embedded for client-side selection."
+        description: "The OperationRegion of the shipped default Surface layout (Logo/Language/Theme) is resolved when no explicit operation-region Tile was declared, and its SurfaceDefinition is embedded for client-side selection."
         transitions:
           - target: surface_assembled
             guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_ASSEMBLED)

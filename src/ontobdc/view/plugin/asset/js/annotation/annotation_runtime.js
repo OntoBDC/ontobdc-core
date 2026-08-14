@@ -16,17 +16,24 @@
   const workspaceFactory = required("OntoBDCAnnotationWorkspace");
   const subjectPageFactory = required("OntoBDCSubjectPage");
 
+  // Generated from ontobdc/i18n/locale/*.yaml ("annotation" namespace) —
+  // keep in sync by hand; there is no browser-side YAML fetch/build step
+  // in this package, so the YAML files are the canonical authored source
+  // and this table is their compiled runtime copy.
+  const LABELS_BY_LOCALE = {"en":{"annotation":"Annotation","emptyAnnotation":"Annotation without text.","showAnnotation":"Show annotation: ","closeAnnotation":"Close annotation","previewUnavailable":"The preview area is not available.","openCancelled":"Opening the annotation was cancelled.","application":"OntoBDC Annotation","resource":"Resource","dialog":"Annotate representation","close":"Close","category":"Category","newAnnotation":"New annotation","delete":"Delete","save":"Save","saved":"Saved","invalidGeometry":"The selected geometry is not valid for this annotation category.","saveError":"The annotation could not be saved.","field":"Field","legend":"Legend","total":"Total","openIssues":"Open issues","inProgressIssues":"In progress","resolvedIssues":"Resolved","withoutGeometry":"Without geometry","withoutThread":"Without Thread","open":"Open","unassigned":"Unassigned subjects","views":"Subject views","space":"Space","timeline":"Timeline","people":"People","withoutPosition":"Without spatial position","spatialGroup":"Spatial group","empty":"No annotations.","author":"Author","modifier":"Modifier","resolver":"Resolver","recorder":"Recorder","assignee":"Assignee","categoryLabels":{"NoteAnnotation":"Note","IssueAnnotation":"Issue","ClassificationAnnotation":"Classification","LocationAnnotation":"Location","RecordAnnotation":"Record"},"toolLabels":{"select":"Select","point":"Point","multiple-points":"Multiple points","bounding-box":"Bounding box","clear":"Clear geometry"}},"pt-BR":{"annotation":"Anotação","emptyAnnotation":"Anotação sem texto.","showAnnotation":"Mostrar anotação: ","closeAnnotation":"Fechar anotação","previewUnavailable":"A área de pré-visualização não está disponível.","openCancelled":"A abertura da anotação foi cancelada.","application":"Anotação OntoBDC","resource":"Recurso","dialog":"Anotar representação","close":"Fechar","category":"Categoria","newAnnotation":"Nova anotação","delete":"Excluir","save":"Salvar","saved":"Salvo","invalidGeometry":"A geometria selecionada não é válida para esta categoria de anotação.","saveError":"Não foi possível salvar a anotação.","field":"Campo","legend":"Legenda","total":"Total","openIssues":"Problemas abertos","inProgressIssues":"Em andamento","resolvedIssues":"Resolvidos","withoutGeometry":"Sem geometria","withoutThread":"Sem tópico","open":"Abrir","unassigned":"Assuntos não atribuídos","views":"Visões do assunto","space":"Espaço","timeline":"Linha do tempo","people":"Pessoas","withoutPosition":"Sem posição espacial","spatialGroup":"Grupo espacial","empty":"Nenhuma anotação.","author":"Autor","modifier":"Modificador","resolver":"Resolvedor","recorder":"Registrador","assignee":"Responsável","categoryLabels":{"NoteAnnotation":"Nota","IssueAnnotation":"Problema","ClassificationAnnotation":"Classificação","LocationAnnotation":"Localização","RecordAnnotation":"Registro"},"toolLabels":{"select":"Selecionar","point":"Ponto","multiple-points":"Múltiplos pontos","bounding-box":"Caixa delimitadora","clear":"Limpar geometria"}},"pt-PT":{"annotation":"Anotação","emptyAnnotation":"Anotação sem texto.","showAnnotation":"Mostrar anotação: ","closeAnnotation":"Fechar anotação","previewUnavailable":"A área de pré-visualização não está disponível.","openCancelled":"A abertura da anotação foi cancelada.","application":"Anotação OntoBDC","resource":"Recurso","dialog":"Anotar representação","close":"Fechar","category":"Categoria","newAnnotation":"Nova anotação","delete":"Eliminar","save":"Guardar","saved":"Guardado","invalidGeometry":"A geometria selecionada não é válida para esta categoria de anotação.","saveError":"Não foi possível guardar a anotação.","field":"Campo","legend":"Legenda","total":"Total","openIssues":"Problemas em aberto","inProgressIssues":"Em curso","resolvedIssues":"Resolvidos","withoutGeometry":"Sem geometria","withoutThread":"Sem tópico","open":"Abrir","unassigned":"Assuntos não atribuídos","views":"Vistas do assunto","space":"Espaço","timeline":"Linha temporal","people":"Pessoas","withoutPosition":"Sem posição espacial","spatialGroup":"Grupo espacial","empty":"Sem anotações.","author":"Autor","modifier":"Modificador","resolver":"Resolvedor","recorder":"Registador","assignee":"Responsável","categoryLabels":{"NoteAnnotation":"Nota","IssueAnnotation":"Problema","ClassificationAnnotation":"Classificação","LocationAnnotation":"Localização","RecordAnnotation":"Registo"},"toolLabels":{"select":"Selecionar","point":"Ponto","multiple-points":"Múltiplos pontos","bounding-box":"Caixa delimitadora","clear":"Limpar geometria"}},"es":{"annotation":"Anotación","emptyAnnotation":"Anotación sin texto.","showAnnotation":"Mostrar anotación: ","closeAnnotation":"Cerrar anotación","previewUnavailable":"El área de vista previa no está disponible.","openCancelled":"Se canceló la apertura de la anotación.","application":"Anotación OntoBDC","resource":"Recurso","dialog":"Anotar representación","close":"Cerrar","category":"Categoría","newAnnotation":"Nueva anotación","delete":"Eliminar","save":"Guardar","saved":"Guardado","invalidGeometry":"La geometría seleccionada no es válida para esta categoría de anotación.","saveError":"No se pudo guardar la anotación.","field":"Campo","legend":"Leyenda","total":"Total","openIssues":"Problemas abiertos","inProgressIssues":"En progreso","resolvedIssues":"Resueltos","withoutGeometry":"Sin geometría","withoutThread":"Sin hilo","open":"Abrir","unassigned":"Asuntos no asignados","views":"Vistas del asunto","space":"Espacio","timeline":"Línea de tiempo","people":"Personas","withoutPosition":"Sin posición espacial","spatialGroup":"Grupo espacial","empty":"Sin anotaciones.","author":"Autor","modifier":"Modificador","resolver":"Resolutor","recorder":"Registrador","assignee":"Responsable","categoryLabels":{"NoteAnnotation":"Nota","IssueAnnotation":"Problema","ClassificationAnnotation":"Clasificación","LocationAnnotation":"Ubicación","RecordAnnotation":"Registro"},"toolLabels":{"select":"Seleccionar","point":"Punto","multiple-points":"Múltiples puntos","bounding-box":"Cuadro delimitador","clear":"Limpiar geometría"}}};
+
+  function localeLabels() {
+    const lang = document.documentElement.lang || document.documentElement.dataset.language || "en";
+    return LABELS_BY_LOCALE[lang] || LABELS_BY_LOCALE.en;
+  }
+
   function createRuntime(configuration) {
     const options = Object.assign({ prefix: "ontobdc", bodyOpenClass: "has-annotation-dialog", normalizeContext: function (v) { return v; }, store: {}, surface: {}, visual: {}, labels: {} }, configuration || {});
-    options.labels = Object.assign({
-      annotation: "Annotation", emptyAnnotation: "Annotation without text.", showAnnotation: "Show annotation: ", closeAnnotation: "Close annotation",
-      previewUnavailable: "The preview area is not available.", openCancelled: "Opening the annotation was cancelled.",
-      application: "OntoBDC Annotation", resource: "Resource", dialog: "Annotate representation", close: "Close",
-      category: "Category", newAnnotation: "New annotation", delete: "Delete", save: "Save",
-      categoryLabels: { NoteAnnotation: "Note", IssueAnnotation: "Issue", ClassificationAnnotation: "Classification", LocationAnnotation: "Location", RecordAnnotation: "Record" },
-      toolLabels: { select: "Select", point: "Point", "multiple-points": "Multiple points", "bounding-box": "Bounding box", clear: "Clear geometry" },
-      fieldLabels: {}, valueLabels: {}, invalidGeometry: "The selected geometry is not valid for this annotation category.", saveError: "The annotation could not be saved.",
-    }, options.labels || {});
+    options.labels = Object.assign(
+      { fieldLabels: {}, valueLabels: {} },
+      localeLabels(),
+      options.labels || {},
+    );
     const store = stores.createFileSystemStore(options.store);
     const visualResolver = visualResolvers.createResolver(options.visual);
     const previewSurfaces = new WeakMap();
@@ -204,6 +211,7 @@
       const workspace = workspaceFactory.create(Object.assign({
         annotations: store.list(),
         visualResolver: visualResolver,
+        labels: options.labels,
         onOpen: function (annotation) {
           if (context.openAnnotation) context.openAnnotation(annotation);
         },
@@ -217,6 +225,7 @@
       const page = subjectPageFactory.create(Object.assign({
         annotations: store.list(),
         subjectUri: subjectUri || null,
+        labels: options.labels,
         onOpen: function (annotation) {
           if (context.openAnnotation) context.openAnnotation(annotation);
         },

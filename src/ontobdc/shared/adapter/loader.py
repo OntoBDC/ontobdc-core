@@ -74,15 +74,31 @@ class PluginLoader(PluginLoaderPort):
 
         return discovered
 
-    def _list_plugin_folder(self, resource: str) -> List[str]:
+    def _list_plugin_folder(self, resource: str, root_package: str = "ontobdc") -> List[str]:
         discovered: List[str] = []
-        ontobdc_root: str = str(self._make_config_data_adapter().script_dir)
 
+        if root_package == "ontobdc":
+            try:
+                ontobdc_root: str = str(self._make_config_data_adapter().script_dir)
+                discovered = self._scan_directory(resource, ontobdc_root, "ontobdc", discovered)
+                module_dir = os.path.join(ontobdc_root, "module")
+                if os.path.isdir(module_dir):
+                    discovered = self._scan_directory(resource, module_dir, "ontobdc.module", discovered)
+            except Exception:
+                return []
+
+            return discovered
+
+        # A downstream package (e.g. infobim) built on ontobdc's own plugin
+        # convention (<domain>/plugin/<resource>/*.py) — resolved via the
+        # installed-package lookup instead of ConfigDataAdapter.script_dir,
+        # which is ontobdc-specific. No "module/" extension slot for these:
+        # that convention only applies to ontobdc itself.
         try:
-            discovered = self._scan_directory(resource, ontobdc_root, "ontobdc", discovered)
-            module_dir = os.path.join(ontobdc_root, "module")
-            if os.path.isdir(module_dir):
-                discovered = self._scan_directory(resource, module_dir, "ontobdc.module", discovered)
+            package_root: Optional[str] = self._find_installed_package_root(root_package)
+            if package_root is None:
+                return []
+            discovered = self._scan_directory(resource, package_root, root_package, discovered)
         except Exception:
             return []
 
@@ -397,9 +413,10 @@ class CommandLoader(PluginLoader, CommandLoaderPort):
     """
     Command loader for plugin commands.
     """
-    def __init__(self, logical_component: str, logger: LogRepositoryPort):
+    def __init__(self, logical_component: str, logger: LogRepositoryPort, root_package: str = "ontobdc"):
         self._logical_component: str = logical_component
         self._logger: LogRepositoryPort = logger
+        self._root_package: str = root_package
 
     def get(self, id: str) -> Type[CliCommandPort]:
         """
@@ -413,7 +430,7 @@ class CommandLoader(PluginLoader, CommandLoaderPort):
         """
         commands: List[Type[CliCommandPort]] = []
 
-        for pkg_name in [pkg for pkg in self._list_plugin_folder(resource) if pkg.split('.')[1] == self._logical_component]:
+        for pkg_name in [pkg for pkg in self._list_plugin_folder(resource, self._root_package) if pkg.split('.')[1] == self._logical_component]:
             try:
                 package = importlib.import_module(pkg_name)
             except ImportError as e:
@@ -440,9 +457,26 @@ class CommandLoader(PluginLoader, CommandLoaderPort):
                     module = importlib.import_module(name)
                     # Force evaluate module classes
                     for _, obj in inspect.getmembers(module):
-                        if (inspect.isclass(obj)
+                        if not (inspect.isclass(obj)
                                 and issubclass(obj, CliCommandPort)
                                 and obj is not CliCommandPort):
+                            continue
+                        # A command module may import another domain's
+                        # command class (e.g. to delegate/proxy to it) —
+                        # that import makes it visible to inspect.getmembers
+                        # too, but it belongs to ITS OWN declared domain, not
+                        # whichever domain's directory this module happens to
+                        # live under. Filtering on the class's own
+                        # METADATA.logical_component (rather than the module
+                        # path it was found via) keeps a domain's discovered
+                        # command list scoped to commands that actually
+                        # declare themselves as belonging to it — a plain
+                        # re-export (`from ontobdc... import X`) still counts,
+                        # since X's own METADATA is unchanged either way.
+                        command_metadata = getattr(obj, "METADATA", None)
+                        if getattr(command_metadata, "logical_component", None) != self._logical_component:
+                            continue
+                        if obj not in commands:
                             commands.append(obj)
                 except Exception as e:
                     self._logger.log_warning(f"{package_prefix}{name} raised the error: {e}")

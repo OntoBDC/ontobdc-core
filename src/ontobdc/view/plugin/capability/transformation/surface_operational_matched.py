@@ -1,82 +1,76 @@
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List
 
 from rdflib import Graph
 
 from ontobdc.cli.domain.port.context import CliContextPort
-from ontobdc.shared.adapter.capability import TransformationCapability
-from ontobdc.shared.adapter.loader import ComponentLoader
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
-from ontobdc.view.adapter.surface.context import surface_layouts_path_from_context
 from ontobdc.view.adapter.surface.document import (
-    DEFAULT_LAYOUTS_ID,
     MATCHES_ID,
-    embed_default_layouts_bootstrap,
     extract_json_script,
     normalize_matches,
     set_state_marker,
     upsert_json_script,
+    upsert_raw_script,
 )
-from ontobdc.view.adapter.surface.transformation import SurfaceTransformationAdapter
 from ontobdc.view.domain.machine.surface_state import SurfaceGenerationProcessState
+from ontobdc.view.plugin.capability.transformation.surface_matched import SurfaceMatchedCapability
 from ontobdc.view.plugin.check.is_surface_operational_matched.check import (
     main as check_surface_operational_matched,
 )
 
-# `ontobdc_view` (repo `presentation`) already owns the RDF `SurfaceDefinition`/
-# `DefaultSurfaceLayout` parser and JSON-payload resolver (cloud.md/claude2.md).
-# `ontobdc` already runtime-depends on `ontobdc_view` being installed without a
-# formal pyproject dependency — see `SurfacePackagedCapability._read_component_sources`
-# (bare `import ontobdc_view`) and `ComponentLoader._load_ontobdc_view_components`
-# (dynamic `importlib.import_module("ontobdc_view.component.plugin")`) — this
-# reuses that same established, one-way pattern rather than duplicating the
-# parser here.
-from ontobdc_view.component.adapter.surface_definition import (
-    default_surface_layouts,
-    parse_default_surface_layouts,
-)
-from ontobdc_view.component.adapter.surface_resolution import to_render_payload
+DEFAULT_LAYOUTS_SCRIPT_ID = "ontobdc-surface-default-layouts"
+DEFAULT_LAYOUTS_BOOTSTRAP_ID = "ontobdc-surface-default-layouts-bootstrap"
+
+# `whenDefined` makes this independent of where the script tag lands in the
+# document relative to the `onto-presentation-surface` element's own
+# defining module script — no insertion-order assumption is needed.
+_BOOTSTRAP_JS = f"""\
+customElements.whenDefined("onto-presentation-surface").then(() => {{
+  const dataEl = document.getElementById("{DEFAULT_LAYOUTS_SCRIPT_ID}");
+  const surfaceEl = document.querySelector("onto-presentation-surface");
+  if (!dataEl || !surfaceEl) return;
+  try {{
+    surfaceEl.defaultSurfaceLayouts = JSON.parse(dataEl.textContent);
+  }} catch (error) {{
+    console.error("Failed to apply OntoBDC defaultSurfaceLayouts", error);
+  }}
+}});
+"""
 
 
-class SurfaceOperationalMatchedCapability(TransformationCapability):
-    """Match operational (OperationRegion) Tiles declared by RDF layouts.
+class SurfaceOperationalMatchedCapability(SurfaceMatchedCapability):
+    """Resolve the OperationRegion of the shipped `ontobdc_view` DefaultSurfaceLayout.
 
-    `SURFACE_MATCHED` only ever auto-matches *content* Tiles (entities
-    marked `obdc:SurfaceableEntity`) or Tiles the caller explicitly
-    requested — nothing ever populates the OperationRegion (logo/theme/
-    language/...) on its own. This stage closes that gap: whichever
-    `view:DefaultSurfaceLayout`/`view:PresentationSurface` RDF the container
-    configures (`surface_layouts_path_from_context`) is used; if it
-    configures none, `ontobdc_view.default_surface_layouts()` — a shipped
-    fallback (Logo/Language/Theme in an unbounded OperationRegion) — applies
-    instead, so a container with no configuration at all still gets a
-    sensible operational Surface rather than an empty one. Every declared
-    `ComponentPlacement` in an `OperationRegion`, across every candidate
-    layout, is resolved to a registered Component and added to the existing
-    matches list — skipping any tag the caller already requested explicitly,
-    so an explicit request always wins.
+    `ontobdc_view.component.adapter.surface_definition.default_surface_layouts()`
+    ships one always-matching `view:DefaultSurfaceLayout` (Logo/Language/Theme
+    in its OperationRegion) — used whenever the caller declared no explicit
+    operation-region Tile of its own. Reuses `SurfaceMatchedCapability`'s
+    `_with_resolved_tile` (the same Chrome-Tile `tileClass` resolution
+    `SURFACE_MATCHED` already implements) to turn each placement into a
+    resolved `surface_matches` entry, and additionally embeds the resolved
+    `SurfaceDefinition` payload so the browser's own ontology-driven
+    `defaultSurfaceLayouts` selection (`onto-presentation-surface.js`,
+    `ontobdc-view` >= 0.3) picks it up instead of falling back to the legacy
+    fixed topology.
 
-    This offline generator has no notion of the eventual browser viewport
-    (`standard_surface_html.yaml`'s own description says so) — it embeds
-    *every* candidate layout's resolved JSON (`DEFAULT_LAYOUTS_ID`) plus a
-    small bootstrap script that hands them to
-    `onto-presentation-surface.defaultSurfaceLayouts`; which one applies is
-    selected entirely client-side, at whatever capacity the browser
-    eventually measures.
+    `ontobdc_view` is not a formal runtime dependency of `ontobdc` (see
+    `ontobdc_view`'s own changelog) — this capability is a no-op, not a hard
+    failure, whenever it is not installed.
     """
 
     METADATA = CapabilityMetadata(
         id="org.ontobdc.view.plugin.capability.transformation.target.surface_operational_matched",
         version="1.0.0",
         name="Surface Operational Matched",
-        description="Match operational Tiles declared by DefaultSurfaceLayout/PresentationSurface RDF and embed the resolved candidates for client-side selection.",
+        description=(
+            "Resolve the OperationRegion of the shipped ontobdc_view DefaultSurfaceLayout "
+            "(Logo/Language/Theme) when the caller declared no explicit operation-region "
+            "Tile, and embed its SurfaceDefinition for client-side ontology-driven selection."
+        ),
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
-        tags=["view", "surface", "tile", "operational", "default-layout", "transformation"],
+        tags=["view", "surface", "tile", "operation", "default-layout", "transformation"],
         supported_languages=["en", "pt-br"],
     )
-
-    def __init__(self) -> None:
-        self._surface = SurfaceTransformationAdapter()
-        self._components = ComponentLoader()
 
     def label(self, lang: str = "en") -> str:
         return SurfaceGenerationProcessState.SURFACE_OPERATIONAL_MATCHED.label(lang)
@@ -93,90 +87,62 @@ class SurfaceOperationalMatchedCapability(TransformationCapability):
         if not isinstance(matches, list):
             raise ValueError("Surface matches are missing or invalid")
 
-        candidate_layouts = self._candidate_layouts(context)
-        injected = self._injected_operational_matches(candidate_layouts, matches)
+        layouts = self._default_layouts()
+        operation_already_declared = any(
+            str(item.get("region", "")).strip().lower() == "operation" for item in matches
+        )
 
-        all_matches = normalize_matches(matches + injected)
-        document = upsert_json_script(document, MATCHES_ID, all_matches)
+        added: List[Dict[str, Any]] = []
+        if layouts and not operation_already_declared:
+            empty_graph = Graph()
+            for request in self._operation_requests(layouts):
+                added.append(self._with_resolved_tile(empty_graph, request))
 
-        if candidate_layouts:
-            payloads = [to_render_payload(layout, self._components) for layout in candidate_layouts]
-            document = upsert_json_script(document, DEFAULT_LAYOUTS_ID, payloads)
-            document = embed_default_layouts_bootstrap(document)
+        if added:
+            matches = normalize_matches(list(matches) + added)
+            document = upsert_json_script(document, MATCHES_ID, matches)
+
+        if layouts:
+            from ontobdc_view.component.adapter.surface_resolution import to_render_payload
+
+            payload = [to_render_payload(layout) for layout in layouts]
+            document = upsert_json_script(document, DEFAULT_LAYOUTS_SCRIPT_ID, payload)
+            document = upsert_raw_script(
+                document, DEFAULT_LAYOUTS_BOOTSTRAP_ID, "module", _BOOTSTRAP_JS
+            )
 
         document = set_state_marker(document, "surface_operational_matched")
         path = self._surface.write(context, document)
-        self._surface.require_check(context, check_surface_operational_matched, "surface_operational_matched")
+        self._surface.require_check(
+            context, check_surface_operational_matched, "surface_operational_matched"
+        )
 
         return {
             "resulting_state": SurfaceGenerationProcessState.SURFACE_OPERATIONAL_MATCHED,
             "surface_path": str(path),
-            "operational_match_count": len(injected),
-            "default_layout_count": len(candidate_layouts),
+            "operational_match_count": len(added),
+            "default_layout_count": len(layouts),
         }
 
-    def is_satisfied(self, context: CliContextPort) -> bool:
-        return self.check(context)
+    @staticmethod
+    def _default_layouts() -> List[Any]:
+        try:
+            from ontobdc_view.component.adapter.surface_definition import default_surface_layouts
+        except ImportError:
+            return []
+        return default_surface_layouts()
 
-    def _candidate_layouts(self, context: CliContextPort) -> List:
-        layouts_path = surface_layouts_path_from_context(context)
-        if layouts_path is None or not layouts_path.is_file():
-            # No project-specific layouts configured — fall back to the
-            # shipped default rather than leaving the OperationRegion empty.
-            return default_surface_layouts()
-
-        graph = Graph()
-        graph.parse(str(layouts_path), format="turtle")
-        return parse_default_surface_layouts(graph)
-
-    def _injected_operational_matches(
-        self,
-        candidate_layouts: List,
-        existing_matches: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
-        seen_tags: Set[str] = {
-            str(match.get("tile", "")).strip()
-            for match in existing_matches
-            if isinstance(match, dict)
-        }
-
-        injected: List[Dict[str, Any]] = []
-        for layout in candidate_layouts:
+    @staticmethod
+    def _operation_requests(layouts: List[Any]) -> List[Dict[str, Any]]:
+        requests: List[Dict[str, Any]] = []
+        for layout in layouts:
             for region in layout.regions:
                 if region.role != "OperationRegion":
                     continue
                 for placement in region.placements:
-                    match = self._resolve_placement_match(placement, seen_tags)
-                    if match is None:
+                    if not placement.component_type_iri:
                         continue
-                    seen_tags.add(match["tile"])
-                    injected.append(match)
-
-        return injected
-
-    def _resolve_placement_match(self, placement, seen_tags: Set[str]):
-        if not placement.component_type_iri:
-            raise ValueError(
-                f"ComponentPlacement {placement.iri} has no rdf:type to resolve an operational Tile from"
-            )
-
-        resolved = self._components.match_tile_class(placement.component_type_iri)
-        if not resolved:
-            raise ValueError(f"No registered Component implements {placement.component_type_iri}")
-
-        metadata = resolved[0].METADATA
-        if metadata.tag in seen_tags:
-            return None
-
-        return {
-            "tile": metadata.tag,
-            "region": "operation",
-            "tileClass": placement.component_type_iri,
-            "minColumns": metadata.min_columns,
-            "preferredColumns": metadata.min_columns,
-            "maxColumns": metadata.max_columns if metadata.max_columns is not None else metadata.min_columns,
-            "minRows": 1,
-            "preferredRows": 1,
-            "maxRows": 1,
-            "closed": bool(metadata.default_closed),
-        }
+                    requests.append(
+                        {"tileClass": placement.component_type_iri, "region": "operation"}
+                    )
+        return requests

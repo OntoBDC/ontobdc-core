@@ -3,7 +3,7 @@ from typing import Callable, List, Optional
 from rdflib import URIRef
 from rdflib.namespace import DCTERMS, RDF
 
-from ontobdc.shared.adapter.config import ConfigDataAdapter
+from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
 from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
 from ontobdc.shared.facade.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
@@ -12,7 +12,13 @@ from ontobdc.shared.facade.response.command import CommandResponse
 from ontobdc.storage import get_storage_file
 from ontobdc.storage.adapter.repository import LoadedStorageGraph, StorageGraphFileRepository
 
-_ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(ConfigDataAdapter())
+# UnsetProjectRootConfigDataAdapter (not ConfigDataAdapter) so this module
+# can be imported for command *discovery* (CommandLoader.get_all(), e.g. to
+# build `ontobdc storage --help`/`ontobdc --help`) before any project root
+# exists yet — same pattern ontobdc_view's Chrome Tile descriptors use
+# (logo_tile.py etc.) for the same reason. The ontology namespace lookup
+# itself doesn't need a real project root; only run()'s actual delete does.
+_ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(UnsetProjectRootConfigDataAdapter())
 OBDC = _ontology_adapter.get_ontology_namespace_by_prefix("obdc")
 
 

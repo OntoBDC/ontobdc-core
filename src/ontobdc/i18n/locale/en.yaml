@@ -1,0 +1,61 @@
+# English (base/default locale). Canonical key set — every other locale
+# file must carry the same keys.
+#
+# This namespace ("annotation") backs annotation_runtime.js's default
+# `labels` (the single seam every annotation UI surface — editor, renderer,
+# workspace, subject page — reads through). Keep annotation_runtime.js's
+# embedded LABELS_BY_LOCALE table in sync with this file (there is no
+# runtime YAML fetch on the browser side; this file is the canonical
+# authored source, annotation_runtime.js carries the compiled copy).
+annotation:
+  annotation: "Annotation"
+  emptyAnnotation: "Annotation without text."
+  showAnnotation: "Show annotation: "
+  closeAnnotation: "Close annotation"
+  previewUnavailable: "The preview area is not available."
+  openCancelled: "Opening the annotation was cancelled."
+  application: "OntoBDC Annotation"
+  resource: "Resource"
+  dialog: "Annotate representation"
+  close: "Close"
+  category: "Category"
+  newAnnotation: "New annotation"
+  delete: "Delete"
+  save: "Save"
+  saved: "Saved"
+  invalidGeometry: "The selected geometry is not valid for this annotation category."
+  saveError: "The annotation could not be saved."
+  field: "Field"
+  legend: "Legend"
+  total: "Total"
+  openIssues: "Open issues"
+  inProgressIssues: "In progress"
+  resolvedIssues: "Resolved"
+  withoutGeometry: "Without geometry"
+  withoutThread: "Without Thread"
+  open: "Open"
+  unassigned: "Unassigned subjects"
+  views: "Subject views"
+  space: "Space"
+  timeline: "Timeline"
+  people: "People"
+  withoutPosition: "Without spatial position"
+  spatialGroup: "Spatial group"
+  empty: "No annotations."
+  author: "Author"
+  modifier: "Modifier"
+  resolver: "Resolver"
+  recorder: "Recorder"
+  assignee: "Assignee"
+  categoryLabels:
+    NoteAnnotation: "Note"
+    IssueAnnotation: "Issue"
+    ClassificationAnnotation: "Classification"
+    LocationAnnotation: "Location"
+    RecordAnnotation: "Record"
+  toolLabels:
+    select: "Select"
+    point: "Point"
+    multiple-points: "Multiple points"
+    bounding-box: "Bounding box"
+    clear: "Clear geometry"

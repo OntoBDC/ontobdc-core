@@ -7,7 +7,7 @@ name = "ontobdc"
 authors = [
     { name = "Elias Magalhães", email = "elias@brasidata.com" }
 ]
-version = "0.15.0"
+version = "0.16.0"
 description = "OntoBDC (Ontology-Based Datasets & Containers)"
 readme = "README.md"
 license = { text = "Apache-2.0" }

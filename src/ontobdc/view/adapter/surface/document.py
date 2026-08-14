@@ -128,6 +128,24 @@ def upsert_json_script(
     return _insert_before_closing_tag(document, "head", replacement)
 
 
+def upsert_raw_script(
+    document: str,
+    script_id: str,
+    script_type: str,
+    body: str,
+) -> str:
+    safe_body = body.replace("</script>", "<\\/script>")
+    replacement = f'<script type="{script_type}" id="{script_id}">\n{safe_body}\n</script>'
+    pattern = re.compile(
+        rf"<script\b[^>]*\bid=[\"']{re.escape(script_id)}[\"'][^>]*>"
+        rf".*?</script>",
+        re.IGNORECASE | re.DOTALL,
+    )
+    if pattern.search(document):
+        return pattern.sub(replacement, document, count=1)
+    return _insert_before_closing_tag(document, "head", replacement)
+
+
 def extract_json_script(document: str, script_id: str) -> Any:
     pattern = re.compile(
         rf"<script\b[^>]*\bid=[\"']{re.escape(script_id)}[\"'][^>]*>"
