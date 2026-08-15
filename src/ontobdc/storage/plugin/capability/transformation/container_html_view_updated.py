@@ -1,9 +1,9 @@
-import shutil
 from pathlib import Path
 from typing import Any, Dict
 
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransactionCapability
+from ontobdc.shared.adapter.filesystem import remove_directory_tree, remove_file
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.storage.domain.machine.state import ContainerUpdateProcessState
 
@@ -79,12 +79,12 @@ class ContainerHtmlViewUpdatedCapability(TransactionCapability):
         # Same precautions as `ontobdc view`: drop the current index.html and
         # any leftover ETL state so the pipeline runs fresh instead of
         # resuming mid-state from a stale prior run.
-        index_path.unlink()
+        remove_file(index_path)
         etl_state_directory: Path = DataGatheredCapability.state_directory(
             context
         )
         if etl_state_directory.is_dir():
-            shutil.rmtree(etl_state_directory)
+            remove_directory_tree(etl_state_directory)
 
         SurfaceGenerationStateTransitionHandler(context=context).execute()
 

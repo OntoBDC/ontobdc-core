@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.16.4
+
+### Fixed
+
+- The v0.16.3 retry-with-backoff fix for `PermissionError: [WinError 5]` on the ETL directory removal still failed for some setups with `"still in use after 5 attempts"` — five identical failures in a row is the signature of a permanent condition (a read-only attribute), not a transient lock, and no amount of retrying alone fixes that. Cloud-sync clients (OneDrive, Dropbox, etc.) routinely mark synced files read-only; `remove_directory_tree()` now clears the attribute and retries the specific failing operation (via `shutil.rmtree`'s `onexc` handler) before falling back to the existing sleep/retry loop for genuine transient locks.
+- Added `shared.adapter.filesystem.remove_file()`, the same read-only-clearing + retry treatment for single-file removal, and swept every other unprotected `.unlink()`/`shutil.rmtree()` call in the same container-root view-generation path that had the identical vulnerability: `ontobdc view`'s stale `index.html` removal, and `storage --update`'s HTML-regeneration step (`ContainerHtmlViewUpdatedCapability`, which had its own independent, still-unpatched copy of both the `index.html` unlink and the ETL directory rmtree).
+
 ## v0.16.3
 
 ### Fixed

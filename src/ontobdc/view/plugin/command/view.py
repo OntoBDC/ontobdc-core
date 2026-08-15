@@ -6,7 +6,7 @@ from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import CommandResponse
-from ontobdc.shared.adapter.filesystem import remove_directory_tree
+from ontobdc.shared.adapter.filesystem import remove_directory_tree, remove_file
 from ontobdc.storage.plugin.parameter.container import ContainerIdStrategy
 from ontobdc.view.adapter.surface.context import surface_path_from_context
 from ontobdc.view.adapter.surface.machine import SurfaceGenerationStateTransitionHandler
@@ -135,7 +135,7 @@ class ContainerViewCommand(CliCommandPort):
         # Avoid a failed prior run leaving a stale index.html frozen mid-state.
         existing_surface_path = surface_path_from_context(context)
         if existing_surface_path.is_file():
-            existing_surface_path.unlink()
+            remove_file(existing_surface_path)
 
         # DataGatheredCapability.check() passes as long as this ETL artifact
         # is present, so leaving it behind makes the state machine resume
