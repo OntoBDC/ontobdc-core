@@ -19,6 +19,20 @@ class AlignedCapability(TransformationCapability):
         author=["TRAE"],
         tags=["context", "learning", "aligned"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Deterministic aligned vector was produced from the spatialized "
+                    "learning source."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Producing a deterministic aligned vector from the "
+                    "spatialized learning source."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

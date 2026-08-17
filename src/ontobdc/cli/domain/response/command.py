@@ -1,4 +1,3 @@
-
 import json
 from pathlib import Path
 from typing import Any, Dict, List
@@ -83,3 +82,27 @@ class GridCommandResponse(CommandResponse):
     title: str = "Presentation Grid"
     description: str = "Visualize the terminal PresentationSurface's Tile grid."
     content: Dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
+class GraphCommandResponse(CommandResponse):
+    title: str = "Graph"
+    description: str = "Visualize a graph in the terminal."
+    content: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class GroupedGraphCommandResponse(GraphCommandResponse):
+    """A graph whose nodes/edges (see `ContextGraphAdapter`) render grouped
+    by subject instead of as a node-link diagram.
+
+    Suited to graphs that are structurally star-shaped — one subject with
+    several predicate/object properties, e.g. `context.ttl`'s single
+    `:CurrentContext` individual — where a network layout only produces
+    overlapping boxes around one hub, and each subject read once, with its
+    properties listed underneath, is the whole point.
+    """
+
+    title: str = "Graph"
+    description: str = "Visualize a graph in the terminal, grouped by subject."
+    content: Dict[str, Any] = field(default_factory=dict)

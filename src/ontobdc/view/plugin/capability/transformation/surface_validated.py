@@ -19,6 +19,20 @@ class SurfaceValidatedCapability(TransformationCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["view", "surface", "html", "validation", "transformation"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Packaged offline HTML Surface was validated and marked ready for "
+                    "publication."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Validating the packaged offline HTML Surface and marking it "
+                    "ready for publication."
+                ),
+            },
+        },
     )
 
     def __init__(self) -> None:

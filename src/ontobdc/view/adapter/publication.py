@@ -14,14 +14,11 @@ from rdflib.namespace import DCTERMS, PROV, RDF
 
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.storage.adapter.bootstrap import (
-    CT,
-    OBDC,
-    get_container_storage_file_path,
-    to_extended_length_path,
+    StorageBootstrap,
+    StorageNamespaceBootstrap,
 )
 from ontobdc.storage.adapter.manifest import (
     ContainerDataPackageSynchronizer,
-    list_container_resource_paths,
 )
 from ontobdc.storage.plugin.check.is_container_datapackage_frictionless_valid.hotfix import (
     main as hotfix_container_datapackage_frictionless_valid,
@@ -29,6 +26,10 @@ from ontobdc.storage.plugin.check.is_container_datapackage_frictionless_valid.ho
 from ontobdc.storage.plugin.check.is_container_datapackage_ro_crate_synced.hotfix import (
     main as hotfix_container_datapackage_ro_crate_synced,
 )
+
+StorageNamespaceBootstrap.initialize()
+_OBDC = StorageNamespaceBootstrap.OBDC
+_CT = StorageNamespaceBootstrap.CT
 
 VIEW_DATA_DIRECTORY = "view"
 VIEW_DATA_FILE = "data.json"
@@ -117,7 +118,9 @@ def is_publishable(context: CliContextPort) -> bool:
         container_path = resolve_container_path(context)
         _container_metadata(container_path)
         descriptor = _load_datapackage(container_path)
-        expected_paths = set(list_container_resource_paths(container_path))
+        expected_paths = set(
+            ContainerDataPackageSynchronizer.list_resource_paths(container_path)
+        )
         described_paths = set(
             _descriptor_local_paths(container_path, descriptor)
         )
@@ -238,7 +241,7 @@ def calculate_source_fingerprint(container_path: Path) -> str:
     resolved = container_path.expanduser().resolve()
     digest = hashlib.sha256()
 
-    metadata_path = get_container_storage_file_path(resolved)
+    metadata_path = StorageBootstrap.get_container_storage_file_path(resolved)
     if not metadata_path.is_file():
         raise ValueError(f"Container metadata not found: {metadata_path}")
     _update_file_digest(
@@ -247,7 +250,7 @@ def calculate_source_fingerprint(container_path: Path) -> str:
         ".__ontobdc__/container.ttl",
     )
 
-    for relative_path in list_container_resource_paths(resolved):
+    for relative_path in ContainerDataPackageSynchronizer.list_resource_paths(resolved):
         if relative_path == GENERATED_INDEX_FILE:
             continue
         _update_file_digest(
@@ -275,7 +278,7 @@ def _update_file_digest(
 ) -> None:
     digest.update(relative_path.encode("utf-8"))
     digest.update(b"\0")
-    with to_extended_length_path(file_path).open("rb") as stream:
+    with StorageBootstrap.to_extended_length_path(file_path).open("rb") as stream:
         while True:
             chunk = stream.read(1024 * 1024)
             if not chunk:
@@ -285,7 +288,7 @@ def _update_file_digest(
 
 
 def _container_metadata(container_path: Path) -> Dict[str, str]:
-    metadata_path = get_container_storage_file_path(container_path)
+    metadata_path = StorageBootstrap.get_container_storage_file_path(container_path)
     if not metadata_path.is_file():
         raise ValueError(f"Container metadata not found: {metadata_path}")
 
@@ -299,7 +302,7 @@ def _container_metadata(container_path: Path) -> Dict[str, str]:
 
     subjects = [
         subject
-        for subject in graph.subjects(RDF.type, OBDC.DataContainer)
+        for subject in graph.subjects(RDF.type, _OBDC.DataContainer)
         if isinstance(subject, URIRef)
     ]
     if len(subjects) != 1:
@@ -313,7 +316,7 @@ def _container_metadata(container_path: Path) -> Dict[str, str]:
         _graph_text(graph, subject, DCTERMS.title)
         or container_path.name
     )
-    description = _graph_text(graph, subject, CT.description)
+    description = _graph_text(graph, subject, _CT.description)
     location = (
         _graph_text(graph, subject, PROV.atLocation)
         or container_path.as_uri()
@@ -387,7 +390,7 @@ def _descriptor_local_paths(
 
 def _resource_records(container_path: Path) -> List[Dict[str, Any]]:
     records: List[Dict[str, Any]] = []
-    for relative_path in list_container_resource_paths(container_path):
+    for relative_path in ContainerDataPackageSynchronizer.list_resource_paths(container_path):
         if relative_path == GENERATED_INDEX_FILE:
             continue
         file_path = container_path / relative_path
@@ -400,7 +403,7 @@ def _resource_records(container_path: Path) -> List[Dict[str, Any]]:
                 "media_type": (
                     media_type or "application/octet-stream"
                 ),
-                "bytes": to_extended_length_path(file_path).stat().st_size,
+                "bytes": StorageBootstrap.to_extended_length_path(file_path).stat().st_size,
             }
         )
     return records

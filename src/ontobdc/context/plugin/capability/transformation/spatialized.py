@@ -17,6 +17,20 @@ class SpatializedCapability(TransformationCapability):
         author=["TRAE"],
         tags=["context", "learning", "spatialized"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Page chunks and bounding boxes were extracted from the "
+                    "identified learning source."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Extracting page chunks and bounding boxes from the "
+                    "identified learning source."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

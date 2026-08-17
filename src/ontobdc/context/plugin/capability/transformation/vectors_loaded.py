@@ -18,6 +18,20 @@ class VectorsLoadedCapability(TransformationCapability):
         author=["TRAE"],
         tags=["context", "analysis", "vector", "loaded"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Semantic embedding vectors were loaded from the vector store "
+                    "for the current context entity set."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Loading semantic embedding vectors from the vector "
+                    "store for the current context entity set."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

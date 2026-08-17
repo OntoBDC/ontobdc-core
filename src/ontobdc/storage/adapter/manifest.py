@@ -4,25 +4,18 @@ import mimetypes
 import os
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, ClassVar, Dict, FrozenSet, List, Optional, Set
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
+from frictionless import Resource, System, system as frictionless_system
+
 from ontobdc.storage.adapter.bootstrap import (
-    ONTOBDC_DIRECTORY_NAME,
-    to_extended_length_path,
+    StorageBootstrap,
+    StorageLayoutConstants,
 )
-
-
-_IGNORED_MARKER_DIR_NAMES: Set[str] = {
-    ONTOBDC_DIRECTORY_NAME,
-    ".__onmtobdc__",
-}
-_DATASET_MARKER_FILE_NAMES: Set[str] = {"dataset.ttl", "nid.ttl"}
-_DATASET_LINKSET_DIR_NAME: str = "linkset"
-_DATASET_DATAPACKAGE_FILE_NAME: str = "datapackage.json"
-_CONTAINER_DATAPACKAGE_FILE_NAME: str = "datapackage.json"
 
 
 @dataclass(frozen=True)
@@ -35,53 +28,131 @@ class ContainerDataPackageSyncResult:
     removed_resource_count: int
 
 
-def _is_dataset_dir(candidate_dir: Path) -> bool:
-    marker_dir: Path = candidate_dir / ONTOBDC_DIRECTORY_NAME
-    if marker_dir.is_dir():
-        for file_name in _DATASET_MARKER_FILE_NAMES:
-            if (marker_dir / file_name).is_file():
-                return True
+class FrictionlessFormatRegistry:
+    """Single source of truth for frictionless-supported file formats.
 
-    datapackage_file: Path = (
-        candidate_dir
-        / _DATASET_LINKSET_DIR_NAME
-        / _DATASET_DATAPACKAGE_FILE_NAME
-    )
-    return datapackage_file.is_file()
+    Format support is resolved by probing :meth:`frictionless.System.create_parser`
+    directly — the exact same path frictionless itself uses at runtime when it
+    actually reads a file. Answers are cached per-process (via class-level
+    :func:`functools.lru_cache`) so each distinct format is probed only once,
+    which keeps the hot path inside container walking effectively free.
 
+    The candidate pool stored in :attr:`CANDIDATES` exists only to pre-warm the
+    cache on the first call to :meth:`get_supported_formats` so plugins that
+    ship with frictionless by default are already known without any cache miss
+    during the normal ``os.walk`` of a container. Plugins registered later are
+    still detected through :meth:`supports` and do not require code changes.
+    """
 
-def list_container_resource_paths(container_path: Path) -> List[str]:
-    """List container-owned files, excluding OntoBDC internals and nested datasets."""
-    resolved_container_path: Path = container_path.expanduser().resolve()
-    if not resolved_container_path.is_dir():
-        raise ValueError(f"Container path is not a directory: {resolved_container_path}")
+    CANDIDATES: ClassVar[FrozenSet[str]] = frozenset({
+        "csv", "tsv", "txt", "psv",
+        "xlsx", "xls", "xlsm", "xlsb",
+        "ods", "numbers",
+        "json", "ndjson", "jsonl", "geojson",
+        "parquet", "pq", "orc", "feather", "avro",
+        "yaml", "yml", "toml",
+        "html", "htm", "xml",
+        "sav", "zsav", "por", "sas7bdat", "xpt", "dta",
+        "sql", "sqlite", "sqlite3", "db",
+        "md", "markdown", "rst",
+        "pdf", "docx", "doc", "odt", "pptx", "ppt",
+        "shp", "dbf", "kml", "gml", "gpx",
+        "zip", "gz", "tar", "bz2", "xz", "7z", "rar",
+        "log", "ini", "cfg",
+    })
 
-    resource_paths: List[str] = []
-    for root, dir_names, file_names in os.walk(
-        resolved_container_path,
-        topdown=True,
-    ):
-        root_path: Path = Path(root)
-        dir_names[:] = [
-            dir_name
-            for dir_name in dir_names
-            if dir_name not in _IGNORED_MARKER_DIR_NAMES
-            and not _is_dataset_dir(root_path / dir_name)
-        ]
+    @classmethod
+    @lru_cache(maxsize=None)
+    def supports(cls, file_format: str) -> bool:
+        """Return True iff frictionless has a registered parser for ``file_format``."""
+        normalized: str = str(file_format or "").strip().lower()
+        if not normalized:
+            return False
+        try:
+            resource: Resource = Resource(path="dummy.bin", format=normalized)
+            active_system: System = frictionless_system or System()
+            active_system.create_parser(resource)
+        except Exception:
+            return False
+        return True
 
-        for file_name in file_names:
-            file_path: Path = root_path / file_name
-            relative_path: str = file_path.relative_to(
-                resolved_container_path
-            ).as_posix()
-            if relative_path.strip():
-                resource_paths.append(relative_path)
-
-    return sorted(set(resource_paths))
+    @classmethod
+    def get_supported_formats(cls) -> FrozenSet[str]:
+        """Return the set of file extensions frictionless can actually parse."""
+        return frozenset(fmt for fmt in cls.CANDIDATES if cls.supports(fmt))
 
 
 class ContainerDataPackageSynchronizer:
-    """Synchronize a container-level Frictionless Data Package descriptor."""
+    """Synchronize a container-level Frictionless Data Package descriptor.
+
+    All directory traversal, descriptor build-up, and format gating lives
+    inside this class. No module-level function participates in any decision
+    — the thin module-level symbols exported below are purely backwards
+    compatible aliases that delegate to methods on this class.
+    """
+
+    _IGNORED_MARKER_DIR_NAMES: ClassVar[Set[str]] = {
+        StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME,
+        ".__onmtobdc__",
+    }
+    _DATASET_MARKER_FILE_NAMES: ClassVar[Set[str]] = {"dataset.ttl", "nid.ttl"}
+    _DATASET_LINKSET_DIR_NAME: ClassVar[str] = "linkset"
+    _DATASET_DATAPACKAGE_FILE_NAME: ClassVar[str] = "datapackage.json"
+    _CONTAINER_DATAPACKAGE_FILE_NAME: ClassVar[str] = "datapackage.json"
+
+    @classmethod
+    def _is_dataset_dir(cls, candidate_dir: Path) -> bool:
+        marker_dir: Path = candidate_dir / StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME
+        if marker_dir.is_dir():
+            for file_name in cls._DATASET_MARKER_FILE_NAMES:
+                if (marker_dir / file_name).is_file():
+                    return True
+
+        datapackage_file: Path = (
+            candidate_dir
+            / cls._DATASET_LINKSET_DIR_NAME
+            / cls._DATASET_DATAPACKAGE_FILE_NAME
+        )
+        return datapackage_file.is_file()
+
+    @classmethod
+    def list_resource_paths(cls, container_path: Path) -> List[str]:
+        """List container-owned files whose format is frictionless-compatible.
+
+        Excludes OntoBDC internals, nested datasets, and files whose
+        extension frictionless doesn't have a registered parser for.
+        """
+        resolved_container_path: Path = container_path.expanduser().resolve()
+        if not resolved_container_path.is_dir():
+            raise ValueError(
+                f"Container path is not a directory: {resolved_container_path}"
+            )
+
+        resource_paths: List[str] = []
+        for root, dir_names, file_names in os.walk(
+            resolved_container_path,
+            topdown=True,
+        ):
+            root_path: Path = Path(root)
+            dir_names[:] = [
+                dir_name
+                for dir_name in dir_names
+                if dir_name not in cls._IGNORED_MARKER_DIR_NAMES
+                and not cls._is_dataset_dir(root_path / dir_name)
+            ]
+
+            for file_name in file_names:
+                file_path: Path = root_path / file_name
+                file_format: str = file_path.suffix.lower().lstrip(".")
+                if not FrictionlessFormatRegistry.supports(file_format):
+                    continue
+                relative_path: str = file_path.relative_to(
+                    resolved_container_path
+                ).as_posix()
+                if relative_path.strip():
+                    resource_paths.append(relative_path)
+
+        return sorted(set(resource_paths))
 
     def sync(self, container_path: Path) -> ContainerDataPackageSyncResult:
         resolved_container_path: Path = container_path.expanduser().resolve()
@@ -90,15 +161,17 @@ class ContainerDataPackageSynchronizer:
                 f"Container path is not a directory: {resolved_container_path}"
             )
 
-        marker_dir: Path = resolved_container_path / ONTOBDC_DIRECTORY_NAME
+        marker_dir: Path = resolved_container_path / StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME
         marker_dir.mkdir(parents=True, exist_ok=True)
-        datapackage_path: Path = marker_dir / _CONTAINER_DATAPACKAGE_FILE_NAME
+        datapackage_path: Path = (
+            marker_dir / self._CONTAINER_DATAPACKAGE_FILE_NAME
+        )
 
         descriptor: Dict[str, Any] = self._load_descriptor(datapackage_path)
         original_resources: List[Dict[str, Any]] = self._resource_descriptors(
             descriptor
         )
-        resource_paths: List[str] = list_container_resource_paths(
+        resource_paths: List[str] = self.list_resource_paths(
             resolved_container_path
         )
         inventory: Set[str] = set(resource_paths)
@@ -117,6 +190,13 @@ class ContainerDataPackageSynchronizer:
                 external_resources.append(dict(resource_descriptor))
                 continue
 
+            resource_format: str = str(
+                resource_descriptor.get("format", "")
+            ).strip().lower()
+            if not FrictionlessFormatRegistry.supports(resource_format):
+                removed_resource_count += 1
+                continue
+
             if managed_path not in inventory or managed_path in existing_by_path:
                 removed_resource_count += 1
                 continue
@@ -128,6 +208,9 @@ class ContainerDataPackageSynchronizer:
         updated_resource_count: int = 0
 
         for relative_path in resource_paths:
+            file_format: str = Path(relative_path).suffix.lower().lstrip(".")
+            if not FrictionlessFormatRegistry.supports(file_format):
+                continue
             current_descriptor: Optional[Dict[str, Any]] = existing_by_path.get(
                 relative_path
             )
@@ -245,7 +328,7 @@ class ContainerDataPackageSynchronizer:
             descriptor.get("name") or self._resource_name(relative_path)
         ).strip()
         descriptor["path"] = descriptor_path
-        descriptor["bytes"] = to_extended_length_path(file_path).stat().st_size
+        descriptor["bytes"] = StorageBootstrap.to_extended_length_path(file_path).stat().st_size
 
         file_format: str = file_path.suffix.lower().lstrip(".")
         if file_format:
@@ -292,3 +375,4 @@ class ContainerDataPackageSynchronizer:
         )
         temporary_path.write_text(serialized + "\n", encoding="utf-8")
         temporary_path.replace(datapackage_path)
+

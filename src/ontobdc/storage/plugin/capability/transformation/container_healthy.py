@@ -62,6 +62,23 @@ class ContainerHealthyCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "update", "health"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Container data directory structure, RO-Crate manifest, and "
+                    "Frictionless Data Package descriptor were validated; no "
+                    "integrity issues or non-compliant artifacts were found."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Validating the container data directory structure, "
+                    "RO-Crate manifest, and Frictionless Data Package "
+                    "descriptor for integrity issues and non-compliant "
+                    "artifacts."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

@@ -3,12 +3,12 @@ from pathlib import Path
 from typing import Optional, Set
 
 from ontobdc.storage.adapter.bootstrap import (
-    ONTOBDC_DIRECTORY_NAME,
-    get_container_crate_metadata_file_path,
+    StorageBootstrap,
+    StorageLayoutConstants,
 )
-from ontobdc.storage.adapter.manifest import ContainerDataPackageSynchronizer
-from ontobdc.storage.plugin.check.is_container_datapackage_frictionless_valid.check import (
-    FRICTIONLESS_COMPATIBLE_FORMATS,
+from ontobdc.storage.adapter.manifest import (
+    ContainerDataPackageSynchronizer,
+    FrictionlessFormatRegistry,
 )
 from ontobdc.storage.plugin.check.is_container_manifest_synced.check import (
     _extract_has_part_ids,
@@ -21,7 +21,7 @@ def _frictionless_compatible_crate_paths(container_path: Path) -> Optional[Set[s
     Returns None when the crate can't be read at all (distinguished from an
     empty-but-readable crate, which is a legitimate `set()`).
     """
-    crate_path = get_container_crate_metadata_file_path(container_path)
+    crate_path = StorageBootstrap.get_container_crate_metadata_file_path(container_path)
     if not crate_path.is_file():
         return None
 
@@ -40,7 +40,9 @@ def _frictionless_compatible_crate_paths(container_path: Path) -> Optional[Set[s
     return {
         file_id
         for file_id in file_ids
-        if file_id.rsplit(".", 1)[-1].lower() in FRICTIONLESS_COMPATIBLE_FORMATS
+        if FrictionlessFormatRegistry.supports(
+            file_id.rsplit(".", 1)[-1].lower()
+        )
     }
 
 
@@ -87,7 +89,7 @@ def main(container_path: str = None, root_path: str = None) -> int:
     if not expected_paths:
         return 0
 
-    datapackage_path = resolved_container_path / ONTOBDC_DIRECTORY_NAME / "datapackage.json"
+    datapackage_path = resolved_container_path / StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME / "datapackage.json"
     present_paths = _present_managed_paths(resolved_container_path, datapackage_path)
     if present_paths is None:
         return 2

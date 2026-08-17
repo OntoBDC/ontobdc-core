@@ -30,6 +30,20 @@ class ContainerRoCrateUpdatedCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "update", "rocrate", "manifest"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Container RO-Crate metadata was synchronized and validated "
+                    "against the current manifest."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Synchronizing and validating the container RO-Crate "
+                    "metadata against the current manifest."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

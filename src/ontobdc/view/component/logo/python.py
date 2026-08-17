@@ -5,6 +5,8 @@ from typing import List, Optional, TextIO, Tuple
 
 from pyfiglet import Figlet
 
+from ontobdc.shared.adapter.terminal_color import ANSI_ESCAPE_REGEX, RESET
+
 
 class LogoComponent:
     """Terminal representation of the OntoBDC logo component."""
@@ -14,11 +16,10 @@ class LogoComponent:
     TEXT_VALUE = PRIMARY_TEXT + ACCENT_TEXT
     TEXT_FONT = "standard"
     PRIMARY_COLOR = (255, 255, 255)
-    BANNER_COLOR = (25, 70, 109)
+    BANNER_COLOR = (0, 180, 216)
+    LEGACY_BANNER_COLOR = (25, 70, 109)
     VERSION_GAP = "  "
     COMPACT_MARKER = ">_ "
-    RESET = "\x1b[0m"
-    ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 
     def __init__(
         self,
@@ -55,8 +56,8 @@ class LogoComponent:
 
         if self._color:
             logo_lines = [
-                f"{self._ansi_fg(self.PRIMARY_COLOR)}{primary}{self.RESET}"
-                f"{self._ansi_fg(self.BANNER_COLOR, bold=True)}{accent}{self.RESET}"
+                f"{self._ansi_fg(self.PRIMARY_COLOR)}{primary}{RESET}"
+                f"{self._ansi_fg(self.BANNER_COLOR, bold=True)}{accent}{RESET}"
                 if (primary + accent).strip()
                 else ""
                 for primary, accent in zip(primary_lines, accent_lines)
@@ -81,8 +82,8 @@ class LogoComponent:
         if not self._color:
             return f"{self.COMPACT_MARKER}{self.TEXT_VALUE}"
 
-        primary = f"{self._ansi_fg(self.PRIMARY_COLOR)}{self.PRIMARY_TEXT}{self.RESET}"
-        accent = f"{self._ansi_fg(self.BANNER_COLOR, bold=True)}{self.ACCENT_TEXT}{self.RESET}"
+        primary = f"{self._ansi_fg(self.PRIMARY_COLOR)}{self.PRIMARY_TEXT}{RESET}"
+        accent = f"{self._ansi_fg(self.BANNER_COLOR, bold=True)}{self.ACCENT_TEXT}{RESET}"
         return f"{self.COMPACT_MARKER}{primary}{accent}"
 
     def print(
@@ -130,7 +131,7 @@ class LogoComponent:
         )
 
     def _visible_length(self, value: str) -> int:
-        return len(self.ANSI_PATTERN.sub("", value))
+        return len(ANSI_ESCAPE_REGEX.sub("", value))
 
     @staticmethod
     def _ansi_fg(rgb: Tuple[int, int, int], *, bold: bool = False) -> str:

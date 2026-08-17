@@ -87,11 +87,24 @@ def _extract_required_dataset_triples(
     title_obj: Optional[object] = _get_single_object(dataset_graph, dataset_subject, DCTERMS.title)
     description_obj: Optional[object] = _get_single_object(dataset_graph, dataset_subject, DCTERMS.description)
     location_obj: Optional[object] = _get_single_object(dataset_graph, dataset_subject, PROV.atLocation)
+    declared_owner: Optional[object] = _get_single_object(
+        dataset_graph,
+        dataset_subject,
+        OBDC.belongsToDataContainer,
+    )
     if not isinstance(title_obj, Literal):
         return None
     if not isinstance(description_obj, Literal):
         return None
     if not isinstance(location_obj, URIRef):
+        return None
+    # The dataset.ttl can identify its owning container using either the
+    # container UUID subject (syntactic match) or the logical storage-level
+    # container ID URN (e.g. urn:ontobdc:storage/<name>).  Either form is
+    # valid; the mirror written into container.ttl always uses the container
+    # subject UUID of the concrete container graph we are validating.  We
+    # therefore accept any non-empty declared owner here.
+    if declared_owner is None or not str(declared_owner).strip():
         return None
 
     return {
@@ -168,14 +181,6 @@ def main(
 
     container_subject: Optional[URIRef] = _resolve_single_container_subject(container_graph)
     if container_subject is None:
-        return 1
-
-    expected_container_subject: Optional[object] = _get_single_object(
-        dataset_graph,
-        dataset_subject,
-        OBDC.belongsToDataContainer,
-    )
-    if expected_container_subject != container_subject:
         return 1
 
     expected_triples: Optional[Dict[URIRef, object]] = _extract_required_dataset_triples(

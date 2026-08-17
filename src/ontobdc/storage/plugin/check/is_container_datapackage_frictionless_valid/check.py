@@ -1,26 +1,14 @@
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ontobdc.storage.adapter.bootstrap import ONTOBDC_DIRECTORY_NAME
-from ontobdc.storage.adapter.manifest import ContainerDataPackageSynchronizer
-
-# Allowlist, not inference: frictionless.Resource can technically wrap almost
-# any file as a generic "file" resource, which would make every extension
-# "compatible" and defeat the point of this check. This lists only the
-# formats frictionless treats as structured/tabular data.
-FRICTIONLESS_COMPATIBLE_FORMATS = {
-    "csv",
-    "tsv",
-    "xlsx",
-    "xls",
-    "ods",
-    "json",
-    "ndjson",
-    "jsonl",
-    "parquet",
-    "yaml",
-    "yml",
-}
+from ontobdc.storage.adapter.bootstrap import (
+    StorageBootstrap,
+    StorageLayoutConstants,
+)
+from ontobdc.storage.adapter.manifest import (
+    ContainerDataPackageSynchronizer,
+    FrictionlessFormatRegistry,
+)
 
 
 def _incompatible_resources(container_path: Path) -> Optional[List[Dict[str, Any]]]:
@@ -29,7 +17,7 @@ def _incompatible_resources(container_path: Path) -> Optional[List[Dict[str, Any
     Returns None when the descriptor can't be read at all (check should
     report "invalid" rather than "has incompatible resources").
     """
-    datapackage_path = container_path / ONTOBDC_DIRECTORY_NAME / "datapackage.json"
+    datapackage_path = container_path / StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME / "datapackage.json"
     if not datapackage_path.is_file():
         return []  # nothing to prune yet — container_datapackage_updated runs first
 
@@ -51,7 +39,7 @@ def _incompatible_resources(container_path: Path) -> Optional[List[Dict[str, Any
             continue  # external resources are out of scope for this check
 
         resource_format = str(resource.get("format", "")).strip().lower()
-        if resource_format not in FRICTIONLESS_COMPATIBLE_FORMATS:
+        if not FrictionlessFormatRegistry.supports(resource_format):
             incompatible.append(resource)
 
     return incompatible

@@ -46,6 +46,21 @@ class DatasetHealthyCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "dataset", "update", "health"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Dataset metadata, container index entry, and Data Package were "
+                    "repaired and validated; facade health was reported."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Repairing and validating dataset metadata, the "
+                    "container index entry, and the Data Package while "
+                    "checking facade health."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

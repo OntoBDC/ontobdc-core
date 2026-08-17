@@ -15,7 +15,7 @@ from ontobdc.context.plugin.check.has_valid_context.hotfix import main as hotfix
 from ontobdc.shared.adapter.config import ConfigDataAdapter, UnsetProjectRootConfigDataAdapter
 from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
 from ontobdc.shared.adapter.util import to_snake_case
-from ontobdc.storage.adapter.bootstrap import get_context_file_path
+from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 
 _ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
     config_adapter=UnsetProjectRootConfigDataAdapter(),
@@ -58,7 +58,7 @@ class ContextBaseCommand(CliCommandPort):
     def run(self) -> CommandResponse:
         try:
             root_path: str = str(self._request.context.root_path)
-            context_file_path: str = str(get_context_file_path(root_path=Path(root_path).expanduser().resolve()))
+            context_file_path: str = str(StorageBootstrap.get_context_file_path(root_path=Path(root_path).expanduser().resolve()))
             context_data: Dict[str, Any] = self._load_context_data(context_file_path)
 
             return CommandResponse(

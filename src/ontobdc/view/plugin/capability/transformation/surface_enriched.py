@@ -20,6 +20,18 @@ class SurfaceEnrichedCapability(TransformationCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["view", "surface", "json-ld", "transformation"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Surface semantic data and metadata were embedded as JSON-LD."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Embedding Surface semantic data and metadata as JSON-LD."
+                ),
+            },
+        },
     )
 
     def __init__(self) -> None:

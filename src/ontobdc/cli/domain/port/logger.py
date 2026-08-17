@@ -16,12 +16,18 @@ class LogRepositoryPort(ABC):
     Repository port for log resources.
     """
     @abstractmethod
-    def log(self, level: LogLevelPort, message: str) -> None:
+    def log(
+        self,
+        level: LogLevelPort,
+        message: str,
+        *args: object,
+    ) -> None:
         """
         Log a message to the repository.
 
         :param level: The severity level of the log.
         :param message: The log message to log.
+        :param args: Optional contextual values appended to the same line.
         """
         pass
 

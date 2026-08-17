@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransformationCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
-from ontobdc.view.adapter.surface.context import component_scripts_from_context
+from ontobdc.view.adapter.surface.context import SurfaceContextAdapter
 from ontobdc.view.adapter.surface.document import (
     MATCHES_ID,
     SURFACE_TAG,
@@ -35,10 +35,25 @@ class SurfacePackagedCapability(TransformationCapability):
             "transformation",
         ],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Browser component implementations required by the Surface were "
+                    "embedded for offline execution."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Embedding required Surface Browser component implementations "
+                    "for offline execution."
+                ),
+            },
+        },
     )
 
     def __init__(self) -> None:
         self._surface = SurfaceTransformationAdapter()
+        self._context_adapter = SurfaceContextAdapter()
 
     def label(self, lang: str = "en") -> str:
         return SurfaceGenerationProcessState.SURFACE_PACKAGED.label(lang)
@@ -51,7 +66,7 @@ class SurfacePackagedCapability(TransformationCapability):
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         document = self._surface.read(context)
-        scripts = component_scripts_from_context(context)
+        scripts = self._context_adapter.component_scripts(context)
         if not scripts:
             scripts = self._read_component_sources(document)
         if not scripts:

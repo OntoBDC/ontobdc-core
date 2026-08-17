@@ -9,7 +9,7 @@ from ontobdc.shared.adapter.worker import StateWorkerAdapter
 from ontobdc.shared.domain.port.capability import CapabilityPort
 from ontobdc.shared.facade.adapter.logger import NullLogRepository
 from ontobdc.shared.facade.port.logger import LogRepositoryPort
-from ontobdc.view.adapter.surface.context import surface_path_from_context
+from ontobdc.view.adapter.surface.context import SurfaceContextAdapter
 from ontobdc.view.domain.machine.surface_state import SurfaceGenerationProcessState
 from ontobdc.view.domain.port.surface_machine import (
     SurfaceGenerationProcessStatePort,
@@ -74,7 +74,7 @@ class SurfaceGenerationStateEvaluatorAdapter(SurfaceGenerationStateEvaluatorPort
 
             if state.value.startswith("__surface_"):
                 try:
-                    surface_path_from_context(context)
+                    SurfaceContextAdapter().surface_path(context)
                 except ValueError:
                     break
 
@@ -114,7 +114,7 @@ class SurfaceGenerationStateTransitionHandler(SurfaceGenerationStateTransitionHa
 
     @property
     def target_path(self) -> Path:
-        return surface_path_from_context(self._context)
+        return SurfaceContextAdapter().surface_path(self._context)
 
     @property
     def observed_state(self) -> SurfaceGenerationProcessStatePort:

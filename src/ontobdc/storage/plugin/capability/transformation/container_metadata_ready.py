@@ -21,6 +21,20 @@ class ContainerMetadataReadyCapability(TransactionCapability):
         author=["TRAE"],
         tags=["storage", "container", "create", "metadata"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Container metadata preparation finished, and the metadata file "
+                    "is valid and ready for downstream steps."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Preparing and validating the container metadata file "
+                    "for downstream steps."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

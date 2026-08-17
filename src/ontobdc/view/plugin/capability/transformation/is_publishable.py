@@ -22,6 +22,20 @@ class IsPublishableCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["view", "container", "publication", "surface", "transformation"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Container publication descriptor was synchronized and validated "
+                    "for Surface publication."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Synchronizing and validating the container publication "
+                    "descriptor for Surface publication."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

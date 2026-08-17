@@ -144,14 +144,15 @@ def resolve_identity(context: CliContextPort) -> Dict[str, Any]:
     attachment_plan = required_plan(context)
     root_path = Path(attachment_plan["root_path"]).resolve()
     container_path = Path(attachment_plan["container_path"]).resolve()
-    relative_container_path = container_path.relative_to(root_path)
-    encoded_container_path = quote(
-        relative_container_path.as_posix(),
-        safe="/",
-    )
-    target_container_id = (
-        f"urn:ontobdc:storage/local/{encoded_container_path}"
-    )
+    # inspect_container() already guarantees containment; re-check here so
+    # a stale/hand-edited plan still fails closed instead of silently
+    # attaching a container located outside the project root.
+    container_path.relative_to(root_path)
+
+    # The container's identity is opaque and stable — attach never re-mints
+    # it from the target location, it only carries the source id forward.
+    # Only PROV.atLocation (below) is location-derived and free to change.
+    target_container_id = attachment_plan["source_container_id"]
     target_container_location = container_path.as_uri()
 
     dataset_ids: set[str] = set()

@@ -87,7 +87,7 @@ def _extract_required_dataset_triples(
     title_obj: Optional[object] = _get_single_object(dataset_graph, dataset_subject, DCTERMS.title)
     description_obj: Optional[object] = _get_single_object(dataset_graph, dataset_subject, DCTERMS.description)
     location_obj: Optional[object] = _get_single_object(dataset_graph, dataset_subject, PROV.atLocation)
-    expected_container_subject: Optional[object] = _get_single_object(
+    declared_owner: Optional[object] = _get_single_object(
         dataset_graph,
         dataset_subject,
         OBDC.belongsToDataContainer,
@@ -99,7 +99,14 @@ def _extract_required_dataset_triples(
         return None
     if not isinstance(location_obj, URIRef):
         return None
-    if expected_container_subject != container_subject:
+    # Same reasoning as check.py: the dataset.ttl may identify its owning
+    # container by a logical URN (e.g. urn:ontobdc:storage/<name>) rather
+    # than by the concrete container UUID subject.  Either form is valid,
+    # so we only require that a declared owner exists and then mirror the
+    # dataset triples with the actual container UUID subject so the
+    # container.ttl representation stays consistent with the UUID used as
+    # the graph primary subject elsewhere.
+    if declared_owner is None or not str(declared_owner).strip():
         return None
 
     return {

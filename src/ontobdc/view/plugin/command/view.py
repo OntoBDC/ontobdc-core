@@ -8,7 +8,7 @@ from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import CommandResponse
 from ontobdc.shared.adapter.filesystem import remove_directory_tree, remove_file
 from ontobdc.storage.plugin.parameter.container import ContainerIdStrategy
-from ontobdc.view.adapter.surface.context import surface_path_from_context
+from ontobdc.view.adapter.surface.context import SurfaceContextAdapter
 from ontobdc.view.adapter.surface.machine import SurfaceGenerationStateTransitionHandler
 from ontobdc.view.plugin.capability.transformation.data_gathered import DataGatheredCapability
 
@@ -133,7 +133,7 @@ class ContainerViewCommand(CliCommandPort):
         context = self._request.context
 
         # Avoid a failed prior run leaving a stale index.html frozen mid-state.
-        existing_surface_path = surface_path_from_context(context)
+        existing_surface_path = SurfaceContextAdapter().surface_path(context)
         if existing_surface_path.is_file():
             remove_file(existing_surface_path)
 

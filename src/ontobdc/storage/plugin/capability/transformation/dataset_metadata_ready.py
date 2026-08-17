@@ -21,6 +21,22 @@ class DatasetMetadataReadyCapability(TransactionCapability):
         author=["TRAE"],
         tags=["storage", "dataset", "create", "metadata"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Dataset-level metadata (name, description, schemas, columns, "
+                    "ontology references) was fully harvested and written into the "
+                    "in-memory dataset record."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Harvesting dataset-level metadata (name, description, "
+                    "schemas, columns, ontology references) and writing it "
+                    "into the in-memory dataset record."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

@@ -17,6 +17,20 @@ class AnalysedCapability(TransformationCapability):
         author=["TRAE"],
         tags=["context", "analysis", "analysed", "vector"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Highest-scoring candidate was selected from the analysis "
+                    "payload."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Selecting the highest-scoring candidate from the "
+                    "analysis payload."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

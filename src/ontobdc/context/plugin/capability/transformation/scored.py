@@ -18,6 +18,20 @@ class ScoredCapability(TransformationCapability):
         author=["TRAE"],
         tags=["context", "analysis", "scored", "vector"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Loaded vector candidates were scored against the aligned file "
+                    "vector."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Scoring loaded vector candidates against the aligned "
+                    "file vector."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

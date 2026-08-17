@@ -3,9 +3,8 @@ from typing import Any, Dict
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
-from ontobdc.storage.adapter.attachment import (
-    complete_attachment,
-    is_container_attached,
+from ontobdc.storage.adapter.attachment.context import (
+    AttachmentContextManager,
 )
 from ontobdc.storage.domain.machine.attach_state import (
     ContainerAttachProcessState,
@@ -26,6 +25,19 @@ class ContainerAttachedCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "attach", "transformation"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Container attachment was validated and marked complete."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Validating the container attachment and marking it "
+                    "complete."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:
@@ -35,11 +47,11 @@ class ContainerAttachedCapability(TransactionCapability):
         return ContainerAttachProcessState.CONTAINER_ATTACHED.description(lang)
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-        result = complete_attachment(context)
+        result = AttachmentContextManager(context).complete_attachment()
         result["resulting_state"] = (
             ContainerAttachProcessState.CONTAINER_ATTACHED
         )
         return result
 
     def is_satisfied(self, context: CliContextPort) -> bool:
-        return is_container_attached(context)
+        return AttachmentContextManager(context).is_container_attached()

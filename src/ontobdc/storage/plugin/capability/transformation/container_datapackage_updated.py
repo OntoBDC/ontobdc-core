@@ -31,6 +31,22 @@ class ContainerDataPackageUpdatedCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "update", "datapackage"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Container Data Package descriptor was synchronized with current "
+                    "local resources while enriched and external descriptors were "
+                    "preserved."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Synchronizing the container Data Package descriptor "
+                    "with current local resources while preserving enriched "
+                    "and external descriptors."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

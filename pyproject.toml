@@ -7,7 +7,7 @@ name = "ontobdc"
 authors = [
     { name = "Elias Magalhães", email = "elias@brasidata.com" }
 ]
-version = "0.16.4"
+version = "0.17.0"
 description = "OntoBDC (Ontology-Based Datasets & Containers)"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -27,6 +27,7 @@ dependencies = [
     "sismic",
     "rocrate",
     "rich",
+    "netext>=0.5.0",
     "pyfiglet",
     "pymupdf4llm",
     "langid",
@@ -53,14 +54,7 @@ package-dir = {"" = "src"}
 "ontobdc" = [
     "**/*.yaml",
     "**/*.yml",
-    "*.sh",
-    "cli/*.sh",
-    "dev/*.sh",
-    "run/*.sh",
-    "check/*.sh",
     "check/*.json",
-    "check/infra/*/*.sh",
-    "entity/*.sh",
     "core/**",
     "module/**",
     "prompt/**",

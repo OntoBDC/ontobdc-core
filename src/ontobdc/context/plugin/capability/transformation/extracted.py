@@ -17,6 +17,19 @@ class ExtractedCapability(TransformationCapability):
         author=["TRAE"],
         tags=["context", "learning", "extracted"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Text content was extracted from the identified learning source."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Extracting text content from the identified learning "
+                    "source."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

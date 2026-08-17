@@ -1,10 +1,9 @@
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from ontobdc.storage.adapter.bootstrap import ONTOBDC_DIRECTORY_NAME
+from ontobdc.storage.adapter.bootstrap import StorageLayoutConstants
 from ontobdc.storage.adapter.manifest import (
     ContainerDataPackageSynchronizer,
-    list_container_resource_paths,
 )
 
 
@@ -17,7 +16,7 @@ def evaluate(container_path: str) -> int:
         return 2
 
     datapackage_path: Path = (
-        resolved_container_path / ONTOBDC_DIRECTORY_NAME / "datapackage.json"
+        resolved_container_path / StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME / "datapackage.json"
     )
     if not datapackage_path.is_file():
         return 1
@@ -30,7 +29,7 @@ def evaluate(container_path: str) -> int:
         original_resources: List[Dict[str, Any]] = (
             synchronizer._resource_descriptors(descriptor)
         )
-        resource_paths: List[str] = list_container_resource_paths(
+        resource_paths: List[str] = ContainerDataPackageSynchronizer.list_resource_paths(
             resolved_container_path
         )
         inventory: Set[str] = set(resource_paths)

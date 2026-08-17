@@ -5,11 +5,14 @@ from ontobdc.cli.domain.port.response import ResponseWidgetAdapterPort
 from ontobdc.cli.domain.response.command import (
     CommandResponse,
     ExceptionCommandResponse,
+    GraphCommandResponse,
     GridCommandResponse,
+    GroupedGraphCommandResponse,
     HelpCommandResponse,
     ListCommandResponse,
     WelcomeCommandResponse,
 )
+from ontobdc.view.component.widget.graph import GraphWidget
 from ontobdc.view.component.widget.python import (
     CodeBlockWidget,
     ErrorWidget,
@@ -18,7 +21,6 @@ from ontobdc.view.component.widget.python import (
     TableWidget,
     TextWidget,
 )
-from ontobdc.view.domain.port.widget import Widget
 
 
 class BaseResponseWidgetAdapter(ResponseWidgetAdapterPort):
@@ -27,8 +29,8 @@ class BaseResponseWidgetAdapter(ResponseWidgetAdapterPort):
     def accepts(self, response: CommandResponse) -> bool:
         return isinstance(response, self.response_type)
 
-    def widgets(self, response: CommandResponse) -> List[Widget]:
-        widgets: List[Widget] = []
+    def widgets(self, response: CommandResponse) -> List[Any]:
+        widgets: List[Any] = []
 
         heading_widget: Optional[TextWidget] = self._heading_widget(response)
         if heading_widget is not None:
@@ -45,10 +47,10 @@ class BaseResponseWidgetAdapter(ResponseWidgetAdapterPort):
 
         return TextWidget(heading=heading, body=body)
 
-    def _content_widgets(self, content: Any) -> List[Widget]:
+    def _content_widgets(self, content: Any) -> List[Any]:
         return self._decompose(self._serialize_value(content))
 
-    def _decompose(self, value: Any) -> List[Widget]:
+    def _decompose(self, value: Any) -> List[Any]:
         """Turn one content value into widgets, recursing into dict sections.
 
         A dict that is not itself a flat record or a dict of same-shaped
@@ -82,8 +84,8 @@ class BaseResponseWidgetAdapter(ResponseWidgetAdapterPort):
 
         return [TextWidget(body=str(value))]
 
-    def _section_widgets(self, sections: Dict[Any, Any]) -> List[Widget]:
-        widgets: List[Widget] = []
+    def _section_widgets(self, sections: Dict[Any, Any]) -> List[Any]:
+        widgets: List[Any] = []
         for key, value in sections.items():
             widgets.append(TextWidget(heading=self._format_label(key)))
             widgets.extend(self._decompose(value))
@@ -205,13 +207,46 @@ class HelpCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
 class ListCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
     response_type: Type[CommandResponse] = ListCommandResponse
 
-    def _content_widgets(self, content: Any) -> List[Widget]:
-        if isinstance(content, dict) and isinstance(content.get("rows"), list):
-            return self._rows_widgets(content["rows"])
+    def _content_widgets(self, content: Any) -> List[Any]:
+        if not isinstance(content, dict):
+            return super()._content_widgets(content)
 
-        return super()._content_widgets(content)
+        # The legacy ``rows`` list-of-label/value-dicts path is still honoured
+        # for callers that build ListCommandResponse that way.  Modern lists
+        # (storage containers, datasets, etc.) ship a dict with a single
+        # list-valued key (``containers``, ``datasets``, …) containing
+        # same-shaped flat records — those should render as a table, not as
+        # section headings, otherwise the CLI paints them with the wrong
+        # header casing, wrong alignment and — critically — the central
+        # table renderer never sees them so the grid never spans the full
+        # box width.
+        rows_payload: Any = content.get("rows")
+        if isinstance(rows_payload, list):
+            return self._rows_widgets(rows_payload)
 
-    def _rows_widgets(self, rows: List[Any]) -> List[Widget]:
+        list_items: List[Any]
+        list_key: Optional[str] = None
+        for key, value in content.items():
+            if isinstance(value, list) and value and all(isinstance(item, dict) for item in value):
+                list_items = list(value)
+                list_key = str(key)
+                break
+        else:
+            return super()._content_widgets(content)
+
+        if not self._is_harmonious_table(list_items):
+            return super()._content_widgets({list_key: list_items})
+
+        widgets: List[Any] = [TextWidget(heading=self._format_label(list_key))]
+        widgets.append(
+            TableWidget(
+                headers=self._table_headers(list_items),
+                rows=self._table_rows(list_items),
+            )
+        )
+        return widgets
+
+    def _rows_widgets(self, rows: List[Any]) -> List[Any]:
         pairs: List[Tuple[str, str]] = [
             (str(row.get("label", "")), str(row.get("value", "")))
             for row in rows
@@ -226,7 +261,7 @@ class ListCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
 class ExceptionCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
     response_type: Type[CommandResponse] = ExceptionCommandResponse
 
-    def widgets(self, response: CommandResponse) -> List[Widget]:
+    def widgets(self, response: CommandResponse) -> List[Any]:
         content: Dict[str, Any] = response.content if isinstance(response.content, dict) else {}
         message: str = str(content.get("error") or response.description or "").strip()
         traceback_text: Optional[str] = str(content.get("traceback") or "").strip() or None
@@ -237,7 +272,7 @@ class ExceptionCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
 class WelcomeCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
     response_type: Type[CommandResponse] = WelcomeCommandResponse
 
-    def widgets(self, response: CommandResponse) -> List[Widget]:
+    def widgets(self, response: CommandResponse) -> List[Any]:
         content: Dict[str, Any] = response.content if isinstance(response.content, dict) else {}
         hero: Any = content.get("hero", "")
 
@@ -247,9 +282,9 @@ class WelcomeCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
 class GridCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
     response_type: Type[CommandResponse] = GridCommandResponse
 
-    def widgets(self, response: CommandResponse) -> List[Widget]:
+    def widgets(self, response: CommandResponse) -> List[Any]:
         content: Dict[str, Any] = response.content if isinstance(response.content, dict) else {}
-        widgets: List[Widget] = []
+        widgets: List[Any] = []
 
         heading_widget: Optional[TextWidget] = self._heading_widget(response)
         if heading_widget is not None:
@@ -265,4 +300,84 @@ class GridCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
                 pinned_enabled=bool(content.get("pinned_enabled", False)),
             )
         )
+        return widgets
+
+
+class GraphCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
+    response_type: Type[CommandResponse] = GraphCommandResponse
+
+    def widgets(self, response: CommandResponse) -> List[Any]:
+        content: Dict[str, Any] = response.content if isinstance(response.content, dict) else {}
+        widgets: List[Any] = []
+
+        heading_widget: Optional[TextWidget] = self._heading_widget(response)
+        if heading_widget is not None:
+            widgets.append(heading_widget)
+
+        nodes: Any = content.get("nodes", [])
+        edges: Any = content.get("edges", [])
+        widgets.append(
+            GraphWidget(
+                nodes=nodes if isinstance(nodes, list) else [],
+                edges=edges if isinstance(edges, list) else [],
+                layout=str(content.get("layout", "force")),
+                orientation=str(content.get("orientation", "default")),
+            )
+        )
+        return widgets
+
+
+class GroupedGraphCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
+    """Renders `GroupedGraphCommandResponse` grouped by subject instead of
+    as a node-link diagram: every node that is ever an edge source gets one
+    heading (its label) followed by a `predicate: object` row per outgoing
+    edge — the same shape Turtle's own subject grouping produces. A node
+    that is only ever an edge target (a type, a literal value, ...) never
+    gets its own heading; it only shows up as a value under whichever
+    subject points to it.
+    """
+
+    response_type: Type[CommandResponse] = GroupedGraphCommandResponse
+
+    def widgets(self, response: CommandResponse) -> List[Any]:
+        content: Dict[str, Any] = response.content if isinstance(response.content, dict) else {}
+        widgets: List[Any] = []
+
+        heading_widget: Optional[TextWidget] = self._heading_widget(response)
+        if heading_widget is not None:
+            widgets.append(heading_widget)
+
+        nodes: Any = content.get("nodes", [])
+        edges: Any = content.get("edges", [])
+        widgets.extend(
+            self._grouped_widgets(
+                nodes if isinstance(nodes, list) else [],
+                edges if isinstance(edges, list) else [],
+            )
+        )
+        return widgets
+
+    @staticmethod
+    def _grouped_widgets(
+        nodes: List[Dict[str, str]],
+        edges: List[Dict[str, str]],
+    ) -> List[Any]:
+        label_by_id: Dict[str, str] = {
+            str(node.get("id", "")): str(node.get("label", node.get("id", "")))
+            for node in nodes
+        }
+
+        groups: Dict[str, List[Tuple[str, str]]] = {}
+        for edge in edges:
+            source_id: str = str(edge.get("source", ""))
+            target_id: str = str(edge.get("target", ""))
+            predicate_label: str = str(edge.get("label", ""))
+            target_label: str = label_by_id.get(target_id, target_id)
+            groups.setdefault(source_id, []).append((predicate_label, target_label))
+
+        widgets: List[Any] = []
+        for source_id, pairs in groups.items():
+            subject_label: str = label_by_id.get(source_id, source_id)
+            widgets.append(TextWidget(heading=subject_label))
+            widgets.append(KeyValueWidget(pairs=pairs))
         return widgets

@@ -18,6 +18,18 @@ class SurfaceInitializedCapability(TransformationCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["view", "surface", "html", "transformation"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Minimal offline HTML Presentation Surface document was created."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Creating the minimal offline HTML Presentation Surface document."
+                ),
+            },
+        },
     )
 
     def __init__(self) -> None:

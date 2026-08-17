@@ -10,13 +10,14 @@ from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransformationCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.storage.adapter.bootstrap import (
-    OBDC,
-    get_container_storage_file_path,
-    get_dataset_storage_file_path,
-    get_ontobdc_directory,
+    StorageBootstrap,
+    StorageNamespaceBootstrap,
 )
-from ontobdc.storage.adapter.manifest import list_container_resource_paths
+from ontobdc.storage.adapter.manifest import ContainerDataPackageSynchronizer
 from ontobdc.view.domain.machine.surface_state import SurfaceGenerationProcessState
+
+StorageNamespaceBootstrap.initialize()
+_OBDC = StorageNamespaceBootstrap.OBDC
 
 
 METADATA_DIRECTORY = ".__ontobdc__"
@@ -67,6 +68,20 @@ class DataGatheredCapability(TransformationCapability):
             "transformation",
         ],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Presentation source data was materialized as the DATA_GATHERED "
+                    "JSON-LD ETL state artifact."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Materializing presentation source data into the DATA_GATHERED "
+                    "JSON-LD ETL state artifact."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:
@@ -121,7 +136,7 @@ class DataGatheredCapability(TransformationCapability):
 
     def _build_container_graph(self, context: CliContextPort) -> Graph:
         """Create an in-memory graph holding just the container's own triples."""
-        container_file = get_container_storage_file_path(
+        container_file = StorageBootstrap.get_container_storage_file_path(
             self._container_path(context)
         )
         graph = Graph()
@@ -144,14 +159,14 @@ class DataGatheredCapability(TransformationCapability):
         produce an instance of.
         """
         for entity_type in (
-            OBDC.DataContainer,
-            OBDC.FileTree,
-            OBDC.ImageFile,
-            OBDC.PdfFile,
-            OBDC.CsvFile,
-            OBDC.GenericFile,
+            _OBDC.DataContainer,
+            _OBDC.FileTree,
+            _OBDC.ImageFile,
+            _OBDC.PdfFile,
+            _OBDC.CsvFile,
+            _OBDC.GenericFile,
         ):
-            graph.add((entity_type, RDF.type, OBDC.SurfaceableEntity))
+            graph.add((entity_type, RDF.type, _OBDC.SurfaceableEntity))
 
     def _add_dataset_triples(
         self,
@@ -170,7 +185,7 @@ class DataGatheredCapability(TransformationCapability):
         """
         dataset_paths = self._dataset_paths(context)
         for dataset_path in dataset_paths:
-            dataset_file = get_dataset_storage_file_path(dataset_path)
+            dataset_file = StorageBootstrap.get_dataset_storage_file_path(dataset_path)
             graph.parse(str(dataset_file), format="turtle")
             self._add_dataset_field_values(graph, dataset_path)
         return dataset_paths
@@ -189,7 +204,7 @@ class DataGatheredCapability(TransformationCapability):
         predicates than most facade fields map to, but this guards against
         any future overlap too).
         """
-        dataset_file = get_dataset_storage_file_path(dataset_path)
+        dataset_file = StorageBootstrap.get_dataset_storage_file_path(dataset_path)
         local_graph: Graph = Graph()
         try:
             local_graph.parse(str(dataset_file), format="turtle")
@@ -198,7 +213,7 @@ class DataGatheredCapability(TransformationCapability):
 
         dataset_subjects: List[URIRef] = [
             subject
-            for subject in local_graph.subjects(RDF.type, OBDC.EntityDataset)
+            for subject in local_graph.subjects(RDF.type, _OBDC.EntityDataset)
             if isinstance(subject, URIRef)
         ]
         if len(dataset_subjects) != 1:
@@ -206,14 +221,14 @@ class DataGatheredCapability(TransformationCapability):
 
         entity_subjects: List[URIRef] = [
             value
-            for value in local_graph.objects(dataset_subjects[0], OBDC.hasDataEntity)
+            for value in local_graph.objects(dataset_subjects[0], _OBDC.hasDataEntity)
             if isinstance(value, URIRef)
         ]
         if not entity_subjects:
             return
 
         facade_path: Path = (
-            get_ontobdc_directory(dataset_path) / "linkset" / "facade.ttl"
+            StorageBootstrap.get_ontobdc_directory(dataset_path) / "linkset" / "facade.ttl"
         )
         if not facade_path.is_file():
             return
@@ -244,7 +259,7 @@ class DataGatheredCapability(TransformationCapability):
         entity_types: List[URIRef] = [
             value
             for value in local_graph.objects(entity_subject, RDF.type)
-            if isinstance(value, URIRef) and value != OBDC.DataEntity
+            if isinstance(value, URIRef) and value != _OBDC.DataEntity
         ]
         if len(entity_types) != 1:
             return
@@ -359,13 +374,13 @@ class DataGatheredCapability(TransformationCapability):
             candidate.resolve()
             for candidate in container_path.iterdir()
             if candidate.is_dir()
-            and get_dataset_storage_file_path(candidate).is_file()
+            and StorageBootstrap.get_dataset_storage_file_path(candidate).is_file()
         )
 
     def _container_subject(self, graph: Graph) -> URIRef:
         subjects = [
             subject
-            for subject in graph.subjects(RDF.type, OBDC.DataContainer)
+            for subject in graph.subjects(RDF.type, _OBDC.DataContainer)
             if isinstance(subject, URIRef)
         ]
         if len(subjects) != 1:
@@ -386,27 +401,27 @@ class DataGatheredCapability(TransformationCapability):
         hierarchy client-side from the flat list of relative paths.
         """
         container_subject = self._container_subject(graph)
-        file_paths = list_container_resource_paths(self._container_path(context))
+        file_paths = ContainerDataPackageSynchronizer.list_resource_paths(self._container_path(context))
 
         file_tree_subject = URIRef(f"{container_subject}/files")
-        graph.add((file_tree_subject, RDF.type, OBDC.FileTree))
+        graph.add((file_tree_subject, RDF.type, _OBDC.FileTree))
         graph.add((file_tree_subject, DCTERMS.identifier, Literal(str(file_tree_subject))))
         graph.add((file_tree_subject, DCTERMS.title, Literal("Files", lang="en")))
         graph.add((file_tree_subject, DCTERMS.isPartOf, container_subject))
         for file_path in file_paths:
-            graph.add((file_tree_subject, OBDC.filePath, Literal(file_path)))
+            graph.add((file_tree_subject, _OBDC.filePath, Literal(file_path)))
 
         return file_paths
 
     @staticmethod
     def _file_type_uri(extension: str) -> URIRef:
         if extension in _IMAGE_EXTENSIONS:
-            return OBDC.ImageFile
+            return _OBDC.ImageFile
         if extension in _PDF_EXTENSIONS:
-            return OBDC.PdfFile
+            return _OBDC.PdfFile
         if extension in _CSV_EXTENSIONS:
-            return OBDC.CsvFile
-        return OBDC.GenericFile
+            return _OBDC.CsvFile
+        return _OBDC.GenericFile
 
     def _add_file_entities(
         self,
@@ -433,7 +448,7 @@ class DataGatheredCapability(TransformationCapability):
             graph.add((file_subject, DCTERMS.identifier, Literal(str(file_subject))))
             graph.add((file_subject, DCTERMS.title, Literal(Path(relative_path).name)))
             graph.add((file_subject, DCTERMS.isPartOf, container_subject))
-            graph.add((file_subject, OBDC.filePath, Literal(relative_path)))
+            graph.add((file_subject, _OBDC.filePath, Literal(relative_path)))
             if extension:
                 graph.add((file_subject, DCTERMS.format, Literal(extension)))
 
@@ -441,7 +456,7 @@ class DataGatheredCapability(TransformationCapability):
                 file_size = (container_path / relative_path).stat().st_size
             except OSError:
                 continue
-            graph.add((file_subject, OBDC.fileSize, Literal(file_size)))
+            graph.add((file_subject, _OBDC.fileSize, Literal(file_size)))
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         graph = self._build_container_graph(context)

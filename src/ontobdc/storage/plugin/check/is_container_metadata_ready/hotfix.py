@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Tuple
-from urllib.parse import quote
 
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF, XSD
@@ -11,6 +10,10 @@ from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
 from ontobdc.storage.adapter.bootstrap import (
     ensure_ontobdc_directory,
     get_container_storage_file_path,
+)
+from ontobdc.storage.adapter.identifier import (
+    generate_container_id,
+    is_valid_container_id,
 )
 
 _ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
@@ -27,17 +30,36 @@ def _resolve_path(path_value: Optional[str]) -> Optional[Path]:
     return Path(path_value).expanduser().resolve()
 
 
-def _build_container_id(container_path: Path, root_path: Path) -> Optional[str]:
+def _is_contained(container_path: Path, root_path: Path) -> bool:
     try:
-        relative_container_path: Path = container_path.relative_to(root_path)
+        container_path.relative_to(root_path)
+        return True
     except ValueError:
+        return False
+
+
+def _existing_container_id(
+    container_storage_file_path: Path,
+) -> Optional[str]:
+    """The container's existing, already-valid identifier, if any.
+
+    Identity is minted once and kept for the container's lifetime — this
+    never recomputes an id from the path, it only recovers one already on
+    disk so a healthy container is left untouched.
+    """
+    existing = _load_existing_container_graph(container_storage_file_path)
+    if existing is None:
         return None
 
-    encoded_relative_path: str = quote(
-        relative_container_path.as_posix(),
-        safe="/",
+    container_graph, container_subject = existing
+    identifier: Optional[object] = container_graph.value(
+        container_subject, DCTERMS.identifier
     )
-    return f"urn:ontobdc:storage/local/{encoded_relative_path}"
+    candidate: str = str(identifier or "").strip()
+    if candidate and is_valid_container_id(candidate):
+        return candidate
+
+    return None
 
 
 def _build_container_title(container_path: Path) -> str:
@@ -196,11 +218,7 @@ def main(
     if resolved_container_path is None or resolved_root_path is None:
         return 1
 
-    container_id: Optional[str] = _build_container_id(
-        resolved_container_path,
-        resolved_root_path,
-    )
-    if container_id is None:
+    if not _is_contained(resolved_container_path, resolved_root_path):
         return 1
 
     try:
@@ -209,6 +227,10 @@ def main(
 
         container_storage_file_path: Path = get_container_storage_file_path(
             resolved_container_path
+        )
+        container_id: str = (
+            _existing_container_id(container_storage_file_path)
+            or generate_container_id()
         )
         container_graph: Graph = _build_container_graph(
             container_id,

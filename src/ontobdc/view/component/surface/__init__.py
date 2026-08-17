@@ -1,7 +1,3 @@
-from .python import TerminalSurface, TerminalSurfaceSize, TerminalSurfaceResizeEvent
+from typing import List
 
-__all__ = [
-    "TerminalSurface",
-    "TerminalSurfaceSize",
-    "TerminalSurfaceResizeEvent",
-]
+__all__: List[str] = []

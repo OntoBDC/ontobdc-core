@@ -32,6 +32,19 @@ class PublishedCapability(TransformationCapability):
         author=["TRAE"],
         tags=["context", "learning", "published"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Aligned learning result was published into the context graph."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Publishing the aligned learning result into the "
+                    "context graph."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

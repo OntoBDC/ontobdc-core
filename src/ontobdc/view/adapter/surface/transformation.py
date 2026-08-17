@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Callable
 
 from ontobdc.cli.domain.port.context import CliContextPort
-from ontobdc.view.adapter.surface.context import surface_path_from_context
+from ontobdc.view.adapter.surface.context import SurfaceContextAdapter
 from ontobdc.view.adapter.surface.document import read_surface, write_surface
 
 
@@ -15,8 +15,11 @@ class SurfaceTransformationAdapter:
     METADATA.
     """
 
+    def __init__(self) -> None:
+        self._context_adapter = SurfaceContextAdapter()
+
     def path(self, context: CliContextPort) -> Path:
-        return surface_path_from_context(context)
+        return self._context_adapter.surface_path(context)
 
     def read(self, context: CliContextPort) -> str:
         return read_surface(self.path(context))

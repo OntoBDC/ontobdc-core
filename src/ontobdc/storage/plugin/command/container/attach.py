@@ -5,13 +5,11 @@ from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.shared.facade.port.command import CliCommandPort
 from ontobdc.shared.facade.request.command import CliCommandRequest
 from ontobdc.shared.facade.response.command import CommandResponse
-from ontobdc.storage.adapter.attach_machine import (
+from ontobdc.storage.adapter.attachment.machine import (
     ContainerAttachStateTransitionHandler,
 )
-from ontobdc.storage.adapter.attachment import (
-    ATTACH_COMPLETED_PARAMETER,
-    ATTACH_ERROR_PARAMETER,
-    ATTACH_PLAN_PARAMETER,
+from ontobdc.storage.adapter.attachment.plan import (
+    AttachmentPlanConstants,
 )
 
 
@@ -83,9 +81,9 @@ class StorageAttachCommand(CliCommandPort):
         context = self._request.context
         context.set_parameter_value("container_path", str(container_path))
         for parameter_name in (
-            ATTACH_PLAN_PARAMETER,
-            ATTACH_COMPLETED_PARAMETER,
-            ATTACH_ERROR_PARAMETER,
+            AttachmentPlanConstants.ATTACH_PLAN_PARAMETER,
+            AttachmentPlanConstants.ATTACH_COMPLETED_PARAMETER,
+            AttachmentPlanConstants.ATTACH_ERROR_PARAMETER,
         ):
             context.delete_parameter(parameter_name)
         return True

@@ -25,6 +25,20 @@ class ContainerHtmlViewUpdatedCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "update", "view", "html"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Container HTML view was regenerated through the standard Surface "
+                    "generation pipeline."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Regenerating the container HTML view through the "
+                    "standard Surface generation pipeline."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

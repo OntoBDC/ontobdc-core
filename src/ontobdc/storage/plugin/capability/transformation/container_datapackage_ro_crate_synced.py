@@ -28,6 +28,20 @@ class ContainerDataPackageRoCrateSyncedCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "update", "datapackage", "ro-crate"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Frictionless-compatible RO-Crate files were registered as "
+                    "resources in the Data Package descriptor."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Registering Frictionless-compatible RO-Crate files as "
+                    "resources in the Data Package descriptor."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

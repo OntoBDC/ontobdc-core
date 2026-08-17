@@ -24,6 +24,20 @@ class SurfaceAssembledCapability(TransformationCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["view", "surface", "tile", "assembly", "transformation"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Surface presentation tiles were assembled into their final "
+                    "viewport layout ready for packaging and rendering."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Assembling Surface presentation tiles into the final "
+                    "viewport layout."
+                ),
+            },
+        },
     )
 
     def __init__(self) -> None:

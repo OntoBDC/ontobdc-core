@@ -19,6 +19,20 @@ class DirectoryReadyCapability(TransactionCapability):
         author=["TRAE"],
         tags=["storage", "container", "create"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Container directory preparation finished, and the target "
+                    "directory is ready for downstream steps."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Preparing the container directory for downstream "
+                    "steps."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

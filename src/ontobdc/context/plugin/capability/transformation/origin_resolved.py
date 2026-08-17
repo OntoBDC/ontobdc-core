@@ -18,6 +18,19 @@ class OriginResolvedCapability(TransformationCapability):
         author=["TRAE"],
         tags=["context", "analysis", "vector", "origin"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Registered vector sources were resolved for the analysis flow."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Resolving registered vector sources for the analysis "
+                    "flow."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

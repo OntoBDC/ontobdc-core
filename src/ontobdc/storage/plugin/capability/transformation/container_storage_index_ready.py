@@ -21,6 +21,20 @@ class ContainerStorageIndexReadyCapability(TransactionCapability):
         author=["TRAE"],
         tags=["storage", "container", "create", "index"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Storage index preparation finished, and the container entry is "
+                    "synchronized with its metadata file."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Preparing the storage index and synchronizing the "
+                    "container entry with its metadata file."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

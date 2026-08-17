@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from ontobdc.storage.adapter.bootstrap import ONTOBDC_DIRECTORY_NAME
-from ontobdc.storage.adapter.manifest import ContainerDataPackageSynchronizer
-from ontobdc.storage.plugin.check.is_container_datapackage_frictionless_valid.check import (
-    FRICTIONLESS_COMPATIBLE_FORMATS,
+from ontobdc.storage.adapter.bootstrap import StorageLayoutConstants
+from ontobdc.storage.adapter.manifest import (
+    ContainerDataPackageSynchronizer,
+    FrictionlessFormatRegistry,
 )
 
 
@@ -22,7 +22,7 @@ def main(
         return 1
 
     resolved_container_path: Path = Path(container_path).expanduser().resolve()
-    datapackage_path = resolved_container_path / ONTOBDC_DIRECTORY_NAME / "datapackage.json"
+    datapackage_path = resolved_container_path / StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME / "datapackage.json"
     if not datapackage_path.is_file():
         return 0  # nothing to prune
 
@@ -51,7 +51,7 @@ def main(
             continue
 
         resource_format = str(resource.get("format", "")).strip().lower()
-        if resource_format in FRICTIONLESS_COMPATIBLE_FORMATS:
+        if FrictionlessFormatRegistry.supports(resource_format):
             kept.append(resource)
 
     descriptor["resources"] = kept

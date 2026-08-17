@@ -5,9 +5,9 @@ from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
 from ontobdc.cli.domain.port.context import CliContextPort
-from ontobdc.storage.adapter.manifest import list_container_resource_paths
-from ontobdc.storage.plugin.check.is_container_datapackage_frictionless_valid.check import (
-    FRICTIONLESS_COMPATIBLE_FORMATS,
+from ontobdc.storage.adapter.manifest import (
+    ContainerDataPackageSynchronizer,
+    FrictionlessFormatRegistry,
 )
 from ontobdc.storage.plugin.check.is_container_metadata_ready.check import (
     main as check_container_metadata_ready,
@@ -41,8 +41,12 @@ def is_container_publishable(context: CliContextPort) -> bool:
 
         expected_paths = {
             path
-            for path in list_container_resource_paths(container_path)
-            if path.rsplit(".", 1)[-1].lower() in FRICTIONLESS_COMPATIBLE_FORMATS
+            for path in ContainerDataPackageSynchronizer.list_resource_paths(
+                container_path
+            )
+            if FrictionlessFormatRegistry.supports(
+                path.rsplit(".", 1)[-1].lower()
+            )
         }
         described_paths = set(
             _local_descriptor_paths(

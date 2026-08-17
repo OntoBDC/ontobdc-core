@@ -28,6 +28,20 @@ class ContainerDataPackageFrictionlessValidCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "update", "datapackage", "frictionless"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Non-tabular resources unsupported by Frictionless were removed "
+                    "from the Data Package descriptor."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Removing non-tabular resources unsupported by "
+                    "Frictionless from the Data Package descriptor."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ontobdc.storage.adapter.bootstrap import ONTOBDC_DIRECTORY_NAME
+from ontobdc.storage.adapter.bootstrap import StorageLayoutConstants
 from ontobdc.storage.adapter.manifest import ContainerDataPackageSynchronizer
 from ontobdc.storage.plugin.check.is_container_datapackage_ro_crate_synced.check import (
     _frictionless_compatible_crate_paths,
@@ -33,7 +33,7 @@ def main(
     if not expected_paths:
         return 0
 
-    datapackage_path = resolved_container_path / ONTOBDC_DIRECTORY_NAME / "datapackage.json"
+    datapackage_path = resolved_container_path / StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME / "datapackage.json"
     synchronizer = ContainerDataPackageSynchronizer()
     try:
         descriptor = (

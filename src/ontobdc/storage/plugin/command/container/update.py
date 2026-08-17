@@ -6,6 +6,7 @@ from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.shared.facade.port.command import CliCommandPort
 from ontobdc.shared.facade.request.command import CliCommandRequest
 from ontobdc.shared.facade.response.command import CommandResponse
+from ontobdc.storage.adapter.identifier import normalize_container_id
 from ontobdc.storage.adapter.machine import ContainerUpdateStateTransitionHandler
 from ontobdc.storage.domain.port.machine import (
     ContainerUpdateStateTransitionHandlerPort,
@@ -57,6 +58,14 @@ class StorageUpdateCommand(CliCommandPort):
         if args == ["storage", "--update"]:
             return True
 
+        if (
+            len(args) == 3
+            and args[0] == "storage"
+            and args[1] in {"--container-id", "--container"}
+            and bool(str(args[2]).strip())
+        ):
+            return True
+
         return (
             len(args) == 4
             and args[0] == "storage"
@@ -71,7 +80,7 @@ class StorageUpdateCommand(CliCommandPort):
         command_args: List[str] = self._request.command_args
         requested_container_id: Optional[str] = None
 
-        if command_args == ["--update"]:
+        if command_args == ["--update"] or len(command_args) == 0:
             context_container_id: Optional[object] = (
                 self._request.context.get_parameter_value("container_id")
             )
@@ -89,6 +98,15 @@ class StorageUpdateCommand(CliCommandPort):
                     "directory. Run the command inside a registered container "
                     "or provide --container-id <container_id>."
                 )
+
+        elif (
+            len(command_args) == 2
+            and command_args[0] in {"--container-id", "--container"}
+        ):
+            normalized_requested_container_id: str = command_args[1].strip()
+            if not normalized_requested_container_id:
+                return False
+            requested_container_id = normalized_requested_container_id
 
         elif (
             len(command_args) == 3
@@ -137,10 +155,9 @@ class StorageUpdateCommand(CliCommandPort):
         requested_container_id: str,
     ) -> Optional[tuple[str, Path]]:
         candidates: List[str] = [requested_container_id]
-        if not requested_container_id.startswith("urn:"):
-            candidates.append(
-                f"urn:ontobdc:storage/local/{requested_container_id}"
-            )
+        normalized_candidate: str = normalize_container_id(requested_container_id)
+        if normalized_candidate not in candidates:
+            candidates.append(normalized_candidate)
 
         root_path: str = str(self._request.context.root_path)
         for candidate in candidates:

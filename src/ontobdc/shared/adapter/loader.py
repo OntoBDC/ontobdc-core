@@ -193,18 +193,10 @@ class CapabilityLoader(PluginLoader):
 
                         capabilities.append(obj)
                 except Exception as e:
-                    current_dir = os.path.dirname(os.path.abspath(__file__))
-                    log_script = os.path.join(current_dir, "..", "..", "cli", "print_log.sh")
-                    if os.path.exists(log_script):
-                        import subprocess
-                        subprocess.run(
-                            [sys.executable, log_script, "WARNING", f"Error loading module {name}: {e}"],
-                            check=False,
-                            stdout=sys.stderr,
-                            stderr=sys.stderr,
-                        )
-                    else:
-                        print(f"[CapabilityLoader] Error loading module {name}: {e}", file=sys.stderr)
+                    print(
+                        f"[CapabilityLoader] Error loading module {name}: {e}",
+                        file=sys.stderr,
+                    )
                     continue
 
         return capabilities
@@ -363,6 +355,17 @@ class ParameterLoader(PluginLoader):
     """
     Plugin loader responsible for discovering and loading Parameter Strategy plugins.
     """
+
+    def __init__(self, logger: Optional[LogRepositoryPort] = None) -> None:
+        try:
+            from ontobdc.cli.adapter.logger import NullLogRepository as _NullLog
+        except Exception:
+            _NullLog = None  # type: ignore[misc,assignment]
+
+        if logger is None and _NullLog is not None:
+            logger = _NullLog()
+        self._logger: Optional[LogRepositoryPort] = logger
+
     def get(self, id: str) -> Type[CliContextStrategyPort]:
         """
         Retrieves a parameter strategy plugin by its unique ID.
@@ -372,12 +375,26 @@ class ParameterLoader(PluginLoader):
     def get_all(self, resource: str = "parameter") -> List[Type[CliContextStrategyPort]]:
         """
         Retrieves all available parameter strategy plugins discovered in the application.
+
+        When a parameter strategy module fails to import (syntax error, missing
+        dependency, broken ``METADATA`` declaration...) the loader used to
+        swallow the exception silently and continue with the remaining
+        candidates. That behaviour turned broken strategies invisible during
+        development; the loader now emits a ``WARNING`` through its injected
+        logger describing the offending module name and the original
+        exception message so the operator can fix the plugin instead of
+        wondering why a declared strategy never runs.
         """
         strategies: List[Type[CliContextStrategyPort]] = []
         for pkg_name in self._list_plugin_folder(resource):
             try:
                 package = importlib.import_module(pkg_name)
-            except ImportError:
+            except ImportError as import_error:
+                if self._logger is not None:
+                    self._logger.log_warning(
+                        "ParameterLoader: skipping plugin domain package "
+                        f"'{pkg_name}' (ImportError: {import_error})"
+                    )
                 continue
 
             if not hasattr(package, "__path__"):
@@ -386,7 +403,13 @@ class ParameterLoader(PluginLoader):
             resource_pkg_name = f"{pkg_name}.{resource}"
             try:
                 resource_package = importlib.import_module(resource_pkg_name)
-            except ImportError:
+            except ImportError as import_error:
+                if self._logger is not None:
+                    self._logger.log_warning(
+                        "ParameterLoader: skipping resource package "
+                        f"'{resource_pkg_name}' inside '{pkg_name}' "
+                        f"(ImportError: {import_error})"
+                    )
                 continue
 
             if not hasattr(resource_package, "__path__"):
@@ -401,9 +424,12 @@ class ParameterLoader(PluginLoader):
                                 and issubclass(obj, CliContextStrategyPort)
                                 and obj is not CliContextStrategyPort):
                             strategies.append(obj())
-                except Exception as e:
-                    # print(name)
-                    # print(e)
+                except Exception as exception:
+                    if self._logger is not None:
+                        self._logger.log_warning(
+                            "ParameterLoader: discarding strategy module "
+                            f"'{name}' — {type(exception).__name__}: {exception}"
+                        )
                     continue
 
         return strategies

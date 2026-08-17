@@ -10,6 +10,7 @@ from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.shared.facade.request.command import CliCommandRequest
 from ontobdc.shared.facade.response.command import CommandResponse
 from ontobdc.storage import get_storage_file
+from ontobdc.storage.adapter.identifier import normalize_container_id
 from ontobdc.storage.adapter.repository import LoadedStorageGraph, StorageGraphFileRepository
 
 # UnsetProjectRootConfigDataAdapter (not ConfigDataAdapter) so this module
@@ -87,14 +88,7 @@ class StorageDeleteCommand(CliCommandPort):
             )
 
     def _normalize_container_id(self, container_id: str) -> str:
-        normalized_id: str = container_id.strip()
-        if not normalized_id:
-            raise ValueError("Container id cannot be empty.")
-
-        if normalized_id.startswith("urn:"):
-            return normalized_id
-
-        return f"urn:ontobdc:storage/local/{normalized_id}"
+        return normalize_container_id(container_id)
 
     def _resolve_container_subject(
         self,

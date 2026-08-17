@@ -3,9 +3,8 @@ from typing import Any, Dict
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
-from ontobdc.storage.adapter.attachment import (
-    attach_datasets,
-    is_datasets_attached,
+from ontobdc.storage.adapter.attachment.metadata import (
+    AttachmentMetadataService,
 )
 from ontobdc.storage.domain.machine.attach_state import (
     ContainerAttachProcessState,
@@ -26,6 +25,20 @@ class DatasetsAttachedCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "attach", "transformation"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Dataset identities were rewritten and their summaries were "
+                    "synchronized in the container graph."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Rewriting dataset identities and synchronizing their "
+                    "summaries in the container graph."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:
@@ -35,11 +48,11 @@ class DatasetsAttachedCapability(TransactionCapability):
         return ContainerAttachProcessState.DATASETS_ATTACHED.description(lang)
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-        result = attach_datasets(context)
+        result = AttachmentMetadataService.attach_datasets(context)
         result["resulting_state"] = (
             ContainerAttachProcessState.DATASETS_ATTACHED
         )
         return result
 
     def is_satisfied(self, context: CliContextPort) -> bool:
-        return is_datasets_attached(context)
+        return AttachmentMetadataService.is_datasets_attached(context)

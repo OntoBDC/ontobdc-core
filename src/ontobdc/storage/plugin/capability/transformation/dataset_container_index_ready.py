@@ -21,6 +21,20 @@ class DatasetContainerIndexReadyCapability(TransactionCapability):
         author=["TRAE"],
         tags=["storage", "dataset", "create", "index"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Container index preparation finished, and the dataset entry is "
+                    "synchronized with its metadata file."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Preparing the container index and synchronizing the "
+                    "dataset entry with its metadata file."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

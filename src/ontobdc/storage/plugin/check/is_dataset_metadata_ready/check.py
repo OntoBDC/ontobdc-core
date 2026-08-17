@@ -9,7 +9,7 @@ from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
 from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
 from ontobdc.storage import get_storage_file
 from ontobdc.storage.adapter.repository import LoadedStorageGraph
-from ontobdc.storage.adapter.bootstrap import get_dataset_storage_file_path
+from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 
 _ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
     config_adapter=UnsetProjectRootConfigDataAdapter(),
@@ -173,7 +173,7 @@ def main(
     if expected_container_id is None:
         return 1
 
-    dataset_storage_file_path: Path = get_dataset_storage_file_path(resolved_dataset_path)
+    dataset_storage_file_path: Path = StorageBootstrap.get_dataset_storage_file_path(resolved_dataset_path)
     if not dataset_storage_file_path.is_file():
         return 1
 

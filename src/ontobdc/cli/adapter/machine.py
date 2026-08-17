@@ -17,7 +17,7 @@ from ontobdc.cli.domain.response.command import CommandResponse
 from ontobdc.shared.domain.port.capability import CapabilityPort
 from ontobdc.cli.plugin.check.has_valid_engine.check import main as check_engine
 from ontobdc.storage.plugin.check.is_root_set.check import main as check_storage_index
-from ontobdc.storage.adapter.bootstrap import get_init_root_path, get_ontobdc_directory
+from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 from ontobdc.cli.plugin.check.has_valid_config_file.check import main as check_config_file
 from ontobdc.context.plugin.check.has_valid_context.check import main as check_execution_context
 
@@ -28,8 +28,8 @@ class CliInitStateEvaluatorAdapter(CliInitStateEvaluatorPort):
         return CliInitProcessState
 
     def evaluate(self, context: CliContextPort) -> CliInitProcessStatePort:
-        root_path: Path = get_init_root_path(context=context)
-        ontobdc_directory: Path = get_ontobdc_directory(root_path)
+        root_path: Path = StorageBootstrap.get_init_root_path(context=context)
+        ontobdc_directory: Path = StorageBootstrap.get_ontobdc_directory(root_path)
         if not ontobdc_directory.is_dir():
             return CliInitProcessState.UNDEFINED
 
@@ -119,14 +119,14 @@ class CliInitStateTransitionHandler(CliInitStateTransitionHandlerPort):
         )
         visited_states: List[str] = worker.work()
 
-        root_path: Path = get_init_root_path(context=self._context)
+        root_path: Path = StorageBootstrap.get_init_root_path(context=self._context)
         self._logger.log_notice("OntoBDC init bootstrap finished successfully.")
         return CommandResponse(
             title="Init",
             description="Bootstrap initialization executed successfully.",
             content={
                 "root_path": str(root_path),
-                "ontobdc_directory": str(get_ontobdc_directory(root_path)),
+                "ontobdc_directory": str(StorageBootstrap.get_ontobdc_directory(root_path)),
                 "current_state": self.current_state.value,
                 "visited_states": visited_states,
             },

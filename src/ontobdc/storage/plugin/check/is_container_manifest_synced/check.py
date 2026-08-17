@@ -1,5 +1,7 @@
 import json
+import mimetypes
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 from urllib.parse import unquote
@@ -60,6 +62,38 @@ def _iter_container_files(container_path: Path) -> List[str]:
     return sorted(set(files))
 
 
+def _iso_utc(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _expected_file_properties(file_path: Path) -> Dict[str, Any]:
+    stat_result = file_path.stat()
+    properties: Dict[str, Any] = {
+        "name": file_path.name,
+        "contentSize": str(stat_result.st_size),
+        "dateModified": _iso_utc(stat_result.st_mtime),
+    }
+
+    media_type, _ = mimetypes.guess_type(file_path.name)
+    if media_type:
+        properties["encodingFormat"] = media_type
+
+    birth_time = getattr(stat_result, "st_birthtime", None)
+    if birth_time is None and os.name == "nt":
+        birth_time = stat_result.st_ctime
+    if birth_time is not None:
+        properties["dateCreated"] = _iso_utc(float(birth_time))
+
+    return properties
+
+
+def _normalize_file_id(raw_id: str) -> str:
+    normalized_id = unquote(raw_id.strip())
+    if normalized_id.startswith("./"):
+        normalized_id = normalized_id[2:]
+    return normalized_id
+
+
 def _extract_has_part_ids(crate_data: Dict[str, Any]) -> Optional[Set[str]]:
     graph_data: object = crate_data.get("@graph")
     if not isinstance(graph_data, list):
@@ -87,12 +121,42 @@ def _extract_has_part_ids(crate_data: Dict[str, Any]) -> Optional[Set[str]]:
         part_id: object = part.get("@id")
         if not isinstance(part_id, str) or not part_id.strip():
             return None
-        normalized_id: str = unquote(part_id.strip())
-        if normalized_id.startswith("./"):
-            normalized_id = normalized_id[2:]
-        file_ids.add(normalized_id)
+        file_ids.add(_normalize_file_id(part_id))
 
     return file_ids
+
+
+def _extract_file_nodes(crate_data: Dict[str, Any]) -> Optional[Dict[str, Dict[str, Any]]]:
+    graph_data: object = crate_data.get("@graph")
+    if not isinstance(graph_data, list):
+        return None
+
+    file_nodes: Dict[str, Dict[str, Any]] = {}
+    for node in graph_data:
+        if not isinstance(node, dict):
+            continue
+        node_id = node.get("@id")
+        if not isinstance(node_id, str) or node_id in {"./", "ro-crate-metadata.json"}:
+            continue
+        node_type = node.get("@type")
+        if node_type == "File" or (isinstance(node_type, list) and "File" in node_type):
+            file_nodes[_normalize_file_id(node_id)] = node
+
+    return file_nodes
+
+
+def _metadata_matches(container_path: Path, file_ids: Set[str], crate_data: Dict[str, Any]) -> bool:
+    file_nodes = _extract_file_nodes(crate_data)
+    if file_nodes is None or set(file_nodes) != file_ids:
+        return False
+
+    for file_id in file_ids:
+        expected = _expected_file_properties(container_path / Path(file_id))
+        node = file_nodes[file_id]
+        for key, value in expected.items():
+            if node.get(key) != value:
+                return False
+    return True
 
 
 def main(
@@ -124,10 +188,10 @@ def main(
 
     expected_file_ids: Set[str] = set(_iter_container_files(resolved_container_path))
     crate_file_ids: Optional[Set[str]] = _extract_has_part_ids(crate_data)
-    if crate_file_ids is None:
+    if crate_file_ids is None or crate_file_ids != expected_file_ids:
         return 1
 
-    if crate_file_ids != expected_file_ids:
+    if not _metadata_matches(resolved_container_path, expected_file_ids, crate_data):
         return 1
 
     return 0

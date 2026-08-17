@@ -16,6 +16,20 @@ class IdentifiedCapability(TransformationCapability):
         author=["TRAE"],
         tags=["context", "learning", "identified"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Source file was stored as the identified artifact of the entity "
+                    "learning pipeline."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Storing the source file as the identified artifact of "
+                    "the entity learning pipeline."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:

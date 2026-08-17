@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, cast
 
 from rdflib import Graph
 
@@ -70,6 +70,21 @@ class SurfaceOperationalMatchedCapability(SurfaceMatchedCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["view", "surface", "tile", "operation", "default-layout", "transformation"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Operation-region defaults were resolved when no explicit tile "
+                    "was declared, with Surface definitions embedded for client-side "
+                    "selection."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Resolving operation-region defaults and embedding Surface "
+                    "definitions for client-side selection."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:
@@ -96,7 +111,11 @@ class SurfaceOperationalMatchedCapability(SurfaceMatchedCapability):
         if layouts and not operation_already_declared:
             empty_graph = Graph()
             for request in self._operation_requests(layouts):
-                added.append(self._with_resolved_tile(empty_graph, request))
+                resolved: Optional[Dict[str, Any]] = self._with_resolved_tile(
+                    empty_graph, request, strict=False
+                )
+                if resolved is not None:
+                    added.append(resolved)
 
         if added:
             matches = normalize_matches(list(matches) + added)

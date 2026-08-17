@@ -1,9 +1,7 @@
-from .logo import LogoComponent
-from .surface import TerminalSurface, TerminalSurfaceResizeEvent, TerminalSurfaceSize
+from typing import List
 
-__all__ = [
+from .logo import LogoComponent
+
+__all__: List[str] = [
     "LogoComponent",
-    "TerminalSurface",
-    "TerminalSurfaceResizeEvent",
-    "TerminalSurfaceSize",
 ]

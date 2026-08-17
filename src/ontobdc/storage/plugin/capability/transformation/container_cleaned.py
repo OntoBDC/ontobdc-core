@@ -31,6 +31,20 @@ class ContainerCleanedCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "update", "cleanup"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Configured temporary files were removed from the container "
+                    "workspace before metadata synchronization."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Removing configured temporary files from the container "
+                    "workspace before metadata synchronization."
+                ),
+            },
+        },
     )
 
     def __init__(

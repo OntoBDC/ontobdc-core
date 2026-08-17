@@ -53,6 +53,20 @@ class EntityViewsPublishedCapability(TransformationCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["view", "surface", "html", "page", "transformation"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Standalone detail pages were published for every entity "
+                    "supported by an available Page renderer."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Publishing standalone detail pages for every entity "
+                    "supported by an available Page renderer."
+                ),
+            },
+        },
     )
 
     def __init__(self) -> None:

@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import List, Optional
-from urllib.parse import quote
 
 from rdflib import Graph, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF
@@ -8,6 +7,8 @@ from rdflib.namespace import DCTERMS, PROV, RDF
 from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
 from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
 from ontobdc.storage.adapter.bootstrap import get_container_storage_file_path
+from ontobdc.storage.adapter.identifier import is_valid_container_id
+from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 
 _ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
     config_adapter=UnsetProjectRootConfigDataAdapter(),
@@ -29,14 +30,12 @@ def _resolve_root_path(root_path: Optional[str]) -> Optional[Path]:
     return Path(root_path).expanduser().resolve()
 
 
-def _build_expected_container_id(container_path: Path, root_path: Path) -> Optional[str]:
+def _is_contained(container_path: Path, root_path: Path) -> bool:
     try:
-        relative_container_path: Path = container_path.relative_to(root_path)
+        container_path.relative_to(root_path)
+        return True
     except ValueError:
-        return None
-
-    encoded_relative_path: str = quote(relative_container_path.as_posix(), safe="/")
-    return f"urn:ontobdc:storage/local/{encoded_relative_path}"
+        return False
 
 
 def _load_container_graph(container_storage_file_path: Path) -> Optional[Graph]:
@@ -82,14 +81,16 @@ def _has_valid_location(container_graph: Graph, subject: URIRef, container_path:
 def _has_valid_identifier(
     container_graph: Graph,
     subject: URIRef,
-    expected_container_id: str,
 ) -> bool:
     identifier_values: List[str] = [
         str(identifier).strip()
         for identifier in container_graph.objects(subject, DCTERMS.identifier)
         if str(identifier).strip()
     ]
-    return expected_container_id in identifier_values
+    if identifier_values != [str(subject)]:
+        return False
+
+    return is_valid_container_id(identifier_values[0])
 
 
 def main(
@@ -104,14 +105,10 @@ def main(
     if not resolved_container_path.is_dir():
         return 1
 
-    expected_container_id: Optional[str] = _build_expected_container_id(
-        resolved_container_path,
-        resolved_root_path,
-    )
-    if expected_container_id is None:
+    if not _is_contained(resolved_container_path, resolved_root_path):
         return 1
 
-    container_storage_file_path: Path = get_container_storage_file_path(resolved_container_path)
+    container_storage_file_path: Path = StorageBootstrap.get_container_storage_file_path(resolved_container_path)
     if not container_storage_file_path.is_file():
         return 1
 
@@ -123,7 +120,7 @@ def main(
     if container_subject is None:
         return 1
 
-    if not _has_valid_identifier(container_graph, container_subject, expected_container_id):
+    if not _has_valid_identifier(container_graph, container_subject):
         return 1
 
     if not _has_required_value(container_graph, container_subject, DCTERMS.title):

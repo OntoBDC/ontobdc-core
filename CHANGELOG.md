@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+## v0.17.0
+
+### Fixed
+
+- `context --graph` rendered `context.ttl` as a netext force-directed node-link graph, but `context.ttl` is structurally always a single-subject graph (one `:CurrentContext` individual with a handful of properties) — a network layout crammed every property node around that one hub, producing overlapping/garbled boxes (and, at small terminal widths, losing nodes off-canvas entirely) instead of anything readable. `context --graph` now groups by subject instead: one heading per subject (in practice just `:CurrentContext`) followed by its `predicate: object` pairs, the same shape Turtle's own subject grouping produces — restoring the readable behavior from before the graph rendering was introduced. Added `GroupedGraphCommandResponse`/`GroupedGraphCommandResponseWidgetAdapter` for this; `context --graph2` (the netext layout A/B comparison command) is untouched and still renders the node-link diagram.
+
+### Changed
+
+- Container identifiers no longer derive from the container's filesystem path (`urn:ontobdc:storage/local/<relative-path>`, recomputed on every check). They are now opaque, stable `urn:uuid:<uuid4>` values minted once at creation and carried unchanged for the container's lifetime; moving or renaming a container's folder only updates its `prov:atLocation`, not its identity. `is_container_metadata_ready`'s check/hotfix pair now validate identifier *format* (a valid uuid4 urn matching the container's own subject IRI) and location freshness independently, instead of recomputing an "expected" id from the path — the old scheme conflated identity with location, which is what made the self-healing hotfix need to recompute the id at all. Added `storage.adapter.identifier` (`generate_container_id`, `is_valid_container_id`, `normalize_container_id`) as the single place this format is defined. `storage --delete`/`storage --update`'s short-id expansion (a bare id with no `urn:` prefix) now expands to `urn:uuid:<id>` instead of `urn:ontobdc:storage/local/<id>`. `container --attach` now carries the source container's id forward unchanged instead of re-minting one from the target path, consistent with identity being location-independent. Dataset identifiers (`urn:ontobdc:storage/dataset/<path>`) are unchanged.
+
 ## v0.16.4
 
 ### Fixed

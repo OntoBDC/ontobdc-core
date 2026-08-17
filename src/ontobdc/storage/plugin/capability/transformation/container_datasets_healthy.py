@@ -9,7 +9,9 @@ from rdflib.namespace import PROV, RDF
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
-from ontobdc.storage.adapter.bootstrap import OBDC, get_container_storage_file_path
+from ontobdc.storage.adapter.bootstrap import StorageNamespaceBootstrap, StorageBootstrap
+
+_OBDC = StorageNamespaceBootstrap.OBDC
 from ontobdc.storage.domain.machine.state import ContainerUpdateProcessState
 
 
@@ -40,6 +42,20 @@ class ContainerDatasetsHealthyCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "dataset", "update", "health"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Registered datasets were repaired and validated, and per-dataset "
+                    "health results were produced."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Repairing and validating registered datasets and "
+                    "producing per-dataset health results."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:
@@ -58,7 +74,7 @@ class ContainerDatasetsHealthyCapability(TransactionCapability):
         container_path: Path = Path(
             str(context.get_parameter_value("container_path") or "")
         ).expanduser().resolve()
-        container_storage_file_path: Path = get_container_storage_file_path(
+        container_storage_file_path: Path = StorageBootstrap.get_container_storage_file_path(
             container_path
         )
 
@@ -109,7 +125,7 @@ class ContainerDatasetsHealthyCapability(TransactionCapability):
 
         container_subjects: List[URIRef] = [
             subject
-            for subject in graph.subjects(RDF.type, OBDC.DataContainer)
+            for subject in graph.subjects(RDF.type, _OBDC.DataContainer)
             if isinstance(subject, URIRef)
         ]
         if len(container_subjects) != 1:
@@ -118,9 +134,9 @@ class ContainerDatasetsHealthyCapability(TransactionCapability):
 
         dataset_subjects: List[URIRef] = [
             subject
-            for subject in graph.objects(container_subject, OBDC.hasEntityDataset)
+            for subject in graph.objects(container_subject, _OBDC.hasEntityDataset)
             if isinstance(subject, URIRef)
-            and (subject, RDF.type, OBDC.EntityDataset) in graph
+            and (subject, RDF.type, _OBDC.EntityDataset) in graph
         ]
 
         dataset_paths: List[Path] = []

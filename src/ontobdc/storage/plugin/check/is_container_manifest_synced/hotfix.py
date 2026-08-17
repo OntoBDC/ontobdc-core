@@ -1,7 +1,9 @@
+import mimetypes
 import os
 import warnings
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from rocrate.rocrate import ROCrate
 
@@ -61,12 +63,40 @@ def _iter_container_files(container_path: Path) -> List[str]:
     return sorted(set(files))
 
 
-def _write_crate_manifest(marker_path: Path, file_ids: List[str]) -> None:
+def _iso_utc(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _file_properties(file_path: Path) -> Dict[str, Any]:
+    """Return filesystem metadata available without reading file content."""
+    stat_result = file_path.stat()
+    properties: Dict[str, Any] = {
+        "name": file_path.name,
+        "contentSize": str(stat_result.st_size),
+        "dateModified": _iso_utc(stat_result.st_mtime),
+    }
+
+    media_type, _ = mimetypes.guess_type(file_path.name)
+    if media_type:
+        properties["encodingFormat"] = media_type
+
+    birth_time = getattr(stat_result, "st_birthtime", None)
+    if birth_time is None and os.name == "nt":
+        birth_time = stat_result.st_ctime
+    if birth_time is not None:
+        properties["dateCreated"] = _iso_utc(float(birth_time))
+
+    return properties
+
+
+def _write_crate_manifest(marker_path: Path, container_path: Path, file_ids: List[str]) -> None:
     crate: ROCrate = ROCrate(gen_preview=False)
     for file_id in file_ids:
+        file_path = container_path / Path(file_id)
         crate.add_file(
             source=None,
             dest_path=file_id,
+            properties=_file_properties(file_path),
         )
 
     with warnings.catch_warnings():
@@ -91,7 +121,7 @@ def main(
 
     marker_path: Path = ensure_ontobdc_directory(resolved_container_path)
     file_ids: List[str] = _iter_container_files(resolved_container_path)
-    _write_crate_manifest(marker_path, file_ids)
+    _write_crate_manifest(marker_path, resolved_container_path, file_ids)
     return 0
 
 

@@ -3,7 +3,7 @@ from typing import Any, Dict
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransformationCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
-from ontobdc.view.adapter.surface.context import surface_config_from_context
+from ontobdc.view.adapter.surface.context import SurfaceContextAdapter
 from ontobdc.view.adapter.surface.document import (
     CONFIG_ID,
     normalize_surface_config,
@@ -24,10 +24,25 @@ class SurfaceSetCapability(TransformationCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["view", "surface", "configuration", "transformation"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Surface regions and runtime presentation rules were declared "
+                    "without fixing viewport geometry."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Declaring Surface regions and runtime presentation rules "
+                    "(no fixed viewport geometry)."
+                ),
+            },
+        },
     )
 
     def __init__(self) -> None:
         self._surface = SurfaceTransformationAdapter()
+        self._context_adapter = SurfaceContextAdapter()
 
     def label(self, lang: str = "en") -> str:
         return SurfaceGenerationProcessState.SURFACE_SET.label(lang)
@@ -39,7 +54,7 @@ class SurfaceSetCapability(TransformationCapability):
         return self._surface.check(context, check_surface_set)
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-        config = normalize_surface_config(surface_config_from_context(context))
+        config = normalize_surface_config(self._context_adapter.surface_config(context))
         document = upsert_json_script(self._surface.read(context), CONFIG_ID, config)
         document = set_state_marker(document, "surface_set")
         path = self._surface.write(context, document)

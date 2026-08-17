@@ -3,9 +3,8 @@ from typing import Any, Dict
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
-from ontobdc.storage.adapter.attachment import (
-    attach_storage_index,
-    is_storage_index_attached,
+from ontobdc.storage.adapter.attachment.metadata import (
+    AttachmentMetadataService,
 )
 from ontobdc.storage.domain.machine.attach_state import (
     ContainerAttachProcessState,
@@ -26,6 +25,20 @@ class StorageIndexAttachedCapability(TransactionCapability):
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "attach", "transformation"],
         supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Local storage index was reconciled with the attached container "
+                    "metadata."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Reconciling the local storage index with the attached "
+                    "container metadata."
+                ),
+            },
+        },
     )
 
     def label(self, lang: str = "en") -> str:
@@ -35,11 +48,11 @@ class StorageIndexAttachedCapability(TransactionCapability):
         return ContainerAttachProcessState.STORAGE_INDEX_ATTACHED.description(lang)
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-        result = attach_storage_index(context)
+        result = AttachmentMetadataService.attach_storage_index(context)
         result["resulting_state"] = (
             ContainerAttachProcessState.STORAGE_INDEX_ATTACHED
         )
         return result
 
     def is_satisfied(self, context: CliContextPort) -> bool:
-        return is_storage_index_attached(context)
+        return AttachmentMetadataService.is_storage_index_attached(context)
