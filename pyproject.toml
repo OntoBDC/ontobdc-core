@@ -17,7 +17,7 @@ classifiers = [
 ]
 dependencies = [
     "ontobdc-view>=0.4.0",
-    "brasidatacenter @ git+https://github.com/Brasidata/brasidatacenter.git@master",
+    "brasidatacenter",
     "hatchling>=1.26",
     "setuptools",
     "requests",
