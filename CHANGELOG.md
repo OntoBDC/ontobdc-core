@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed
+
+- `ontobdc view`'s RO-Crate/Surface file inventory (`DataGatheredCapability._add_file_tree_entity`/`_add_file_entities`) silently dropped every file whose extension `frictionless` has no registered parser for — images, PDFs, plain text, Office documents, and more. It called `ContainerDataPackageSynchronizer.list_resource_paths()`, gated by `FrictionlessFormatRegistry.supports()` for the *Frictionless Data Package* descriptor's benefit, as the container's *complete* file inventory. In a container with mixed file types, whole folders and most of the byte total (`onto-file-size-tile`) could vanish from the generated Surface without any error — indistinguishable from a genuinely broken layout. `data_gathered.py` now calls `ContainerDataPackageSynchronizer.list_container_file_paths()` (unfiltered by format; excludes only OntoBDC internals and nested datasets) for this instead — the container's real RO-Crate inventory. `list_resource_paths()` itself is unchanged and still backs the frictionless Data Package sync and the `is_publishable`/`is_container_publishable` datapackage-descriptor comparisons, which must stay narrowed to frictionless-parseable formats to match what `sync()` actually writes.
+
+### Changed
+
+- `ontobdc view`'s generated Surface no longer embeds a preview Tile per file entity — a real container can have thousands, and `ontobdc-view`'s per-Tile fixes (each Tile correctly deferring its own real-file read until opened) don't change that shape being wrong on its own terms: the main `index.html` must only ever show RO-Crate metadata, never touch real file content, except at the single explicit moment a user opens a file. `ImageFile`/`PdfFile`/`CsvFile`/`GenericFile` are no longer declared `obdc:SurfaceableEntity` in `data_gathered.py`, so `SurfaceMatchedCapability`'s auto-match no longer creates a Tile for them at all. `SurfacePackagedCapability` now also writes a standalone `onto-file-viewer.html` (from `ontobdc-view`'s `file_viewer_source()`) alongside `index.html`; `onto-file-tree-tile` opening a file now reveals `ontobdc-view`'s new Surface-wide singleton `onto-file-viewer-tile`, `tile_class`-matched the same way as `onto-file-size-tile` (a new `FILE_VIEWER_TILE_CLASS_URI` alongside `SurfaceMatchedCapability`'s existing `FILE_SIZE_TILE_CLASS_URI`), whose `<iframe>` points at `onto-file-viewer.html` with the clicked file's path passed by reference in the query string (`?path=...`) — that page is the one place, and an explicit double-click the only moment, any real container file is read. Both `ontobdc view` and `storage --update` (`ContainerHtmlViewUpdatedCapability`) now also remove a stale `onto-file-viewer.html` before regenerating, the same precaution already taken for `index.html` itself, so a prior run's copy is never mistaken for an ordinary container file by `DATA_GATHERED`.
+
 ## v0.17.0
 
 ### Fixed

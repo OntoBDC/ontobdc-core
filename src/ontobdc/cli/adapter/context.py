@@ -1,7 +1,7 @@
 
 import os
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, FrozenSet, List, Optional
 from ontobdc.shared.adapter.util import to_camel_case
 from rdflib import Graph, Literal, Namespace, URIRef, RDF
 from ontobdc.cli.domain.port.context import CliContextPort
@@ -17,6 +17,25 @@ class CliContextAdapter(CliContextPort):
     """
     Adapter for the CLI context, handling arguments, parameter resolution, and state persistence via RDF graph.
     """
+
+    # Runtime-only parameters that MUST NEVER be persisted on disk inside
+    # ``context.ttl``.  These values only make sense for the current CLI
+    # invocation: they control verbosity, logging, UI chrome, execution
+    # targeting etc. and must not leak into the shared container state that
+    # survives across runs.  Any transient CLI flag added in the future
+    # should be appended here so the persistence layer automatically ignores
+    # it without further code changes.
+    TRANSIENT_PARAMETER_KEYS: FrozenSet[str] = frozenset({
+        "log_level",
+        "verbose",
+        "quiet",
+        "no_color",
+        "force",
+        "non_interactive",
+        "capability_id",
+        "raw_args",
+    })
+
     def __init__(self, argv: List[str] = [], root_dir: str = None):
         self._raw_argv = argv
 
@@ -116,11 +135,40 @@ class CliContextAdapter(CliContextPort):
     def set_parameter_value(self, param_key: str, param_value: Any) -> None:
         """
         Sets the value of a parameter.
+
+        Transient parameters (see :attr:`TRANSIENT_PARAMETER_KEYS`) are only
+        kept in process memory so they remain available to the current CLI
+        invocation via :meth:`get_parameter_value`, but are NEVER written
+        into the on-disk ``context.ttl``.  Persistent parameters continue to
+        be serialized through the RDF graph exactly as before.
         """
         camel_case_key: str = to_camel_case(param_key)
-        prop_uri: URIRef = OBDC[camel_case_key]
 
-        if isinstance(param_value, str):
+        # Ensure any pre-existing value for this parameter is dropped from
+        # the graph before we decide whether the *new* value is persisted or
+        # transient.  Without this, a persistent bytes/stale value left by
+        # an older version would survive forever on disk even after the
+        # caller supplied a fresh transient (or just different) value, and
+        # rdflib's turtle serializer would then emit both side-by-side on
+        # the same predicate, producing syntactically broken output such as
+        # a trailing ``;\`` escape or literal ``b'...'`` bytes reprs.
+        prop_uri: URIRef = OBDC[camel_case_key]
+        if self._context_individual is not None:
+            self._graph.remove((self._context_individual, prop_uri, None))
+
+        if param_key in self.TRANSIENT_PARAMETER_KEYS:
+            self._resolved_parameters[camel_case_key] = param_value
+            self._save()
+            return
+
+        if isinstance(param_value, bytes):
+            try:
+                decoded_value: str = param_value.decode("utf-8")
+            except (AttributeError, UnicodeDecodeError):
+                decoded_value = param_value.decode("utf-8", errors="replace")
+            param_value = Literal(decoded_value)
+
+        elif isinstance(param_value, str):
             param_value = Literal(param_value)
 
         elif isinstance(param_value, (int, float)):
@@ -133,15 +181,13 @@ class CliContextAdapter(CliContextPort):
             param_value = param_value
 
         elif isinstance(param_value, object):
-            self._resolved_parameters[to_camel_case(param_key)] = param_value
+            self._resolved_parameters[camel_case_key] = param_value
+            self._save()
             return
 
         else:
             raise ValueError(f"Invalid parameter value type: {type(param_value)}")
 
-        # Remove existing value
-        self._graph.remove((self._context_individual, prop_uri, None))
-        # Add new value
         self._graph.add((self._context_individual, prop_uri, param_value))
 
         self._save()
@@ -211,6 +257,11 @@ class CliContextAdapter(CliContextPort):
     def _load(self) -> None:
         """
         Loads the context graph from the context file.
+
+        Any transient parameter left over from older OntoBDC versions is
+        actively purged after deserialization so the persisted state never
+        leaks runtime-only values (log level, verbosity flags …) between
+        separate CLI invocations.
         """
         if self._context_file is None:
             return
@@ -219,6 +270,16 @@ class CliContextAdapter(CliContextPort):
         for s in self._graph.subjects(predicate=RDF.type, object=OBDC.ExecutionContext):
             self._context_individual = s
             break
+
+        if self._context_individual is None:
+            return
+
+        for transient_key in self.TRANSIENT_PARAMETER_KEYS:
+            prop_uri = OBDC[to_camel_case(transient_key)]
+            self._graph.remove((self._context_individual, prop_uri, None))
+
+        if self._context_file is not None:
+            self._graph.serialize(destination=self._context_file, format="turtle")
 
     def _save(self) -> None:
         """

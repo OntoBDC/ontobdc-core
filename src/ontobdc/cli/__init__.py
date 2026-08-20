@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ontobdc.cli.adapter.command import CliCommandRunAdapter
 from ontobdc.cli.adapter.logger import BaseLoggerAdapter, InLineLogger, NullLogRepository, StandardConsoleLogger
-from ontobdc.cli.adapter.old_terminal import prompt_choice, prompt_raw_text
+from ontobdc.cli.adapter.terminal import prompt_choice, prompt_raw_text
 from ontobdc.cli.domain.exception.command import CliCommandArgumentException
 from ontobdc.cli.domain.model.logger import LogLevel, LogStrategyConfig
 from ontobdc.cli.domain.port.command import CliCommandPort

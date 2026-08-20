@@ -13,8 +13,24 @@ from urllib.request import url2pathname
 from frictionless import Resource, System, system as frictionless_system
 
 from ontobdc.storage.adapter.bootstrap import (
-    StorageBootstrap,
     StorageLayoutConstants,
+    StoragePathStatHelper,
+)
+
+
+_MISSING_STAT_RESULT: os.stat_result = os.stat_result(
+    (
+        0,  # st_mode
+        0,  # st_ino
+        0,  # st_dev
+        0,  # st_nlink
+        0,  # st_uid
+        0,  # st_gid
+        0,  # st_size <---- the only attribute we actually consume downstream
+        0.0,  # st_atime
+        0.0,  # st_mtime
+        0.0,  # st_ctime
+    )
 )
 
 
@@ -93,12 +109,49 @@ class ContainerDataPackageSynchronizer:
 
     _IGNORED_MARKER_DIR_NAMES: ClassVar[Set[str]] = {
         StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME,
-        ".__onmtobdc__",
     }
+    _BLOCKED_FILE_EXTENSIONS: ClassVar[FrozenSet[str]] = frozenset({
+        "ini",
+        "cfg",
+        "conf",
+        "log",
+        "bak",
+        "tmp",
+        "temp",
+        "swp",
+        "crdownload",
+        "part",
+        "lock",
+    })
+    _BLOCKED_FILE_BASENAMES: ClassVar[FrozenSet[str]] = frozenset({
+        ".ds_store",
+        "thumbs.db",
+        "desktop.ini",
+        "index.html",
+        "onto-file-viewer.html",
+    })
     _DATASET_MARKER_FILE_NAMES: ClassVar[Set[str]] = {"dataset.ttl", "nid.ttl"}
     _DATASET_LINKSET_DIR_NAME: ClassVar[str] = "linkset"
     _DATASET_DATAPACKAGE_FILE_NAME: ClassVar[str] = "datapackage.json"
     _CONTAINER_DATAPACKAGE_FILE_NAME: ClassVar[str] = "datapackage.json"
+
+    @classmethod
+    def is_file_blocked_from_publication(cls, file_name: str) -> bool:
+        """Return ``True`` when *file_name* must not appear in any
+        user-facing surface (RO-Crate ``hasPart``, file tree tile,
+        per-file display entities, datapackage resource lists etc.).
+
+        Blocks are matched against both the lower-cased base name
+        (for dotfiles like ``.DS_Store`` or hidden metadata such as
+        ``Thumbs.db``) and the lower-cased extension without the
+        leading dot (for ``*.ini``, ``*.bak`` and similar temporary
+        or system artefacts).
+        """
+        normalized_name: str = Path(file_name).name.lower()
+        if normalized_name in cls._BLOCKED_FILE_BASENAMES:
+            return True
+        suffix: str = Path(file_name).suffix.lower().lstrip(".")
+        return bool(suffix) and suffix in cls._BLOCKED_FILE_EXTENSIONS
 
     @classmethod
     def _is_dataset_dir(cls, candidate_dir: Path) -> bool:
@@ -116,11 +169,13 @@ class ContainerDataPackageSynchronizer:
         return datapackage_file.is_file()
 
     @classmethod
-    def list_resource_paths(cls, container_path: Path) -> List[str]:
-        """List container-owned files whose format is frictionless-compatible.
+    def _iter_container_file_paths(cls, container_path: Path) -> List[Path]:
+        """Walk the container directory yielding every on-disk file path.
 
-        Excludes OntoBDC internals, nested datasets, and files whose
-        extension frictionless doesn't have a registered parser for.
+        Excludes only the OntoBDC marker directory and nested datasets
+        (paths reserved for the platform itself).  Callers layer additional
+        filters on top (e.g. frictionless-format gating for a Data Package or
+        no filter at all for the presentation file tree).
         """
         resolved_container_path: Path = container_path.expanduser().resolve()
         if not resolved_container_path.is_dir():
@@ -128,7 +183,7 @@ class ContainerDataPackageSynchronizer:
                 f"Container path is not a directory: {resolved_container_path}"
             )
 
-        resource_paths: List[str] = []
+        file_paths: List[Path] = []
         for root, dir_names, file_names in os.walk(
             resolved_container_path,
             topdown=True,
@@ -142,17 +197,51 @@ class ContainerDataPackageSynchronizer:
             ]
 
             for file_name in file_names:
-                file_path: Path = root_path / file_name
-                file_format: str = file_path.suffix.lower().lstrip(".")
-                if not FrictionlessFormatRegistry.supports(file_format):
-                    continue
-                relative_path: str = file_path.relative_to(
-                    resolved_container_path
-                ).as_posix()
-                if relative_path.strip():
-                    resource_paths.append(relative_path)
+                file_paths.append(root_path / file_name)
+
+        return file_paths
+
+    @classmethod
+    def list_resource_paths(cls, container_path: Path) -> List[str]:
+        """List container-owned files whose format is frictionless-compatible.
+
+        Excludes OntoBDC internals, nested datasets, and files whose
+        extension frictionless doesn't have a registered parser for.
+        """
+        resource_paths: List[str] = []
+        resolved_container_path: Path = container_path.expanduser().resolve()
+        for file_path in cls._iter_container_file_paths(container_path):
+            file_format: str = file_path.suffix.lower().lstrip(".")
+            if not FrictionlessFormatRegistry.supports(file_format):
+                continue
+            relative_path: str = file_path.relative_to(
+                resolved_container_path
+            ).as_posix()
+            if relative_path.strip():
+                resource_paths.append(relative_path)
 
         return sorted(set(resource_paths))
+
+    @classmethod
+    def list_container_file_paths(cls, container_path: Path) -> List[str]:
+        """List every container-owned file as POSIX relative paths.
+
+        Used for the presentation file tree and other places that must reflect
+        *all* on-disk content, not just frictionless-tabular resources.
+        Same OntoBDC-internal and nested-dataset exclusions as
+        ``list_resource_paths`` apply, plus a centralised publication block
+        list (dotfiles, hidden system metadata, temporary artefacts) via
+        ``is_file_blocked_from_publication``. PDFs, images, CAD files, IFC
+        payloads, documents etc. are still included so the UI surface's
+        FILES tree matches what's actually in the container.
+        """
+        resolved_container_path: Path = container_path.expanduser().resolve()
+        relative_paths: List[str] = [
+            file_path.relative_to(resolved_container_path).as_posix()
+            for file_path in cls._iter_container_file_paths(container_path)
+            if not cls.is_file_blocked_from_publication(file_path.name)
+        ]
+        return sorted({p for p in relative_paths if p.strip()})
 
     def sync(self, container_path: Path) -> ContainerDataPackageSyncResult:
         resolved_container_path: Path = container_path.expanduser().resolve()
@@ -328,7 +417,9 @@ class ContainerDataPackageSynchronizer:
             descriptor.get("name") or self._resource_name(relative_path)
         ).strip()
         descriptor["path"] = descriptor_path
-        descriptor["bytes"] = StorageBootstrap.to_extended_length_path(file_path).stat().st_size
+        descriptor["bytes"] = (
+            (StoragePathStatHelper.safe_stat(file_path) or _MISSING_STAT_RESULT).st_size
+        )
 
         file_format: str = file_path.suffix.lower().lstrip(".")
         if file_format:

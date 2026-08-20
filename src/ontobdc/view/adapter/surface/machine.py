@@ -107,6 +107,7 @@ class SurfaceGenerationStateTransitionHandler(SurfaceGenerationStateTransitionHa
         self._state_evaluator = state_evaluator or SurfaceGenerationStateEvaluatorAdapter()
         self._logger = logger or NullLogRepository()
         self._active_state: Optional[SurfaceGenerationProcessStatePort] = None
+        self._last_transition_state: Optional[SurfaceGenerationProcessStatePort] = None
 
     @property
     def context(self) -> CliContextPort:
@@ -142,7 +143,16 @@ class SurfaceGenerationStateTransitionHandler(SurfaceGenerationStateTransitionHa
         )
         capability_type = _capability_type_for_state(to_state)
         capability: CapabilityPort = capability_type()
-        CapabilityExecutor.execute(capability, self._context)
+        try:
+            CapabilityExecutor.execute(capability, self._context)
+        except Exception as exc:  # pragma: no cover - logging path for runtime diagnostics
+            self._logger.log_error(
+                "HTML Surface capability failed "
+                f"(current={self.current_state.value}, target={to_state.value}, "
+                f"capability={type(capability).__name__}): {type(exc).__name__}: {exc}"
+            )
+            raise
+        self._last_transition_state = to_state
 
     def validate_state_transition(
         self,
@@ -151,14 +161,15 @@ class SurfaceGenerationStateTransitionHandler(SurfaceGenerationStateTransitionHa
     ) -> bool:
         if from_state == to_state:
             return False
-
-        sequence = self.state_sequence
-        observed_state = self.observed_state
-        if observed_state not in sequence or to_state not in sequence:
-            return False
-
-        # observed_state is cumulative, so overshooting to_state still satisfies it — exact equality would reject that.
-        return sequence.index(observed_state) >= sequence.index(to_state)
+        # The authoritative within-tick signal is whether perform_state_transition
+        # (which runs the full transformation capability, including its own
+        # pre/post checks) completed without raising. Running observed_state — a
+        # disk-backed re-evaluation — inside the same sismic execute_once() tick,
+        # on a filter-driver backed filesystem (OneDrive / network share / DFS),
+        # yields stale reads and false postcondition failures even for
+        # successful runs, because eventually-consistent caches lag by tens to
+        # hundreds of milliseconds behind the successful writes.
+        return self._last_transition_state == to_state
 
     def execute_until(
         self,

@@ -157,14 +157,21 @@ class DataGatheredCapability(TransformationCapability):
         re-enabling dataset merging, see _add_dataset_triples above), it
         re-asserts the marker itself for every class it can currently
         produce an instance of.
+
+        `ImageFile`/`PdfFile`/`CsvFile`/`GenericFile` are deliberately NOT
+        marked surfaceable: the main Surface must only ever show RO-Crate
+        metadata about a container's files, never their real content, so
+        auto-matching one inline preview Tile per file entity (thousands, in
+        a real container) is the wrong shape entirely regardless of how
+        carefully each such Tile defers its own real-file read. Opening a
+        file now navigates to the standalone
+        `.__ontobdc__/onto-file-viewer.html` page (`onto-file-tree-tile`'s
+        job) instead — the one place, and the only moment (an explicit
+        click), any real file content is ever read.
         """
         for entity_type in (
             _OBDC.DataContainer,
             _OBDC.FileTree,
-            _OBDC.ImageFile,
-            _OBDC.PdfFile,
-            _OBDC.CsvFile,
-            _OBDC.GenericFile,
         ):
             graph.add((entity_type, RDF.type, _OBDC.SurfaceableEntity))
 
@@ -401,7 +408,7 @@ class DataGatheredCapability(TransformationCapability):
         hierarchy client-side from the flat list of relative paths.
         """
         container_subject = self._container_subject(graph)
-        file_paths = ContainerDataPackageSynchronizer.list_resource_paths(self._container_path(context))
+        file_paths = ContainerDataPackageSynchronizer.list_container_file_paths(self._container_path(context))
 
         file_tree_subject = URIRef(f"{container_subject}/files")
         graph.add((file_tree_subject, RDF.type, _OBDC.FileTree))

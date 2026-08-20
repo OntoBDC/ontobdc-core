@@ -1,0 +1,102 @@
+statechart:
+  name: StandardWorkStreamScriptGeneration
+  description: "Statechart for generating the WorkStream Page's split runtime JS assets under .__ontobdc__/asset/work_stream_view/, one file per state."
+
+  root state:
+    name: standard_work_stream_script_generation
+    initial: undefined
+
+    states:
+      - name: undefined
+        description: "No work_stream_view runtime script has been generated yet."
+        transitions:
+          - target: i18n_script_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.UNDEFINED, to_state = WorkStreamScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED)
+
+      - name: i18n_script_generated
+        description: "i18n_apply.js was generated: applies [data-i18n]/[data-i18n-title]/[data-i18n-aria-label] chrome translations."
+        transitions:
+          - target: graph_reader_script_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.GRAPH_READER_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.GRAPH_READER_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.GRAPH_READER_SCRIPT_GENERATED)
+
+      - name: graph_reader_script_generated
+        description: "graph_reader.js was generated: reads the embedded JSON-LD graph."
+        transitions:
+          - target: csv_preview_script_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.CSV_PREVIEW_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.CSV_PREVIEW_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.GRAPH_READER_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.CSV_PREVIEW_SCRIPT_GENERATED)
+
+      - name: csv_preview_script_generated
+        description: "csv_preview.js was generated: CSV resource previews without depending on pyodide."
+        transitions:
+          - target: container_connection_script_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.CONTAINER_CONNECTION_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.CONTAINER_CONNECTION_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.CSV_PREVIEW_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.CONTAINER_CONNECTION_SCRIPT_GENERATED)
+
+      - name: container_connection_script_generated
+        description: "container_connection.js was generated: File System Access API + IndexedDB folder connection."
+        transitions:
+          - target: connection_state_script_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.CONNECTION_STATE_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.CONNECTION_STATE_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.CONTAINER_CONNECTION_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.CONNECTION_STATE_SCRIPT_GENERATED)
+
+      - name: connection_state_script_generated
+        description: "connection_state.js was generated: connect-button state transitions that never paint a fake connected state."
+        transitions:
+          - target: annotation_bridge_script_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.ANNOTATION_BRIDGE_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.ANNOTATION_BRIDGE_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.CONNECTION_STATE_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.ANNOTATION_BRIDGE_SCRIPT_GENERATED)
+
+      - name: annotation_bridge_script_generated
+        description: "annotation_bridge.js was generated: bridges to the native ontobdc OntoBDCAnnotations runtime."
+        transitions:
+          - target: pyodide_runtime_script_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.PYODIDE_RUNTIME_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.PYODIDE_RUNTIME_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.ANNOTATION_BRIDGE_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.PYODIDE_RUNTIME_SCRIPT_GENERATED)
+
+      - name: pyodide_runtime_script_generated
+        description: "pyodide_runtime.js was generated: Pyodide bootstrap and the WORKBOOK_PARSE_SCRIPT embedded Python parse."
+        transitions:
+          - target: linkset_operations_script_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.LINKSET_OPERATIONS_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.LINKSET_OPERATIONS_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.PYODIDE_RUNTIME_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.LINKSET_OPERATIONS_SCRIPT_GENERATED)
+
+      - name: linkset_operations_script_generated
+        description: "linkset_operations.js was generated: relate/unrelate/suggest ICDD DirectedBinaryLink operations."
+        transitions:
+          - target: file_category_script_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.FILE_CATEGORY_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.FILE_CATEGORY_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.LINKSET_OPERATIONS_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.FILE_CATEGORY_SCRIPT_GENERATED)
+
+      - name: file_category_script_generated
+        description: "file_category.js was generated: classifies resources into display categories from file_display.ttl, in pure JS."
+        transitions:
+          - target: dimension_card_script_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.DIMENSION_CARD_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.DIMENSION_CARD_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.FILE_CATEGORY_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.DIMENSION_CARD_SCRIPT_GENERATED)
+
+      - name: dimension_card_script_generated
+        description: "dimension_card.js was generated: builds each 5W2H dimension card's DOM and wires the page's render() bootstrap."
+        type: final

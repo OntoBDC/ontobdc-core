@@ -96,6 +96,17 @@ class ContainerViewCommand(CliCommandPort):
 
     def check(self) -> bool:
         context = self._request.context
+        # The per-project root ``.__ontobdc__/context.ttl`` may carry a stale
+        # ``container_path`` left by a different container (or a previous
+        # invocation of the view command against a sibling container).  The
+        # ContainerIdStrategy is only authoritative for the *current* CWD, so
+        # drop any inherited value before we let it decide which container
+        # the run actually targets -- otherwise ``context.ttl`` wins and the
+        # command silently opens a sibling's view (e.g. ``data/``) instead of
+        # the directory the user actually ``cd``'d into.
+        if getattr(context, "delete_parameter", None) is not None:
+            context.delete_parameter("container_id")
+            context.delete_parameter("container_path")
         ContainerIdStrategy().execute(context)
         container_path = self._resolved_container_path()
         if container_path is None or not container_path.is_dir():
@@ -136,6 +147,22 @@ class ContainerViewCommand(CliCommandPort):
         existing_surface_path = SurfaceContextAdapter().surface_path(context)
         if existing_surface_path.is_file():
             remove_file(existing_surface_path)
+
+        # Same reasoning, plus: a prior run's onto-file-viewer.html sitting
+        # on disk at DATA_GATHERED time would get picked up as an ordinary
+        # container file (it's just another root-level file otherwise) and
+        # pollute the RO-Crate/file-tree inventory with the tool's own
+        # generated artifact. After moving the generated page inside the
+        # ignored marker directory we still clean both locations so
+        # leftovers from older runs don't leak.
+        existing_file_viewer_path = existing_surface_path.parent / "onto-file-viewer.html"
+        if existing_file_viewer_path.is_file():
+            remove_file(existing_file_viewer_path)
+        legacy_marker_viewer_path: Path = (
+            existing_surface_path.parent / ".__ontobdc__" / "onto-file-viewer.html"
+        )
+        if legacy_marker_viewer_path.is_file():
+            remove_file(legacy_marker_viewer_path)
 
         # DataGatheredCapability.check() passes as long as this ETL artifact
         # is present, so leaving it behind makes the state machine resume

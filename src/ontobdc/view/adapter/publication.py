@@ -5,6 +5,7 @@ import html
 import json
 import mimetypes
 import re
+import struct
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
@@ -16,6 +17,7 @@ from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.storage.adapter.bootstrap import (
     StorageBootstrap,
     StorageNamespaceBootstrap,
+    StoragePathStatHelper,
 )
 from ontobdc.storage.adapter.manifest import (
     ContainerDataPackageSynchronizer,
@@ -276,14 +278,34 @@ def _update_file_digest(
     file_path: Path,
     relative_path: str,
 ) -> None:
+    safe_path: Path = StorageBootstrap.to_extended_length_path(file_path)
+    stat_result: Any = StoragePathStatHelper.safe_stat(safe_path)
+    if stat_result is None:
+        raise ValueError(f"Cannot stat resource for fingerprint: {file_path}")
+
+    size: int = int(stat_result.st_size)
+    mtime_ns: int = int(stat_result.st_mtime_ns)
+    ino: int = int(getattr(stat_result, "st_ino", 0))
+    dev: int = int(getattr(stat_result, "st_dev", 0))
+    nlink: int = int(getattr(stat_result, "st_nlink", 0))
+    mode: int = int(getattr(stat_result, "st_mode", 0))
+    uid: int = int(getattr(stat_result, "st_uid", 0))
+    gid: int = int(getattr(stat_result, "st_gid", 0))
+
     digest.update(relative_path.encode("utf-8"))
     digest.update(b"\0")
-    with StorageBootstrap.to_extended_length_path(file_path).open("rb") as stream:
-        while True:
-            chunk = stream.read(1024 * 1024)
-            if not chunk:
-                break
-            digest.update(chunk)
+    digest.update(
+        struct.pack(
+            "<QQQQQQQ",
+            size & 0xFFFFFFFFFFFFFFFF,
+            mtime_ns & 0xFFFFFFFFFFFFFFFF,
+            ino & 0xFFFFFFFFFFFFFFFF,
+            dev & 0xFFFFFFFFFFFFFFFF,
+            nlink & 0xFFFFFFFFFFFFFFFF,
+            mode & 0xFFFFFFFFFFFFFFFF,
+            (uid << 32 | (gid & 0xFFFFFFFF)) & 0xFFFFFFFFFFFFFFFF,
+        )
+    )
     digest.update(b"\0")
 
 

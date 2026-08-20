@@ -92,8 +92,16 @@ class ContainerHtmlViewUpdatedCapability(TransactionCapability):
 
         # Same precautions as `ontobdc view`: drop the current index.html and
         # any leftover ETL state so the pipeline runs fresh instead of
-        # resuming mid-state from a stale prior run.
+        # resuming mid-state from a stale prior run. Also drop a prior
+        # onto-file-viewer.html from both root and the marker dir — left in
+        # place, it would look like an ordinary container file to
+        # DATA_GATHERED and pollute the RO-Crate/file-tree inventory with
+        # the tool's own generated artifact.
         remove_file(index_path)
+        remove_file(index_path.parent / "onto-file-viewer.html")
+        remove_file(
+            index_path.parent / ".__ontobdc__" / "onto-file-viewer.html"
+        )
         etl_state_directory: Path = DataGatheredCapability.state_directory(
             context
         )

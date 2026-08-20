@@ -7,19 +7,23 @@ from typing import Any, Dict, List, Optional, Set
 from urllib.parse import unquote
 
 from ontobdc.storage.adapter.bootstrap import (
-    ONTOBDC_DIRECTORY_NAME,
+    StorageLayoutConstants,
+    StoragePathStatHelper,
     get_container_crate_metadata_file_path,
 )
+from ontobdc.storage.adapter.manifest import ContainerDataPackageSynchronizer
 from ontobdc.storage.plugin.check.is_container_storage_index_ready.check import (
     main as check_container_storage_index_ready,
 )
 
 
-_IGNORED_MARKER_DIR_NAMES: Set[str] = {ONTOBDC_DIRECTORY_NAME, ".__onmtobdc__"}
-_DATASET_MARKER_FILE_NAMES: Set[str] = {"dataset.ttl", "nid.ttl"}
+_IGNORED_MARKER_DIR_NAMES: Set[str] = {StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME}
+_DATASET_MARKER_FILE_NAMES: Set[str] = {
+    StorageLayoutConstants.DATASET_STORAGE_FILE_NAME,
+    "nid.ttl",
+}
 _DATASET_LINKSET_DIR_NAME: str = "linkset"
 _DATASET_DATAPACKAGE_FILE_NAME: str = "datapackage.json"
-# Generated Surface output, not source content — same exclusion is_container_publishable already applies to the Data Package.
 _GENERATED_SURFACE_FILE_NAME: str = "index.html"
 
 
@@ -31,7 +35,7 @@ def _resolve_path(path_value: Optional[str]) -> Optional[Path]:
 
 
 def _is_dataset_dir(candidate_dir: Path) -> bool:
-    marker_dir: Path = candidate_dir / ONTOBDC_DIRECTORY_NAME
+    marker_dir: Path = candidate_dir / StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME
     if marker_dir.is_dir():
         for file_name in _DATASET_MARKER_FILE_NAMES:
             if (marker_dir / file_name).is_file():
@@ -53,6 +57,8 @@ def _iter_container_files(container_path: Path) -> List[str]:
         ]
 
         for file_name in file_names:
+            if ContainerDataPackageSynchronizer.is_file_blocked_from_publication(file_name):
+                continue
             file_path: Path = root_path / file_name
             relative_path: str = file_path.relative_to(container_path).as_posix()
             if not relative_path.strip() or relative_path == _GENERATED_SURFACE_FILE_NAME:
@@ -66,8 +72,22 @@ def _iso_utc(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _expected_file_properties(file_path: Path) -> Dict[str, Any]:
-    stat_result = file_path.stat()
+def _expected_file_properties(file_path: Path) -> Optional[Dict[str, Any]]:
+    """Return expected crate-metadata properties, or ``None`` when the file
+    truly cannot be statted even after the central Win32 retry.
+
+    Returning ``None`` here instead of raising avoids spurious check
+    crashes for files whose names trigger Win32 trailing-dot / MAX_PATH
+    oddities between ``os.walk`` and ``stat``.  The caller
+    ``_metadata_matches`` treats ``None`` the same as a metadata mismatch,
+    which returns ``1`` and correctly triggers the hotfix so the manifest
+    is rewritten with the stat that finally succeeds via the extended-path
+    retry in hotfix.py.
+    """
+    stat_result = StoragePathStatHelper.safe_stat(file_path)
+    if stat_result is None:
+        return None
+
     properties: Dict[str, Any] = {
         "name": file_path.name,
         "contentSize": str(stat_result.st_size),
@@ -121,7 +141,10 @@ def _extract_has_part_ids(crate_data: Dict[str, Any]) -> Optional[Set[str]]:
         part_id: object = part.get("@id")
         if not isinstance(part_id, str) or not part_id.strip():
             return None
-        file_ids.add(_normalize_file_id(part_id))
+        normalized_id: str = _normalize_file_id(part_id)
+        if ContainerDataPackageSynchronizer.is_file_blocked_from_publication(Path(normalized_id).name):
+            continue
+        file_ids.add(normalized_id)
 
     return file_ids
 
@@ -138,9 +161,12 @@ def _extract_file_nodes(crate_data: Dict[str, Any]) -> Optional[Dict[str, Dict[s
         node_id = node.get("@id")
         if not isinstance(node_id, str) or node_id in {"./", "ro-crate-metadata.json"}:
             continue
+        normalized_id: str = _normalize_file_id(node_id)
+        if ContainerDataPackageSynchronizer.is_file_blocked_from_publication(Path(normalized_id).name):
+            continue
         node_type = node.get("@type")
         if node_type == "File" or (isinstance(node_type, list) and "File" in node_type):
-            file_nodes[_normalize_file_id(node_id)] = node
+            file_nodes[normalized_id] = node
 
     return file_nodes
 
@@ -152,6 +178,12 @@ def _metadata_matches(container_path: Path, file_ids: Set[str], crate_data: Dict
 
     for file_id in file_ids:
         expected = _expected_file_properties(container_path / Path(file_id))
+        if expected is None:
+            # Safe-stat could not read the file even after the central
+            # Win32 retry.  Treat it as mismatched metadata: the check
+            # returns ``1`` and the hotfix will either produce properties
+            # on retry or drop the entry if the file has actually vanished.
+            return False
         node = file_nodes[file_id]
         for key, value in expected.items():
             if node.get(key) != value:

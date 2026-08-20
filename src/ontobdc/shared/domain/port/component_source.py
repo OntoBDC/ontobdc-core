@@ -15,5 +15,12 @@ class ComponentSourcePort(ABC):
     """
 
     @abstractmethod
-    def component_source(self, tag: str) -> Optional[str]:
-        """Return `tag`'s ready-to-embed JS source, or None if unavailable."""
+    def component_source(self, tag: str, root_path: Optional[str] = None) -> Optional[str]:
+        """Return `tag`'s ready-to-embed JS source, or None if unavailable.
+
+        `root_path` is the container root, passed through so a "system" Tile
+        (logo/theme/language/photo) can resolve project-level customization
+        (e.g. a project's own brand in `.__ontobdc__/config.yaml`) instead of
+        always embedding the shipped default. Optional and safe to omit —
+        every Tile falls back to its shipped default when absent.
+        """

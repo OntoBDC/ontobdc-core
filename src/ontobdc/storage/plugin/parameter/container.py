@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Callable, Iterable, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
 from rdflib import Graph, Namespace, URIRef
 from rdflib.namespace import DCTERMS, RDF
@@ -90,9 +90,10 @@ class ContainerIdStrategy(
                         self._clear(context)
                 return context
 
-            match = self._find_by_path(Path(os.getcwd()), registered)
-            if match is None:
-                match = self._find_from_current_container()
+            match = self._resolve_container_for_current_directory(
+                Path(os.getcwd()),
+                registered,
+            )
             if match is not None:
                 self._bind(context, *match)
             return context
@@ -119,17 +120,62 @@ class ContainerIdStrategy(
                 self._clear(context)
             return context
 
-        match = self._find_by_path(Path(os.getcwd()), registered)
-        if match is None:
-            match = self._find_from_current_container()
+        match = self._resolve_container_for_current_directory(
+            Path(os.getcwd()),
+            registered,
+        )
         if match is not None:
             self._bind(context, *match)
 
         return context
 
-    @staticmethod
-    def _find_from_current_container() -> Optional[Tuple[str, Path]]:
-        current_path = Path(os.getcwd()).expanduser().resolve()
+    @classmethod
+    def _resolve_container_for_current_directory(
+        cls,
+        current_directory: Path,
+        registered: Iterable[Tuple[str, Path]],
+    ) -> Optional[Tuple[str, Path]]:
+        """Pick the most specific container for an implicit invocation.
+
+        When the caller points at a filesystem location (typically the CWD)
+        without any explicit selector, resolution is:
+
+        1. Walk **upwards** from the current directory looking for any
+           on-disk container metadata (``.__ontobdc__/container.ttl``).
+           This captures containers that exist locally on the filesystem
+           but are not yet (or no longer) registered in the storage index.
+
+        2. Match the current directory against every registered container
+           path, including ancestor containers that would otherwise shadow
+           a more specific local directory.
+
+        3. Merge the two lists and return the container with the deepest
+           path (most parts), which is always the most specific match.
+        """
+        candidates: List[Tuple[str, Path]] = []
+
+        on_disk = cls._find_from_current_container_from_root(current_directory)
+        if on_disk is not None:
+            candidates.append(on_disk)
+
+        registered_match = cls._find_by_path(current_directory, registered)
+        if registered_match is not None:
+            candidates.append(registered_match)
+
+        if not candidates:
+            return None
+
+        return max(candidates, key=lambda item: len(item[1].parts))
+
+    @classmethod
+    def _find_from_current_container_from_root(
+        cls,
+        starting_path: Path,
+    ) -> Optional[Tuple[str, Path]]:
+        """Variant of :meth:`_find_from_current_container` that accepts an
+        arbitrary starting directory instead of hard-coding ``os.getcwd()``.
+        """
+        current_path = starting_path.expanduser().resolve()
 
         for candidate in (current_path, *current_path.parents):
             container_file = candidate / ".__ontobdc__" / "container.ttl"
@@ -162,6 +208,12 @@ class ContainerIdStrategy(
             return container_id, candidate.resolve()
 
         return None
+
+    @staticmethod
+    def _find_from_current_container() -> Optional[Tuple[str, Path]]:
+        return ContainerIdStrategy._find_from_current_container_from_root(
+            Path(os.getcwd()),
+        )
 
     @staticmethod
     def _context_value(

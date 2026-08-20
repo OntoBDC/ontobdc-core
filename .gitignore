@@ -86,3 +86,8 @@ data/
 venv/
 .venv/
 .env
+
+# OntoBDC per-project runtime state (storage.ttl, context.ttl, config.yaml,
+# ontology cache, ...) -- generated/repaired in place by the CLI init
+# state machine's check+hotfix pairs, never hand-authored or committed.
+.__ontobdc__/

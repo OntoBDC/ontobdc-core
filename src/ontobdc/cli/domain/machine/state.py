@@ -12,6 +12,7 @@ class CliInitProcessState(CliInitProcessStatePort):
     STORAGE_INDEX_HEALTHY = "__storage_index_healthy__"
     EXECUTION_CONTEXT_HEALTHY = "__execution_context_healthy__"
     CONFIG_ADAPTER_READY = "__config_adapter_ready__"
+    BRAND_READY = "__brand_ready__"
 
     def label(self, lang: str = "en") -> str:
         labels = {
@@ -22,6 +23,7 @@ class CliInitProcessState(CliInitProcessStatePort):
                 self.STORAGE_INDEX_HEALTHY: "Storage Index Healthy",
                 self.EXECUTION_CONTEXT_HEALTHY: "Execution Context Healthy",
                 self.CONFIG_ADAPTER_READY: "Config Adapter Ready",
+                self.BRAND_READY: "Brand Ready",
             },
             "pt-br": {
                 self.UNDEFINED: "Indefinido",
@@ -30,6 +32,7 @@ class CliInitProcessState(CliInitProcessStatePort):
                 self.STORAGE_INDEX_HEALTHY: "Indice de Storage Saudavel",
                 self.EXECUTION_CONTEXT_HEALTHY: "Contexto de Execucao Saudavel",
                 self.CONFIG_ADAPTER_READY: "Adapter de Config Pronto",
+                self.BRAND_READY: "Marca Pronta",
             },
         }
         return labels.get(lang, labels["en"]).get(self, self.value)
@@ -43,6 +46,7 @@ class CliInitProcessState(CliInitProcessStatePort):
                 self.STORAGE_INDEX_HEALTHY: "The storage.ttl file exists and conforms to the bootstrap checks.",
                 self.EXECUTION_CONTEXT_HEALTHY: "The context.ttl file exists and conforms to the bootstrap checks.",
                 self.CONFIG_ADAPTER_READY: "The config.yaml file exists and conforms to the bootstrap config contract.",
+                self.BRAND_READY: "The brand entry (name, mark_svg, logotype_svg, slogan) is available in the project configuration.",
             },
             "pt-br": {
                 self.UNDEFINED: "Estado inicial antes da execucao de qualquer etapa do init.",
@@ -51,6 +55,7 @@ class CliInitProcessState(CliInitProcessStatePort):
                 self.STORAGE_INDEX_HEALTHY: "O arquivo storage.ttl existe e esta conforme com os checks de bootstrap.",
                 self.EXECUTION_CONTEXT_HEALTHY: "O arquivo context.ttl existe e esta conforme com os checks de bootstrap.",
                 self.CONFIG_ADAPTER_READY: "O arquivo config.yaml existe e esta conforme com o contrato de bootstrap de config.",
+                self.BRAND_READY: "A entrada de marca (name, mark_svg, logotype_svg, slogan) esta disponivel na configuracao do projeto.",
             },
         }
         return descriptions.get(lang, descriptions["en"]).get(self, "")

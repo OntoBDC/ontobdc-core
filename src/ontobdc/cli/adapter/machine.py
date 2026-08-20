@@ -19,6 +19,7 @@ from ontobdc.cli.plugin.check.has_valid_engine.check import main as check_engine
 from ontobdc.storage.plugin.check.is_root_set.check import main as check_storage_index
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 from ontobdc.cli.plugin.check.has_valid_config_file.check import main as check_config_file
+from ontobdc.cli.plugin.check.has_valid_brand.check import main as check_brand
 from ontobdc.context.plugin.check.has_valid_context.check import main as check_execution_context
 
 
@@ -45,7 +46,10 @@ class CliInitStateEvaluatorAdapter(CliInitStateEvaluatorPort):
         if check_config_file(root_path=str(root_path)) != 0:
             return CliInitProcessState.EXECUTION_CONTEXT_HEALTHY
 
-        return CliInitProcessState.CONFIG_ADAPTER_READY
+        if check_brand(root_path=str(root_path)) != 0:
+            return CliInitProcessState.CONFIG_ADAPTER_READY
+
+        return CliInitProcessState.BRAND_READY
 
 
 class CliInitStateTransitionHandler(CliInitStateTransitionHandlerPort):

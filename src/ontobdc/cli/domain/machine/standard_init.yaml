@@ -54,4 +54,13 @@ statechart:
 
       - name: config_adapter_ready
         description: "The config.yaml file exists and conforms to the bootstrap config contract."
+        transitions:
+          - target: brand_ready
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.BRAND_READY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.BRAND_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.CONFIG_ADAPTER_READY, to_state = CliInitProcessStatePort.BRAND_READY)
+
+      - name: brand_ready
+        description: "The brand entry (name, mark_svg, logotype_svg, slogan) exists and conforms to the bootstrap config contract."
         type: final

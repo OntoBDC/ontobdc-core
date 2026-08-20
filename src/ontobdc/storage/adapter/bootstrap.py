@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import Any, ClassVar, Optional
 import os
 
 from rdflib import Graph, Literal, URIRef
@@ -65,6 +65,49 @@ class StorageNamespaceBootstrap:
 
 
 StorageNamespaceBootstrap.initialize()
+
+
+class StoragePathStatHelper:
+    r"""Platform-aware :class:`os.stat_result` acquisition for container paths.
+
+    Windows has a documented Win32 oddity: ``os.walk`` (``FindFirstFileW`` /
+    ``FindNextFileW``) returns the raw on-disk file names *including*
+    historically-forbidden trailing ``.`` and `` `` suffixes such as
+    ``PROPOSTA COMERCIAL..doc``, but ``Path.stat`` / ``os.stat`` go through
+    ``CreateFileW`` which silently strips those trailing characters *before*
+    resolving the path.  The Win32 normalizer also enforces the 260-char
+    ``MAX_PATH`` cap even when the enumeration APIs have already listed the
+    target file successfully in a deeply nested OneDrive corporate document
+    tree, returning ``[WinError 206]`` or ``[WinError 3]`` spuriously for a
+    file that exists on disk.
+
+    Central policy used by every storage plugin that needs file metadata:
+
+    1. try the default ``file_path.stat()`` on every platform first
+    2. only if an ``OSError`` occurs AND we are on Windows
+    3. reuse ``StorageBootstrap.to_extended_length_path`` — which already
+       prepends the ``\\?\`` extended-length prefix that bypasses both the
+       Win32 normalizer *and* the ``MAX_PATH`` cap — and retry
+    4. only when *both* attempts fail do we return ``None`` so the caller
+       can decide whether to drop the stale entry (hotfix convergence) or
+       report metadata mismatch and trigger the hotfix (check).
+
+    Non-Windows platforms do not have the normalizer bug, so a plain
+    failure is immediately propagated as ``None``.
+    """
+
+    @staticmethod
+    def safe_stat(file_path: Path) -> Optional[Any]:
+        try:
+            return file_path.stat()
+        except OSError:
+            if os.name != "nt":
+                return None
+
+        try:
+            return StorageBootstrap.to_extended_length_path(file_path).stat()
+        except OSError:
+            return None
 
 
 class StorageBootstrap:

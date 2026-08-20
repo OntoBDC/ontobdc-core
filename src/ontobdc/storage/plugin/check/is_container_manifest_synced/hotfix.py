@@ -1,5 +1,5 @@
-import mimetypes
 import os
+import mimetypes
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,19 +8,23 @@ from typing import Any, Dict, List, Optional, Set
 from rocrate.rocrate import ROCrate
 
 from ontobdc.storage.adapter.bootstrap import (
-    ONTOBDC_DIRECTORY_NAME,
+    StorageLayoutConstants,
+    StoragePathStatHelper,
     ensure_ontobdc_directory,
 )
+from ontobdc.storage.adapter.manifest import ContainerDataPackageSynchronizer
 from ontobdc.storage.plugin.check.is_container_storage_index_ready.check import (
     main as check_container_storage_index_ready,
 )
 
 
-_IGNORED_MARKER_DIR_NAMES: Set[str] = {ONTOBDC_DIRECTORY_NAME}
-_DATASET_MARKER_FILE_NAMES: Set[str] = {"dataset.ttl", "nid.ttl"}
+_IGNORED_MARKER_DIR_NAMES: Set[str] = {StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME}
+_DATASET_MARKER_FILE_NAMES: Set[str] = {
+    StorageLayoutConstants.DATASET_STORAGE_FILE_NAME,
+    "nid.ttl",
+}
 _DATASET_LINKSET_DIR_NAME: str = "linkset"
 _DATASET_DATAPACKAGE_FILE_NAME: str = "datapackage.json"
-# Generated Surface output, not source content — matches check.py's exclusion.
 _GENERATED_SURFACE_FILE_NAME: str = "index.html"
 
 
@@ -32,7 +36,7 @@ def _resolve_path(path_value: Optional[str]) -> Optional[Path]:
 
 
 def _is_dataset_dir(candidate_dir: Path) -> bool:
-    marker_dir: Path = candidate_dir / ONTOBDC_DIRECTORY_NAME
+    marker_dir: Path = candidate_dir / StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME
     if marker_dir.is_dir():
         for file_name in _DATASET_MARKER_FILE_NAMES:
             if (marker_dir / file_name).is_file():
@@ -54,6 +58,8 @@ def _iter_container_files(container_path: Path) -> List[str]:
         ]
 
         for file_name in file_names:
+            if ContainerDataPackageSynchronizer.is_file_blocked_from_publication(file_name):
+                continue
             file_path: Path = root_path / file_name
             relative_path: str = file_path.relative_to(container_path).as_posix()
             if not relative_path.strip() or relative_path == _GENERATED_SURFACE_FILE_NAME:
@@ -67,9 +73,22 @@ def _iso_utc(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _file_properties(file_path: Path) -> Dict[str, Any]:
-    """Return filesystem metadata available without reading file content."""
-    stat_result = file_path.stat()
+def _file_properties(file_path: Path) -> Optional[Dict[str, Any]]:
+    """Return filesystem metadata for *file_path*, or ``None`` when the file
+    truly cannot be statted even after the central Win32 extended-path
+    retry provided by ``StoragePathStatHelper.safe_stat``.
+
+    The only case where ``None`` is acceptable is when *file_path* has
+    genuinely vanished between the directory walk and this call (e.g. a
+    synced folder actively propagating a delete).  Files whose names just
+    look odd to Win32 (trailing dots, trailing spaces, >260 char paths
+    inside nested OneDrive corporate trees) must produce a populated dict
+    via the central extended-path retry instead of being dropped.
+    """
+    stat_result = StoragePathStatHelper.safe_stat(file_path)
+    if stat_result is None:
+        return None
+
     properties: Dict[str, Any] = {
         "name": file_path.name,
         "contentSize": str(stat_result.st_size),
@@ -93,10 +112,19 @@ def _write_crate_manifest(marker_path: Path, container_path: Path, file_ids: Lis
     crate: ROCrate = ROCrate(gen_preview=False)
     for file_id in file_ids:
         file_path = container_path / Path(file_id)
+        properties = _file_properties(file_path)
+        if properties is None:
+            # File actually vanished between the directory walk and the
+            # manifest serialization *after* we already retried the
+            # extended Win32 form above.  This is the real TOCTOU case (a
+            # synced folder actively propagating a delete right now) and
+            # the correct behaviour is still to drop the stale entry so
+            # the manifest converges to the on-disk truth.
+            continue
         crate.add_file(
             source=None,
             dest_path=file_id,
-            properties=_file_properties(file_path),
+            properties=properties,
         )
 
     with warnings.catch_warnings():

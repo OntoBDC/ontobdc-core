@@ -301,7 +301,12 @@ def assemble_surface_markup(
         + f"\n  </{SURFACE_TAG}>"
     )
     if surface_pattern.search(document):
-        return surface_pattern.sub(surface, document, count=1)
+        # Replace ALL occurrences (not just count=1) so stale empty <surface>
+        # tags from previous state runs don't remain behind and confuse
+        # downstream checks like has_assembled_tiles which look for tiles
+        # inside the first or last surface tag. Also run surface_pattern.sub
+        # without count so multiple stale copies are collapsed into one.
+        return surface_pattern.sub(surface, document)
     return _insert_before_closing_tag(document, "body", surface)
 
 
