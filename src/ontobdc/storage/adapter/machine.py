@@ -5,6 +5,7 @@ from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.cli.domain.response.command import CommandResponse, ExceptionCommandResponse
 from ontobdc.shared.adapter.capability import CapabilityExecutor
 from ontobdc.shared.adapter.loader import CapabilityLoader
+from ontobdc.shared.adapter.statechart import StatechartLocator
 from ontobdc.shared.adapter.worker import StateWorkerAdapter
 from ontobdc.shared.domain.port.capability import CapabilityPort
 from ontobdc.shared.facade.adapter.logger import NullLogRepository
@@ -171,7 +172,21 @@ class ContainerCreateStateTransitionHandler(ContainerCreateStateTransitionHandle
             return False
 
         observed_state: ContainerCreateProcessStatePort = self.observed_state
-        return observed_state == to_state
+        # Accept if we've reached the target state or moved beyond it in the progression
+        if observed_state == to_state:
+            return True
+
+        # Accept if capability already brought us to the required state by checking
+        # if the observable preconditions for the target state are met (fsync check)
+        # This handles cases where the state hasn't fully persisted to the observed_state yet
+        if from_state == ContainerCreateProcessState.CONTAINER_METADATA_READY and to_state == ContainerCreateProcessState.CONTAINER_STORAGE_INDEX_READY:
+            from ontobdc.storage.plugin.check.is_container_storage_index_ready.check import main as check_storage_index
+            return check_storage_index(
+                root_path=str(self._context.root_path),
+                container_path=str(self._target_path),
+            ) == 0
+
+        return False
 
     def execute(self) -> CommandResponse:
         worker: StateWorkerAdapter = StateWorkerAdapter(
@@ -208,7 +223,10 @@ class ContainerCreateStateTransitionHandler(ContainerCreateStateTransitionHandle
         )
 
     def _get_statechart_file_path(self) -> Path:
-        return Path(__file__).resolve().parent.parent / "domain" / "machine" / "standard_container_create.yaml"
+        return StatechartLocator.locate(
+            __file__,
+            "standard_container_create.yaml",
+        )
 
     def bind_active_state(self, state: ContainerCreateProcessStatePort) -> None:
         self._active_state = state
@@ -484,11 +502,9 @@ class ContainerUpdateStateTransitionHandler(
         )
 
     def _get_statechart_file_path(self) -> Path:
-        return (
-            Path(__file__).resolve().parent.parent
-            / "domain"
-            / "machine"
-            / "standard_container_update.yaml"
+        return StatechartLocator.locate(
+            __file__,
+            "standard_container_update.yaml",
         )
 
     def _state_reaches(
@@ -688,7 +704,10 @@ class DatasetCreateStateTransitionHandler(DatasetCreateStateTransitionHandlerPor
         )
 
     def _get_statechart_file_path(self) -> Path:
-        return Path(__file__).resolve().parent.parent / "domain" / "machine" / "standard_dataset_create.yaml"
+        return StatechartLocator.locate(
+            __file__,
+            "standard_dataset_create.yaml",
+        )
 
     def bind_active_state(self, state: DatasetCreateProcessStatePort) -> None:
         self._active_state = state

@@ -3,7 +3,15 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ontobdc.shared.adapter.surface.selector import DefaultSurfaceLayoutSelector
-from ontobdc.shared.adapter.terminal_color import ANSI_ESCAPE_REGEX
+from ontobdc.shared.adapter.terminal_color import (
+    ANSI_ESCAPE_REGEX,
+    BOLD,
+    RESET,
+    CSI,
+    rgb_fg,
+    rgb_fg_bold,
+    rgb_bg,
+)
 from ontobdc.shared.domain.model.surface import (
     ComponentPlacementDefinition,
     RegionDefinition,
@@ -420,6 +428,29 @@ class TerminalSurfaceRenderer:
         inner_width: int = max(2, min(width, total_width) - 4)
         lines: List[str] = []
         for placement in sorted(region.placements, key=lambda p: p.order):
+            tile_class: Optional[str] = placement.component_type_iri
+            if (
+                tile_class
+                and tile_class in self._DYNAMIC_TILE_REGISTRY
+                and tile_class.endswith(":markdown-body")
+            ):
+                cls_info = self._DYNAMIC_TILE_REGISTRY[tile_class]
+                try:
+                    cls_obj: Any = cls_info[0]
+                except Exception:
+                    cls_obj = None
+                if cls_obj is not None and _is_markdown_body_class(cls_obj):
+                    tile_instance: TerminalTileRenderable = cls_obj()
+                    tile_instance._owner_renderer = self  # type: ignore[attr-defined]
+                    rendered = tile_instance.render(
+                        columns=inner_width,
+                        rows=max(1, (region.row_span or 10)),
+                        context={"color": self._color, "theme": self._theme_key},
+                    )
+                    tile_lines = rendered.splitlines() or [""]
+                    lines.extend(tile_lines)
+                    continue
+
             tile = self._resolve_tile(placement)
             if tile is None:
                 continue
@@ -665,12 +696,17 @@ class TerminalSurfaceRenderer:
         n = len(border_line)
         while idx < n:
             ch = border_line[idx]
-            if ch == "\x1b":
+            if ch == CSI[0]:
+                if not border_line.startswith(CSI, idx):
+                    glyphs.append(ch)
+                    styles.append(active_style)
+                    idx += 1
+                    continue
                 end = border_line.find("m", idx)
                 if end == -1:
                     break
                 seq = border_line[idx : end + 1]
-                if seq == "\x1b[0m":
+                if seq == RESET:
                     active_style = ""
                 else:
                     active_style = active_style + seq
@@ -710,12 +746,18 @@ class TerminalSurfaceRenderer:
                     visible_count = 0
                     while ti < tlen and x_out < len(row) - 1 and visible_count < visible:
                         ch = tile_text[ti]
-                        if ch == "\x1b":
+                        if ch == CSI[0]:
+                            if not tile_text.startswith(CSI, ti):
+                                row[x_out] = (active, ch)
+                                x_out += 1
+                                ti += 1
+                                visible_count += 1
+                                continue
                             end = tile_text.find("m", ti)
                             if end == -1:
                                 break
                             seq = tile_text[ti : end + 1]
-                            if seq == "\x1b[0m":
+                            if seq == RESET:
                                 active = ""
                             else:
                                 active = active + seq
@@ -734,7 +776,7 @@ class TerminalSurfaceRenderer:
                     rows[y][tile_full_end] = (default_style, V)
 
         out: List[str] = []
-        reset: str = "\x1b[0m" if self._color else ""
+        reset: str = RESET if self._color else ""
         for row in rows:
             parts: List[str] = []
             running: str = ""
@@ -755,7 +797,7 @@ class TerminalSurfaceRenderer:
         if not self._color:
             return ""
         r, g, b = self._PALETTE[self._theme_key]
-        return f"\x1b[38;2;{r};{g};{b}m"
+        return rgb_fg(r, g, b)
 
     # ---------------------------------------------------- title / small misc
 
@@ -779,7 +821,9 @@ class TerminalSurfaceRenderer:
         title_seg = f" {title} "
         title_vis = self._visible_length(title_seg)
         if title_vis > inner:
-            title_seg = title_seg[: max(1, inner - 2)]
+            title_seg = TerminalSurfaceRenderer._truncate_visible(
+                title_seg, max(1, inner - 2)
+            )
             title_vis = self._visible_length(title_seg)
         dashes = max(0, inner - title_vis)
         top = (
@@ -824,28 +868,103 @@ class TerminalSurfaceRenderer:
         if not self._color:
             return text
         r, g, b = self._PALETTE[self._theme_key]
-        return f"\x1b[38;2;{r};{g};{b}m{text}\x1b[0m"
+        return f"{rgb_fg(r, g, b)}{text}{RESET}"
 
     def _color_border_simple(self, char: str) -> str:
         if not self._color:
             return char
         r, g, b = self._PALETTE[self._theme_key]
-        return f"\x1b[38;2;{r};{g};{b}m{char}\x1b[0m"
+        return f"{rgb_fg(r, g, b)}{char}{RESET}"
 
     @classmethod
     def _visible_length(cls, value: str) -> int:
-        return len(ANSI_ESCAPE_REGEX.sub("", value))
+        # Wide/emoji-aware: a naive ``len()`` under-counts glyphs like the
+        # folder/file icons TreeWidget uses (they occupy 2 terminal columns
+        # but are 1 Python codepoint), which made this shared measurer used
+        # by the outer box assembly (_frame_inner_panel, _center_to_inner,
+        # …) think such lines were shorter than they really are and pad
+        # them with extra trailing spaces — pushing the real terminal past
+        # its column count and causing it to soft-wrap the line, which
+        # looked like a stray blank line breaking the tree's guides.
+        return _display_width(ANSI_ESCAPE_REGEX.sub("", value))
+
+    @staticmethod
+    def _truncate_visible(text: str, width: int) -> str:
+        """Truncate a string that may contain ANSI CSI sequences to at
+        most ``width`` *visible* characters, preserving every escape
+        encountered so far so colour/styling state remains consistent
+        downstream.  Plain-text strings take the fast slice path.
+        """
+        if width <= 0:
+            return ""
+        if not ANSI_ESCAPE_REGEX.search(text):
+            return text[:width]
+        chars: List[str] = list(text)
+        out_chars: List[str] = []
+        glyphs_remaining: int = width
+        j: int = 0
+        total: int = len(chars)
+        csi: str = CSI
+        while j < total and glyphs_remaining > 0:
+            if chars[j] == csi[0] and "".join(chars[j:j + len(csi)]) == csi:
+                k: int = j
+                while k < total and chars[k] != "m":
+                    k += 1
+                if k < total:
+                    out_chars.extend(chars[j:k + 1])
+                    j = k + 1
+                else:
+                    j = total
+            else:
+                out_chars.append(chars[j])
+                glyphs_remaining -= 1
+                j += 1
+        return "".join(out_chars)
 
 
 # ---------------------------------------------------------------- markdown
 
 import re as _re
 import textwrap as _textwrap
+import unicodedata as _unicodedata
 from dataclasses import dataclass as _dataclass
 from typing import List as _List, Tuple as _Tuple
 
-_HEADING_RE = _re.compile(r"^\s{0,3}(#{1,6})\s+(.*)$")
+# Terminal-rendered emoji occupy 2 display columns in virtually every modern
+# terminal emulator, but Python's Unicode database does not reliably say so:
+# ``unicodedata.east_asian_width`` reports most emoji as "W" (wide), but a
+# few common ones — e.g. U+1F5C2 CARD INDEX DIVIDERS (🗂), used by
+# ``TreeWidget`` — come back "N" (neutral/narrow) despite rendering wide
+# everywhere. Any codepoint-length-based padding/truncation (like
+# ``flush_graph_verbatim`` below) would then under-count these lines by one
+# column per such emoji, pushing the line past the box's right edge and
+# causing the real terminal to soft-wrap it — which reads as a stray blank
+# line breaking the tree's guide lines. This range table covers the emoji
+# blocks actually used by this renderer's widgets.
+_WIDE_EMOJI_RANGES: _Tuple[_Tuple[int, int], ...] = (
+    (0x1F300, 0x1F5FF),  # Misc Symbols & Pictographs (incl. 🗂 📁 📄 📦 📌)
+    (0x1F600, 0x1F64F),  # Emoticons
+    (0x1F680, 0x1F6FF),  # Transport & Map
+    (0x1F900, 0x1F9FF),  # Supplemental Symbols & Pictographs
+    (0x1FA70, 0x1FAFF),  # Symbols & Pictographs Extended-A
+)
+
+
+def _char_display_width(character: str) -> int:
+    code_point: int = ord(character)
+    for start, end in _WIDE_EMOJI_RANGES:
+        if start <= code_point <= end:
+            return 2
+    return 2 if _unicodedata.east_asian_width(character) in ("W", "F") else 1
+
+
+def _display_width(text: str) -> int:
+    return sum(_char_display_width(character) for character in text)
+
+
+_HEADING_RE = _re.compile(r"^(?P<prefix>.*?)(?<!\\)(#{1,6})\s+(.*)$")
 _BULLET_RE = _re.compile(r"^(\s*)[-*+]\s+(.*)$")
+_BULLET_LABEL_RE = _re.compile(r"^([A-Z][A-Z0-9 _-]*):\s(.*)$")
 _BOLD_RE = _re.compile(r"\*\*(.+?)\*\*")
 _CODE_RE = _re.compile(r"`([^`]+)`")
 _TABLE_DIVIDER_RE = _re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$")
@@ -938,19 +1057,22 @@ class _MarkdownBodyTile(TerminalTileRenderable):
                 # If raw_v has one leading space (GraphWidget convention),
                 # strip that; caller adds frame inner breathing.
                 cleaned: str = raw_v[1:] if raw_v.startswith(" ") else raw_v
-                vis: int = len(ANSI_ESCAPE_REGEX.sub("", cleaned))
+                vis: int = _display_width(ANSI_ESCAPE_REGEX.sub("", cleaned))
                 if vis < width:
                     cleaned = cleaned + (" " * (width - vis))
                 elif vis > width:
-                    # Truncate glyphs on the right preserving ANSI escapes.
-                    # Reuse the same walk used for _render_table sanity.
+                    # Truncate glyphs on the right preserving ANSI escapes,
+                    # spending 2 columns of budget per wide/emoji glyph so a
+                    # double-width character never gets counted as if it
+                    # only occupied one. Reuse the same walk used for
+                    # _render_table sanity.
                     chars: _List[str] = list(cleaned)
                     out_chars: _List[str] = []
                     glyphs_remaining: int = width
                     j: int = 0
                     L: int = len(chars)
                     while j < L and glyphs_remaining > 0:
-                        if chars[j] == "\x1b":
+                        if chars[j] == CSI[0] and "".join(chars[j:j+len(CSI)]) == CSI:
                             k: int = j
                             while k < L and chars[k] != "m":
                                 k += 1
@@ -960,8 +1082,11 @@ class _MarkdownBodyTile(TerminalTileRenderable):
                             else:
                                 j = L
                         else:
+                            char_width: int = _char_display_width(chars[j])
+                            if char_width > glyphs_remaining:
+                                break
                             out_chars.append(chars[j])
-                            glyphs_remaining -= 1
+                            glyphs_remaining -= char_width
                             j += 1
                     cleaned = "".join(out_chars)
                 lines.append(cleaned)
@@ -982,10 +1107,23 @@ class _MarkdownBodyTile(TerminalTileRenderable):
                 continue
 
             if not stripped:
-                flush_paragraph()
-                flush_table()
-                inside_table = False
-                lines.append("")
+                # A blank line inside an accumulating verbatim block (see
+                # the "starts with exactly one leading space" branch below)
+                # must be preserved *inside* that block instead of flushed
+                # here as a generic paragraph separator — otherwise a
+                # widget like TreeWidget that emits an intentional blank
+                # row (e.g. between a "Datasets" section and the next
+                # top-level branch) loses it, because this check used to
+                # run unconditionally before the verbatim-aware one further
+                # below ever got a chance to see it.
+                if graph_verbatim_lines:
+                    graph_verbatim_lines.append("")
+                else:
+                    flush_paragraph()
+                    flush_table()
+                    flush_graph_verbatim()
+                    inside_table = False
+                    lines.append("")
                 continue
 
             heading_match = _HEADING_RE.match(raw)
@@ -994,9 +1132,45 @@ class _MarkdownBodyTile(TerminalTileRenderable):
                 flush_table()
                 flush_graph_verbatim()
                 inside_table = False
-                level = len(heading_match.group(1))
-                text = self._strip_inline(heading_match.group(2).strip())
-                lines.append(self._format_heading(text, level, width))
+                prefix: str = heading_match.group("prefix") or ""
+                level = len(heading_match.group(2))
+                text = self._strip_inline(heading_match.group(3).strip())
+                owner_renderer: Any = getattr(self, "_owner_renderer", None)
+                theme_key: Any = getattr(owner_renderer, "_theme_key", None) if owner_renderer is not None else None
+                if not theme_key:
+                    theme_key = getattr(self, "_theme_key", "ontobdc")
+                theme_key = str(theme_key).strip().lower() or "ontobdc"
+                if theme_key not in TerminalSurfaceRenderer._PALETTE:
+                    theme_key = "ontobdc"
+                hr, hg, hb = TerminalSurfaceRenderer._PALETTE[theme_key]
+                if level <= 1:
+                    heading_body: str = text.upper()
+                    styled_heading: str = (
+                        f"{BOLD}{rgb_fg_bold(hr, hg, hb)}{heading_body}{RESET}"
+                    )
+                elif level == 2:
+                    heading_body = text.upper()
+                    styled_pipe: str = f"{rgb_bg(hr, hg, hb)} {RESET} "
+                    styled_heading = (
+                        f"{styled_pipe}{BOLD}{rgb_fg_bold(hr, hg, hb)}{heading_body}{RESET}"
+                    )
+                elif level == 3:
+                    heading_body = text
+                    styled_pipe = f"{rgb_bg(hr, hg, hb)} {RESET} "
+                    styled_heading = (
+                        f"  {styled_pipe}{BOLD}{rgb_fg_bold(hr, hg, hb)}{heading_body}{RESET}"
+                    )
+                else:
+                    # level >= 4 → per-record card title (e.g. the DETAILS
+                    # section). Same indent as level 3, but a colored "_"
+                    # marker instead of a solid background block — a filled
+                    # square per card reads noisy when there are many rows.
+                    heading_body = text
+                    styled_marker = f"{rgb_fg(hr, hg, hb)}_{RESET} "
+                    styled_heading = (
+                        f"  {styled_marker}{BOLD}{rgb_fg_bold(hr, hg, hb)}{heading_body}{RESET}"
+                    )
+                lines.append(f"{prefix}{styled_heading}")
                 lines.append("")
                 continue
 
@@ -1007,11 +1181,33 @@ class _MarkdownBodyTile(TerminalTileRenderable):
                 indent = len(bullet_match.group(1)) // 2
                 bullet_text = self._strip_inline(bullet_match.group(2).strip())
                 indent_str = "  " * indent
-                bullet_w = max(1, width - len(indent_str) - 2)
-                wrapped = _textwrap.wrap(bullet_text, width=bullet_w) or [""]
-                lines.append(f"{indent_str}• {wrapped[0]}")
+
+                # "LABEL: value" bullets (e.g. the DETAILS cards) get their
+                # bullet glyph and label styled in the theme accent color,
+                # matching the table headers; the value stays plain. Bullets
+                # that don't follow that shape render exactly as before.
+                br, bg_, bb = self._palette_header_rgb()
+                label_match = _BULLET_LABEL_RE.match(bullet_text)
+                label_prefix: str = ""
+                body_text: str = bullet_text
+                if label_match:
+                    label_prefix = f"{label_match.group(1)}: "
+                    body_text = label_match.group(2)
+
+                bullet_w = max(1, width - len(indent_str) - 2 - len(label_prefix))
+                wrapped = _textwrap.wrap(body_text, width=bullet_w) or [""]
+
+                styled_bullet: str = f"{rgb_fg_bold(br, bg_, bb)}•{RESET}"
+                styled_label: str = (
+                    f"{BOLD}{rgb_fg_bold(br, bg_, bb)}{label_prefix}{RESET}"
+                    if label_prefix
+                    else ""
+                )
+                continuation_indent: str = " " * len(label_prefix)
+
+                lines.append(f"{indent_str}{styled_bullet} {styled_label}{wrapped[0]}")
                 for extra in wrapped[1:]:
-                    lines.append(f"{indent_str}  {extra}")
+                    lines.append(f"{indent_str}  {continuation_indent}{extra}")
                 continue
 
             if _TABLE_DIVIDER_RE.match(stripped) or (inside_table and "|" in stripped):
@@ -1037,19 +1233,6 @@ class _MarkdownBodyTile(TerminalTileRenderable):
                 graph_verbatim_lines.append(raw)
                 continue
 
-            # Blank lines are preserved inside verbatim blocks as blank lines,
-            # otherwise they break paragraph / table / verbatim flow.
-            if not stripped:
-                if graph_verbatim_lines:
-                    graph_verbatim_lines.append("")
-                else:
-                    flush_paragraph()
-                    flush_table()
-                    flush_graph_verbatim()
-                    inside_table = False
-                    lines.append("")
-                continue
-
             inside_table = False
             flush_graph_verbatim()
             paragraph.append(raw)
@@ -1063,7 +1246,7 @@ class _MarkdownBodyTile(TerminalTileRenderable):
 
     def _format_heading(self, text: str, level: int, width: int) -> str:
         if level <= 1:
-            return self._bold(text.upper()).ljust(width)
+            return self._bold(text.upper())
         if level == 2:
             return f"{self._bold(text)}"
         return f"  {self._bold(text)}"
@@ -1092,17 +1275,11 @@ class _MarkdownBodyTile(TerminalTileRenderable):
             normalized_rows.append(r + [""] * (col_count - len(r)))
 
         # -- geometry -----------------------------------------------------
-        # No outer border → only the inner grid. Final visible width must
-        # equal ``width`` exactly so the outer frame padding is never off.
+        # No outer border → only the inner grid.
         #
         # Rendered line = [pad][cell_0][pad][V][pad][cell_1][pad][V]...[pad][cell_{n-1}][pad]
         #               │   ── outer breathing ──    │    │  inner separators  │     ── outer breathing ──│
         inner_pad: int = 1
-        n: int = len(headers)
-        sep_between: int = max(0, n - 1) * (1 + 2 * inner_pad)
-        outer_breathing: int = 2 * inner_pad
-        grid_overhead: int = outer_breathing + sep_between
-        available_cells: int = max(1, width - grid_overhead)
 
         # --- compute natural column widths ------------------------------
         natural_widths: _List[int] = [max(1, len(h)) for h in headers]
@@ -1110,107 +1287,85 @@ class _MarkdownBodyTile(TerminalTileRenderable):
             for i, cell in enumerate(r):
                 natural_widths[i] = max(natural_widths[i], max(1, len(cell)))
 
-        # If everything fits exactly, great. Else: shrink the rightmost
-        # columns first (longest natural), because the last descriptive
-        # column is the best candidate to accept truncation while short
-        # key/id columns preserve their content (matches the termimad
-        # visual requested: keys right-aligned crisp, last cell wraps).
-        fitted: _List[int] = list(natural_widths)
-        total_natural: int = sum(fitted)
-        if total_natural > available_cells:
-            overflow: int = total_natural - available_cells
-            shrink_order: _List[int] = sorted(
-                range(n),
-                key=lambda i: (-natural_widths[i], i),  # shrink biggest first
-            )
-            for idx in shrink_order:
-                if overflow <= 0:
-                    break
-                can_shave: int = max(0, fitted[idx] - 3)  # min width 3
-                shave: int = min(can_shave, overflow)
-                if shave <= 0:
-                    # fallback: shave 1 from each remaining col iteratively
-                    continue
-                fitted[idx] -= shave
-                overflow -= shave
-            # If we still overflow (all cols hit min width), do a second
-            # pass removing 1 char at a time to make up the diff.
-            pos: int = n - 1
-            while overflow > 0 and any(fitted[i] > 3 for i in range(n)):
-                if fitted[pos] > 3:
-                    fitted[pos] -= 1
-                    overflow -= 1
-                pos = (pos - 1) % n
-        elif total_natural < available_cells:
-            # Expand rightmost (descriptive) column to fill the remaining
-            # horizontal space so the grid always spans the full width.
-            leftover: int = available_cells - total_natural
-            fitted[-1] += leftover
+        # Keep only as many columns as fit the box, left to right, instead
+        # of squeezing every column onto the screen. Each included column
+        # gets its natural (untruncated) width — never stretched wider than
+        # that just to burn up leftover space — and body text within it may
+        # still wrap onto extra lines. The moment the next column would no
+        # longer fit at its natural width, scanning stops and that column
+        # (and any further ones) is simply left out of the table; every
+        # field still appears in full under the DETAILS cards rendered
+        # below (see ``_response_to_markdown`` in ``cli/__init__.py``), so
+        # nothing is lost, only not repeated in the compact table.
+        _FORCED_COL_FLOOR: int = 10
+        natural_fit_idx: _List[int] = []
+        running_width: int = 0
+        for i in range(len(headers)):
+            col_count: int = len(natural_fit_idx) + 1
+            trial_overhead: int = 2 * inner_pad + max(0, col_count - 1) * (1 + 2 * inner_pad)
+            trial_avail: int = width - trial_overhead
+            trial_total: int = running_width + natural_widths[i]
+            if trial_total > trial_avail:
+                break
+            natural_fit_idx.append(i)
+            running_width = trial_total
 
-        # --- FINAL sanity: lock the total visible width to ``width`` ----
-        #
-        # Neither shrink nor expand heuristics above survive every
-        # round-trip (min-width floor, biggest-first proportional shares,
-        # etc.).  The old code then papered over the gap by appending
-        # plain whitespace AFTER the last grid separator, which made the
-        # table look like it did not reach the right edge of the box —
-        # the exact bug the user reported ("largura não está pegando
-        # toda a largura do box").  Instead, we adjust the LAST column
-        # width in BOTH directions so
-        #
-        #   sum(col_widths) + grid_overhead == width
-        #
-        # exactly.  Because the layout always leaves the last column as
-        # the long descriptive one (ID / TITLE / DESCRIPTION / LOCATION),
-        # absorbing a few chars there is visually invisible and keeps the
-        # inner grid (┼ / │ / ─) aligned to the outer box edges.
-        width_delta: int = width - (sum(fitted) + grid_overhead)
-        if width_delta != 0:
-            fitted[-1] = max(3, fitted[-1] + width_delta)
-            # If the adjustment above somehow still misses (because the
-            # last column was clamped to width 3), iteratively distribute
-            # the remaining delta from right to left across any columns
-            # that have room to give or take.
-            second_pass_delta: int = width - (sum(fitted) + grid_overhead)
-            cursor: int = n - 1
-            spins: int = 0
-            while second_pass_delta != 0 and spins < n:
-                if second_pass_delta > 0:
-                    fitted[cursor] += 1
-                    second_pass_delta -= 1
-                elif fitted[cursor] > 3:
-                    fitted[cursor] -= 1
-                    second_pass_delta += 1
-                cursor = (cursor - 1) % n
-                if cursor == n - 1:
-                    spins += 1
+        if len(natural_fit_idx) >= 2 or len(natural_fit_idx) == len(headers):
+            included_idx: _List[int] = natural_fit_idx
+            fitted: _List[int] = [natural_widths[i] for i in included_idx]
+        elif len(headers) >= 2:
+            # Only the 1st column fit naturally, but at least 2 columns are
+            # kept when 2+ are available. Rather than starving the 2nd
+            # column down to an unreadable sliver (which, wrapped, could
+            # balloon into dozens of near-empty lines), split the box
+            # between exactly these first 2 columns proportionally to their
+            # natural sizes, each floored at a still-legible width.
+            overhead2: int = 2 * inner_pad + (1 + 2 * inner_pad)
+            avail2: int = max(2 * _FORCED_COL_FLOOR, width - overhead2)
+            w0, w1 = natural_widths[0], natural_widths[1]
+            total2: int = w0 + w1
+            if total2 <= avail2:
+                fitted = [w0, w1]
+            else:
+                shrinkable0: int = max(0, w0 - _FORCED_COL_FLOOR)
+                shrinkable1: int = max(0, w1 - _FORCED_COL_FLOOR)
+                total_shrinkable: int = shrinkable0 + shrinkable1
+                if total_shrinkable <= 0:
+                    fitted = [_FORCED_COL_FLOOR, _FORCED_COL_FLOOR]
+                else:
+                    to_shave: int = min(total2 - avail2, total_shrinkable)
+                    shave0: int = round(to_shave * shrinkable0 / total_shrinkable)
+                    shave1: int = to_shave - shave0
+                    fitted = [max(_FORCED_COL_FLOOR, w0 - shave0), max(_FORCED_COL_FLOOR, w1 - shave1)]
+            included_idx = [0, 1]
+        else:
+            included_idx = [0]
+            fitted = [natural_widths[0]]
+
+        headers = [headers[i] for i in included_idx]
+        normalized_rows = [[r[i] for i in included_idx] for r in normalized_rows]
+        n: int = len(headers)
         col_widths: _List[int] = fitted
 
         # --- alignment (user-specified): ALL body columns LEFT-aligned.
         #      Headers are UPPERCASE + CENTERED.  Right-align key-column
         #      heuristic is removed per the user's explicit "corpo tem que
         #      ser alinhado à esquerda e não à direita" request.
-        alignment_body_right: _List[bool] = [False] * n
-
         # --- helpers -----------------------------------------------------
         header_rgb: Tuple[int, int, int] = self._palette_header_rgb()
         hr, hg, hb = header_rgb
         grid_rgb: Tuple[int, int, int] = TerminalSurfaceRenderer._PALETTE["neutral"]
         gr, gg, gb = grid_rgb
-        V_GRID: str = f"\x1b[38;2;{gr};{gg};{gb}m{B['v']}\x1b[0m"
-        X_GRID: str = f"\x1b[38;2;{gr};{gg};{gb}m{B['x']}\x1b[0m"
-        H_GRID_OPEN: str = f"\x1b[38;2;{gr};{gg};{gb}m"
-        H_GRID_CLOSE: str = "\x1b[0m"
-
-        def _pad_cell(value: str, w: int, right: bool) -> str:
-            if len(value) > w:
-                value = value[: max(0, w - 1)] + "\u2026"
-            value = value[:w]
-            if right:
-                return value.rjust(w)
-            return value.ljust(w)
+        V_GRID: str = f"{rgb_fg(gr, gg, gb)}{B['v']}{RESET}"
+        X_GRID: str = f"{rgb_fg(gr, gg, gb)}{B['x']}{RESET}"
+        H_GRID_OPEN: str = rgb_fg(gr, gg, gb)
+        H_GRID_CLOSE: str = RESET
 
         def _center_cell(value: str, w: int) -> str:
+            # Headers fit their column's natural width by construction,
+            # except a 2nd column forced below it to the small floor (see
+            # ``_FORCED_COL_FLOOR`` above) — this truncation only bites in
+            # that narrow edge case.
             if len(value) > w:
                 value = value[: max(0, w - 1)] + "\u2026"
             value = value[:w]
@@ -1219,12 +1374,18 @@ class _MarkdownBodyTile(TerminalTileRenderable):
             right: int = total - left
             return (" " * left) + value + (" " * right)
 
-        def _format_cell_plain(raw: str, i: int) -> str:
-            return _pad_cell(self._strip_inline(raw), col_widths[i], alignment_body_right[i])
+        def _wrap_cell(raw: str, w: int) -> _List[str]:
+            """Word-wrap a body cell to width ``w`` -- never truncates: long
+            unbroken tokens (e.g. URNs) are hard-broken instead of cut."""
+            plain: str = self._strip_inline(raw)
+            wrapped: _List[str] = _textwrap.wrap(
+                plain, width=max(1, w), break_long_words=True, break_on_hyphens=False
+            )
+            return wrapped or [""]
 
         def _format_cell_header(raw: str, i: int) -> str:
             text: str = _center_cell(self._strip_inline(raw).upper(), col_widths[i])
-            return f"\x1b[1;38;2;{hr};{hg};{hb}m{text}\x1b[0m"
+            return f"{rgb_fg_bold(hr, hg, hb)}{text}{RESET}"
 
         # --- render the grid lines ---------------------------------------
         out: _List[str] = []
@@ -1276,7 +1437,7 @@ class _MarkdownBodyTile(TerminalTileRenderable):
             gap: int = width - base_vis
             if is_separator:
                 # Inject gap gray dashes before the SGR reset.  H_GRID_CLOSE
-                # is the literal "\x1b[0m" suffix on sep_plain output.
+                # is the SGR reset (RESET) suffix on sep_plain output.
                 if base_line.endswith(H_GRID_CLOSE):
                     return (
                         base_line[: -len(H_GRID_CLOSE)]
@@ -1299,14 +1460,23 @@ class _MarkdownBodyTile(TerminalTileRenderable):
         sep_line: str = f"{H_GRID_OPEN}{sep_plain}{H_GRID_CLOSE}"
         out.append(_lock_right_edge(sep_line, is_separator=True))
 
-        # 3) Body rows (white plain, LEFT-aligned per user spec) with neutral │
+        # 3) Body rows (white plain, LEFT-aligned per user spec) with neutral │.
+        #    Each cell is word-wrapped to its column width instead of
+        #    truncated — a row that doesn't fit on one line grows extra
+        #    physical lines instead of losing characters.
         for r in normalized_rows:
-            parts: _List[str] = []
-            for i, cell in enumerate(r):
-                text: str = _format_cell_plain(cell, i)
-                parts.append(" " * inner_pad + text + " " * inner_pad)
-            body_line: str = V_GRID.join(parts)
-            out.append(_lock_right_edge(body_line, is_separator=False))
+            wrapped_cells: _List[_List[str]] = [
+                _wrap_cell(cell, col_widths[i]) for i, cell in enumerate(r)
+            ]
+            row_height: int = max(1, max(len(wc) for wc in wrapped_cells))
+            for line_idx in range(row_height):
+                parts: _List[str] = []
+                for i in range(n):
+                    cell_lines: _List[str] = wrapped_cells[i]
+                    text: str = cell_lines[line_idx] if line_idx < len(cell_lines) else ""
+                    parts.append(" " * inner_pad + text.ljust(col_widths[i]) + " " * inner_pad)
+                body_line: str = V_GRID.join(parts)
+                out.append(_lock_right_edge(body_line, is_separator=False))
 
         # Sanity: guarantee every single line has exact visible width = width
         # so the outer frame never looks "broken / descacetado" regardless
@@ -1330,7 +1500,7 @@ class _MarkdownBodyTile(TerminalTileRenderable):
                     j: int = 0
                     L: int = len(chars)
                     while j < L and glyphs_remaining > 0:
-                        if chars[j] == "\x1b":
+                        if chars[j] == CSI[0] and "".join(chars[j:j+len(CSI)]) == CSI:
                             k: int = j
                             while k < L and chars[k] != "m":
                                 k += 1
@@ -1354,13 +1524,13 @@ class _MarkdownBodyTile(TerminalTileRenderable):
 
     def _theme_border(self, text: str) -> str:
         r, g, b = TerminalSurfaceRenderer._PALETTE["neutral"]
-        return f"\x1b[38;2;{r};{g};{b}m{text}\x1b[0m"
+        return f"{rgb_fg(r, g, b)}{text}{RESET}"
 
     def _bold(self, text: str) -> str:
-        return f"\x1b[1m{text}\x1b[0m"
+        return f"{BOLD}{text}{RESET}"
 
     def _inline_code(self, text: str) -> str:
-        return f"\x1b[38;2;220;220;220;48;2;40;40;40m{text}\x1b[0m"
+        return f"{rgb_fg(220, 220, 220)}{rgb_bg(40, 40, 40)}{text}{RESET}"
 
     def _strip_inline(self, text: str) -> str:
         return _BOLD_RE.sub(r"\1", _CODE_RE.sub(r"\1", text)).strip()
@@ -1394,6 +1564,8 @@ def _make_markdown_body_tile(markdown: str) -> type:
     md: str = markdown
 
     class _DynamicMarkdownTile(TerminalTileRenderable):
+        _owner_renderer: Any = None
+
         def render(
             self_self,
             *,
@@ -1402,6 +1574,18 @@ def _make_markdown_body_tile(markdown: str) -> type:
             context: Optional[Dict[str, Any]] = None,
         ) -> str:
             tile = _MarkdownBodyTile(markdown=md)
+            tile._owner_renderer = self_self._owner_renderer
             return tile.render(columns=columns, rows=rows, context=context)
 
     return _DynamicMarkdownTile
+
+
+def _is_markdown_body_class(tile: Any) -> bool:
+    try:
+        return (
+            isinstance(tile, type)
+            and issubclass(tile, TerminalTileRenderable)
+            and hasattr(tile, "_owner_renderer")
+        )
+    except Exception:
+        return False

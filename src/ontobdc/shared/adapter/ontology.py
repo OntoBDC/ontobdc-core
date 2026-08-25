@@ -24,28 +24,28 @@ _SUPPORTED_EXTENSIONS: Tuple[str, ...] = (
 )
 
 _PREFIX_TO_RESOURCE_PARTS: Dict[str, Tuple[str, ...]] = {
-    "obdc": ("ontobdc", "domain"),
-    "obdc_code": ("ontobdc", "domain"),
-    "obdc_test": ("ontobdc", "domain"),
-    "obdc_view": ("ontobdc", "domain"),
-    "obdc_abox_surface_layouts": ("ontobdc", "abox"),
-    "pe_entity": ("productivity", "entity"),
-    "pe_entity_document": ("productivity", "entity", "document"),
-    "pe_entity_work_stream": ("productivity", "entity", "work_stream"),
-    "pe_entity_enrichment_annotation": ("productivity", "entity", "enrichment_annotation"),
+    "obdc": ("domain", "ontobdc"),
+    "obdc_code": ("old", "ontobdc", "domain"),
+    "obdc_test": ("old", "ontobdc", "domain"),
+    "obdc_view": ("tool", "ontobdc", "tbox"),
+    "obdc_abox_surface_layouts": ("tool", "ontobdc", "abox"),
+    "pe_entity": ("old", "entity"),
+    "pe_entity_document": ("old", "entity", "document"),
+    "pe_entity_work_stream": ("tool", "ontobdc", "entity", "work_stream"),
+    "pe_entity_enrichment_annotation": ("old", "entity", "enrichment_annotation"),
     "pe_entity_visual_representation_type": (
-        "productivity",
+        "old",
         "entity",
         "visual_representation_type",
     ),
-    "social_ns": ("social", "entity"),
-    "social_entity_contact_point": ("social", "entity", "contact_point"),
-    "social_entity_person": ("social", "entity", "person"),
-    "social_entity_weblink": ("social", "entity", "weblink"),
-    "social_entity_document": ("social", "entity", "document"),
-    "bsi_element_ifc_work_schedule": ("bsi", "element", "ifc_work_schedule"),
-    "sales_entity_sales_funnel": ("sales", "entity", "sales_funnel"),
-    "sales_entity_sales_opportunity": ("sales", "entity", "sales_opportunity"),
+    "social_ns": ("old", "social", "entity"),
+    "social_entity_contact_point": ("old", "social", "entity", "contact_point"),
+    "social_entity_person": ("old", "social", "entity", "person"),
+    "social_entity_weblink": ("old", "social", "entity", "weblink"),
+    "social_entity_document": ("old", "social", "entity", "document"),
+    "bsi_element_ifc_work_schedule": ("tool", "infobim", "entity", "ifc_work_schedule"),
+    "sales_entity_sales_funnel": ("old", "sales", "entity", "sales_funnel"),
+    "sales_entity_sales_opportunity": ("old", "sales", "entity", "sales_opportunity"),
 }
 
 _INFOBIM_PREFIX_TO_RESOURCE_SUBPATH: Dict[str, Tuple[str, ...]] = {
@@ -79,6 +79,44 @@ def _resource_path_from_package(
     return Path(str(candidate))
 
 
+def _probe_candidate_paths(
+    ontology_root: Path,
+    path_parts: Tuple[str, ...],
+    type_name: str,
+) -> Optional[Path]:
+    """Try to resolve a candidate ontology file under ``ontology_root`` using
+    two layout conventions, returning the first existing match or ``None``.
+
+    Modes probed (in order):
+
+    1. **Subdirectory mode** (canonical for most ontologies):
+       ``ontology_root / *path_parts / <type_name>.ttl``
+       Example: ``.../ontology/old/social/entity/person/type.ttl``
+
+    2. **Flat mode** (used when the last ``path_parts`` segment doubles as a
+       filename prefix rather than a directory — e.g. ``work_stream`` and
+       ``ifc_work_schedule`` live directly inside ``.../entity/`` with names
+       like ``work_stream_type.ttl`` instead of ``work_stream/type.ttl``):
+       ``ontology_root / *path_parts[:-1] / <last_part>_<type_name>.ttl``
+       Requires at least one segment in ``path_parts`` (always true for this
+       codebase because every prefix maps to a non-empty tuple).
+    """
+    candidate_file: str = f"{type_name}.ttl"
+
+    subdir_candidate: Path = ontology_root.joinpath(*path_parts, candidate_file)
+    if subdir_candidate.is_file():
+        return subdir_candidate
+
+    if len(path_parts) >= 1:
+        parent_dir_parts: Tuple[str, ...] = path_parts[:-1]
+        flat_name: str = f"{path_parts[-1]}_{type_name}.ttl"
+        flat_candidate: Path = ontology_root.joinpath(*parent_dir_parts, flat_name)
+        if flat_candidate.is_file():
+            return flat_candidate
+
+    return None
+
+
 def _brasidatacenter_resource_path(prefix: str, type_name: str) -> Optional[Path]:
     """Resolve an ontology file through the BrasidataCenter package when it is
     installed as a pip dependency.
@@ -109,6 +147,12 @@ def _brasidatacenter_resource_path(prefix: str, type_name: str) -> Optional[Path
        fallback logic coded inside ``brasidatacenter.resources.ontology_root``
        so the two resolvers stay contractually identical).
 
+    For every filesystem probe, :func:`_probe_candidate_paths` is used so both
+    the subdirectory convention and the flat prefixed-name convention are
+    honored (flat mode is required by ``tool/ontobdc/entity/work_stream_*.ttl``
+    and ``tool/infobim/entity/ifc_work_schedule_*.ttl`` which live next to
+    their sibling ttl files instead of inside dedicated folders).
+
     Returns the filesystem path as a :class:`Path` if BrasidataCenter is
     importable, the prefix is in the official map, and the resolved file
     actually exists. Returns ``None`` otherwise so callers can fall through
@@ -120,86 +164,105 @@ def _brasidatacenter_resource_path(prefix: str, type_name: str) -> Optional[Path
         return None
 
     try:
+        from importlib.resources import files  # noqa: WPS433 — soft import inside helper
+    except Exception:
+        files = None  # type: ignore[assignment]
+
+    # ------------------------------------------------------------------ Tier 1
+    # Prefer brasidatacenter.resources.ontology_path when it is importable
+    # because that helper mirrors the exact same probing logic the package
+    # itself uses and therefore stays in sync with hatch packaging rules.
+    try:
         from brasidatacenter.resources import ontology_path  # noqa: WPS433 — soft import
     except Exception:
-        # brasidatacenter.resources submodule is not installed (e.g. bare
-        # namespace package in editable mode). Mirror the two-location
-        # probe that brasidatacenter.resources.ontology_root() applies
-        # internally so we reach the ontology tree regardless of whether
-        # it's packaged under the installed source tree or lives in the
-        # repository root next to it.
-        candidate_file = f"{type_name}.ttl"
+        ontology_path = None  # type: ignore[assignment]
 
-        # Probe 1 — brasidatacenter is importable (package/namespace)
+    if ontology_path is not None:
+        candidate = ontology_path(*path_parts, f"{type_name}.ttl")
+        if candidate.is_file():
+            return Path(str(candidate))
+
+        # Flat-mode fallback: try to pass the flattened filename as the last
+        # segment when <parts>/<type>.ttl is missing. Example:
+        #   path_parts = ("tool","ontobdc","entity","work_stream")
+        #   → ask ontology_path("tool","ontobdc","entity", "work_stream_type.ttl")
+        if len(path_parts) >= 1:
+            flat_parts: Tuple[str, ...] = path_parts[:-1]
+            flat_file: str = f"{path_parts[-1]}_{type_name}.ttl"
+            flat_candidate = ontology_path(*flat_parts, flat_file)
+            if flat_candidate.is_file():
+                return Path(str(flat_candidate))
+
+    # -------------------------------------------------------------- Tier 1.5+
+    # Manual filesystem probes. Used when:
+    #   (a) brasidatacenter.resources is not importable, OR
+    #   (b) it is importable but the packaged copy does not contain the
+    #       requested ontology (e.g. monorepo sibling layout where the
+    #       imported brasidatacenter is a namespace package shell).
+
+    # Probe 1 — brasidatacenter is importable (package/namespace)
+    package_root = None
+    if files is not None:
         try:
             package_root = files("brasidatacenter")
         except Exception:
             package_root = None
 
-        if package_root is not None:
-            # Probe 1a — ontology packaged under the installed source tree
-            # (wheel layout: brasidatacenter/ontology/<parts>/<type>.ttl)
-            wheel_candidate: Path = Path(str(package_root.joinpath(
-                "ontology", *path_parts, candidate_file
-            )))
-            if wheel_candidate.is_file():
-                return wheel_candidate
+    if package_root is not None:
+        # Probe 1a — ontology packaged under the installed source tree
+        # (wheel layout: brasidatacenter/ontology/...)
+        wheel_ontology_root: Path = Path(str(package_root.joinpath("ontology")))
+        wheel_match = _probe_candidate_paths(wheel_ontology_root, path_parts, type_name)
+        if wheel_match is not None:
+            return wheel_match
 
-            # Probe 1b — ontology inside brasidatacenter package via __file__
-            try:
-                import brasidatacenter as _bc
-                package_init_path: Optional[str] = getattr(_bc, "__file__", None)
-            except Exception:
-                package_init_path = None
-
-            if package_init_path:
-                source_package_dir = Path(package_init_path).resolve().parent
-                package_src_dir = source_package_dir.parent  # .../src/
-                repo_root = package_src_dir.parent            # .../brasidatacenter/
-                source_tree_candidate: Path = repo_root.joinpath(
-                    "ontology", *path_parts, candidate_file
-                )
-                if source_tree_candidate.is_file():
-                    return source_tree_candidate
-
-            # Probe 1c — pure namespace package (no __file__): guess from
-            # the Traversable path returned by files().
-            guessed_repo_root = Path(str(package_root)).resolve()
-            if guessed_repo_root.name != "brasidatacenter":
-                guessed_repo_root = guessed_repo_root.parents[1]
-            if guessed_repo_root.name == "brasidatacenter":
-                source_tree_candidate = guessed_repo_root.joinpath(
-                    "ontology", *path_parts, candidate_file
-                )
-                if source_tree_candidate.is_file():
-                    return source_tree_candidate
-
-        # Probe 2 — monorepo sibling layout. When running with just
-        # ontobdc/src in sys.path (as the infobim entrypoint does) the
-        # brasidatacenter package is not importable at all, but the
-        # brasidatacenter directory is still a sibling of ontobdc inside
-        # the same monorepo root. Derive the monorepo root from the
-        # location of *this* module:
-        #   ontobdc/src/ontobdc/shared/adapter/ontology.py  (6 parents up)
-        #   → monorepo root (OntoBDC/) → brasidatacenter/ontology/...
+        # Probe 1b — ontology inside brasidatacenter package via __file__
         try:
-            this_file_path = Path(__file__).resolve()
-            # shared/adapter/ontology.py → adapter → shared → ontobdc → src → ontobdc (repo) → OntoBDC/ (monorepo)
-            monorepo_root = this_file_path.parents[5]
-            sibling_candidate = monorepo_root.joinpath(
-                "brasidatacenter", "ontology", *path_parts, candidate_file
-            )
-            if sibling_candidate.is_file():
-                return sibling_candidate
+            import brasidatacenter as _bc
+            package_init_path: Optional[str] = getattr(_bc, "__file__", None)
         except Exception:
-            pass
+            package_init_path = None
 
-        return None
+        if package_init_path:
+            source_package_dir = Path(package_init_path).resolve().parent
+            package_src_dir = source_package_dir.parent  # .../src/
+            repo_root = package_src_dir.parent            # .../brasidatacenter/
+            source_ontology_root = repo_root.joinpath("ontology")
+            source_match = _probe_candidate_paths(source_ontology_root, path_parts, type_name)
+            if source_match is not None:
+                return source_match
 
-    candidate = ontology_path(*path_parts, f"{type_name}.ttl")
-    if not candidate.is_file():
-        return None
-    return Path(str(candidate))
+        # Probe 1c — pure namespace package (no __file__): guess from
+        # the Traversable path returned by files().
+        guessed_repo_root = Path(str(package_root)).resolve()
+        if guessed_repo_root.name != "brasidatacenter":
+            guessed_repo_root = guessed_repo_root.parents[1]
+        if guessed_repo_root.name == "brasidatacenter":
+            guessed_ontology_root = guessed_repo_root.joinpath("ontology")
+            guessed_match = _probe_candidate_paths(guessed_ontology_root, path_parts, type_name)
+            if guessed_match is not None:
+                return guessed_match
+
+    # Probe 2 — monorepo sibling layout. When running with just
+    # ontobdc/src in sys.path (as the infobim entrypoint does) the
+    # brasidatacenter package is not importable at all, but the
+    # brasidatacenter directory is still a sibling of ontobdc inside
+    # the same monorepo root. Derive the monorepo root from the
+    # location of *this* module:
+    #   ontobdc/src/ontobdc/shared/adapter/ontology.py  (6 parents up)
+    #   → monorepo root (OntoBDC/) → brasidatacenter/ontology/...
+    try:
+        this_file_path = Path(__file__).resolve()
+        # shared/adapter/ontology.py → adapter → shared → ontobdc → src → ontobdc (repo) → OntoBDC/ (monorepo)
+        monorepo_root = this_file_path.parents[5]
+        sibling_ontology_root = monorepo_root.joinpath("brasidatacenter", "ontology")
+        sibling_match = _probe_candidate_paths(sibling_ontology_root, path_parts, type_name)
+        if sibling_match is not None:
+            return sibling_match
+    except Exception:
+        pass
+
+    return None
 
 
 def _infobim_resource_path(prefix: str, type_name: str) -> Optional[Path]:
@@ -318,7 +381,7 @@ class OntologyConfigAdapter(OntologyConfigPort):
             "sh": Namespace("http://www.w3.org/ns/shacl#"),
             "rdf": Namespace("http://www.w3.org/1999/02/22-rdf-syntax-ns#"),
             "rdfs": Namespace("http://www.w3.org/2000/01/rdf-schema#"),
-            "obdc": Namespace("http://ontobdc.org/ontology/domain/ns.ttl#"),
+            "obdc": Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#"),
             "obdc_code": Namespace("http://ontobdc.org/ontology/domain/code.ttl#"),
             "obdc_test": Namespace("http://ontobdc.org/ontology/domain/test.ttl#"),
             "obdc_view": Namespace("http://datacenter.app.br/ontology/ontobdc/domain/view.ttl#"),

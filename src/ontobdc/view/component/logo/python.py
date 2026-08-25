@@ -1,11 +1,15 @@
-import re
 import shutil
 from importlib import metadata
 from typing import List, Optional, TextIO, Tuple
 
 from pyfiglet import Figlet
 
-from ontobdc.shared.adapter.terminal_color import ANSI_ESCAPE_REGEX, RESET
+from ontobdc.shared.adapter.terminal_color import (
+    ANSI_ESCAPE_REGEX,
+    RESET,
+    rgb_fg,
+    rgb_fg_bold,
+)
 
 
 class LogoComponent:
@@ -56,8 +60,8 @@ class LogoComponent:
 
         if self._color:
             logo_lines = [
-                f"{self._ansi_fg(self.PRIMARY_COLOR)}{primary}{RESET}"
-                f"{self._ansi_fg(self.BANNER_COLOR, bold=True)}{accent}{RESET}"
+                f"{rgb_fg(*self.PRIMARY_COLOR)}{primary}{RESET}"
+                f"{rgb_fg_bold(*self.BANNER_COLOR)}{accent}{RESET}"
                 if (primary + accent).strip()
                 else ""
                 for primary, accent in zip(primary_lines, accent_lines)
@@ -82,8 +86,8 @@ class LogoComponent:
         if not self._color:
             return f"{self.COMPACT_MARKER}{self.TEXT_VALUE}"
 
-        primary = f"{self._ansi_fg(self.PRIMARY_COLOR)}{self.PRIMARY_TEXT}{RESET}"
-        accent = f"{self._ansi_fg(self.BANNER_COLOR, bold=True)}{self.ACCENT_TEXT}{RESET}"
+        primary = f"{rgb_fg(*self.PRIMARY_COLOR)}{self.PRIMARY_TEXT}{RESET}"
+        accent = f"{rgb_fg_bold(*self.BANNER_COLOR)}{self.ACCENT_TEXT}{RESET}"
         return f"{self.COMPACT_MARKER}{primary}{accent}"
 
     def print(
@@ -132,11 +136,6 @@ class LogoComponent:
 
     def _visible_length(self, value: str) -> int:
         return len(ANSI_ESCAPE_REGEX.sub("", value))
-
-    @staticmethod
-    def _ansi_fg(rgb: Tuple[int, int, int], *, bold: bool = False) -> str:
-        prefix = "1;" if bold else ""
-        return f"\x1b[{prefix}38;2;{rgb[0]};{rgb[1]};{rgb[2]}m"
 
     def _version_label(self) -> str:
         version = self._version

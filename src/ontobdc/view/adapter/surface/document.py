@@ -11,7 +11,15 @@ CONFIG_ID = "ontobdc-surface-config"
 MATCHES_ID = "ontobdc-surface-matches"
 DEFAULT_LAYOUTS_ID = "ontobdc-surface-default-layouts"
 DEFAULT_LAYOUTS_BOOTSTRAP_ID = "ontobdc-surface-default-layouts-bootstrap"
+URL_STATE_BOOTSTRAP_ID = "ontobdc-surface-url-state"
 COMPONENT_SCRIPT_ATTR = "data-ontobdc-surface-component"
+
+# Canonical URL-controlled presentation parameters. The address bar is the
+# only store for these — no cookie, no localStorage, no second in-page state
+# — so they have to be named in exactly one place and read from there by
+# every producer and consumer.
+LANGUAGE_PARAM = "lang"
+THEME_PARAM = "theme"
 SURFACE_TAG = "onto-presentation-surface"
 _CUSTOM_ELEMENT_RE = re.compile(r"^[a-z][a-z0-9._-]*-[a-z0-9._-]+$")
 
@@ -362,6 +370,171 @@ def embed_default_layouts_bootstrap(document: str) -> str:
     if pattern.search(document):
         return pattern.sub(script, document, count=1)
     return _insert_before_closing_tag(document, "body", script)
+
+
+_URL_STATE_DEFAULTS_PLACEHOLDER = "__ONTOBDC_URL_STATE_DEFAULTS__"
+
+# Runtime owner of URL presentation state, embedded once per generated page.
+# Components never parse or rewrite the query string themselves: they read
+# `window.ontobdcUrlState`, so the rules below (what the canonical parameters
+# are, what happens when one is missing, how a link inherits them) live in a
+# single place instead of being re-derived — differently — in each Tile.
+_URL_STATE_BOOTSTRAP_JS = """(() => {
+  const DEFAULTS = __ONTOBDC_URL_STATE_DEFAULTS__;
+  const NAMES = Object.keys(DEFAULTS);
+
+  const current = () => new URLSearchParams(location.search);
+
+  // The address bar is the source of truth; DEFAULTS only answers for a
+  // parameter the URL does not carry.
+  const value = (name) => current().get(name) ?? DEFAULTS[name] ?? null;
+
+  // Stamp every missing default into the address bar, so even the very first
+  // open of a generated page is an explicit, shareable, reproducible URL
+  // rather than one whose rendering depends on build-time knowledge.
+  function ensureDefaults() {
+    const url = new URL(location.href);
+    let changed = false;
+    for (const name of NAMES) {
+      if (url.searchParams.has(name)) continue;
+      url.searchParams.set(name, DEFAULTS[name]);
+      changed = true;
+    }
+    if (!changed) return;
+    try {
+      // Same-document rewrite: no reload, no extra history entry.
+      history.replaceState(history.state, "", url.href);
+    } catch {
+      // Some browsers refuse replaceState with a URL on an opaque-origin
+      // (file://) document. A replacing navigation reaches the same
+      // normalized URL; the parameters are present on that load, so the
+      // branch cannot run twice and cannot loop.
+      location.replace(url.href);
+    }
+  }
+
+  // Carry the live presentation state onto an internal link rather than
+  // letting each component re-derive it. A parameter the link already
+  // declares wins: inheriting must never overwrite an explicit choice, and
+  // must never stamp a build-time default over the user's selection.
+  function decorate(href) {
+    try {
+      const target = new URL(href, location.href);
+      const params = current();
+      for (const name of NAMES) {
+        const carried = params.get(name);
+        if (carried !== null && !target.searchParams.has(name)) {
+          target.searchParams.set(name, carried);
+        }
+      }
+      return target.href;
+    } catch {
+      return href;
+    }
+  }
+
+  // The one place a presentation parameter is *changed*. Writing it into the
+  // URL and navigating means page initialization re-derives the whole
+  // rendering from the address bar, so a reload, a bookmark and a shared
+  // link all reproduce it — and no Tile has to know how that is done.
+  function withParam(name, value) {
+    const url = new URL(location.href);
+    url.searchParams.set(name, value);
+    return url.href;
+  }
+
+  function select(name, value) {
+    if (value === null || value === undefined || value === "") return false;
+    let target;
+    try {
+      target = withParam(name, value);
+    } catch {
+      return false;
+    }
+    // Already the active URL: navigating would only cost a reload.
+    if (target === location.href) return false;
+    try {
+      // assign(), not replace(): the change stays undoable with Back.
+      location.assign(target);
+      return true;
+    } catch {
+      // Navigation refused (sandboxed frame, exotic scheme). The caller has
+      // already applied the change in-document, so the control still works
+      // for this session — it just will not survive the next reload.
+      return false;
+    }
+  }
+
+  // Runs before the deferred component modules upgrade any Tile, so the
+  // document is already in the URL's language at first paint instead of
+  // flashing the language it was generated in.
+  function applyLanguage() {
+    const language = value("lang");
+    if (!language) return;
+    document.documentElement.lang = language;
+    document.documentElement.dataset.language = language;
+  }
+
+  ensureDefaults();
+  applyLanguage();
+
+  window.ontobdcUrlState = {
+    defaults: { ...DEFAULTS },
+    names: [...NAMES],
+    current,
+    value,
+    withParam,
+    select,
+    decorate,
+    applyLanguage,
+  };
+})();"""
+
+
+def build_url_state_bootstrap(defaults: Mapping[str, str]) -> str:
+    """Return the URL-state bootstrap script tag for `defaults`.
+
+    `defaults` maps each canonical presentation parameter to the value a
+    generated page falls back to when the URL does not carry it — normally
+    `{"lang": <generation language>, "theme": <first theme>}`.
+    """
+    payload = json.dumps(
+        {str(name): str(value) for name, value in defaults.items()},
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    script = _URL_STATE_BOOTSTRAP_JS.replace(
+        _URL_STATE_DEFAULTS_PLACEHOLDER, payload
+    )
+    safe_script = script.replace("</script>", "<\\/script>")
+    return (
+        f'<script id="{URL_STATE_BOOTSTRAP_ID}">\n'
+        f"{safe_script}\n"
+        "</script>"
+    )
+
+
+def embed_url_state_bootstrap(
+    document: str,
+    defaults: Mapping[str, str],
+) -> str:
+    """Idempotently embed the URL-state bootstrap in `<head>`.
+
+    A classic, parser-blocking script in `<head>` rather than a module before
+    `</body>`: it has to normalize the URL and apply the language *before*
+    first paint and before the deferred component modules run, or the page
+    renders in the generation-time language and then visibly switches.
+    """
+    script = build_url_state_bootstrap(defaults)
+    pattern = re.compile(
+        rf"<script\b[^>]*\bid=[\"']{re.escape(URL_STATE_BOOTSTRAP_ID)}[\"'][^>]*>"
+        rf".*?</script>",
+        re.IGNORECASE | re.DOTALL,
+    )
+    if pattern.search(document):
+        return pattern.sub(lambda _: script, document, count=1)
+    return _insert_before_closing_tag(document, "head", script)
 
 
 def contains_external_runtime_reference(document: str) -> bool:

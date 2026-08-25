@@ -16,6 +16,7 @@ from ontobdc.cli.domain.response.command import (
     CommandResponse,
     ExceptionCommandResponse,
     HelpCommandResponse,
+    InteractiveCommandResponse,
 )
 from ontobdc.shared.adapter.loader import ParameterLoader
 from ontobdc.shared.domain.port.loader import PluginLoaderPort
@@ -100,7 +101,10 @@ def main() -> None:
                 cli_command_run.set_prompt_raw_text(prompt_raw_text)
 
             response: CommandResponse = cli_command_run.run()
-            if not silent:
+            if not silent and not isinstance(
+                response,
+                InteractiveCommandResponse,
+            ):
                 _render_response(response, logger, render_type)
 
             sys.exit(0)
@@ -453,6 +457,35 @@ def _render_rich_response(response: CommandResponse) -> None:
     print(output, end="" if output.endswith("\n") else "\n")
 
 
+def _ux_theme_for(response: CommandResponse) -> str:
+    from ontobdc.cli.domain.response.command import ExceptionCommandResponse
+
+    if isinstance(response, ExceptionCommandResponse):
+        return "error"
+    return "default"
+
+
+def _default_severity_for_response(response: CommandResponse) -> Optional[str]:
+    """Mirror of ``BaseResponseWidgetAdapter._default_heading_severity``.
+
+    Duplicated here intentionally to avoid pulling the adapter layer into
+    a helper that runs *before* widget decomposition — this function is
+    single-purpose: convert a CommandResponse type into a string-level
+    severity suitable for ``severity_badge(...)``.  Keep the two
+    policies in sync manually if the rules ever change.
+    """
+    from ontobdc.cli.domain.response.command import (
+        ExceptionCommandResponse,
+        HelpCommandResponse,
+    )
+
+    if isinstance(response, ExceptionCommandResponse):
+        return "ERROR"
+    if isinstance(response, HelpCommandResponse):
+        return "INFO"
+    return "INFO"
+
+
 def _response_to_markdown(
     response: CommandResponse,
     *,
@@ -462,27 +495,45 @@ def _response_to_markdown(
 ) -> str:
     title: str = str(response.title or "").strip()
     description: str = str(response.description or "").strip()
+    from ontobdc.shared.adapter.terminal_color import severity_badge
+
+    severity: Optional[object] = getattr(response, "severity", None)
+    if severity is None:
+        severity = _default_severity_for_response(response)
+    badge: str = (
+        severity_badge(severity, fallback=None) if severity is not None else ""
+    )
 
     loader = response_loader_cls()
     adapter = loader.get(response)
     widgets: List[Any] = adapter.widgets(response)
 
-    heading_widget: Optional[Any] = next(
-        (
-            w for w in widgets
-            if isinstance(w, text_widget_cls) and getattr(w, "heading", None) == title
-        ),
-        None,
-    )
-    content_widgets: List[Any] = [w for w in widgets if w is not heading_widget]
+    _heading_prefix: str = f"# {title}" if title else ""
+
+    def _is_duplicate_top_level_heading_widget(w: Any) -> bool:
+        if not isinstance(w, text_widget_cls):
+            return False
+        w_heading: str = (getattr(w, "heading", "") or "").lstrip()
+        if not title:
+            return False
+        if w_heading.lstrip() == _heading_prefix:
+            return True
+        if w_heading.strip() == str(title).strip():
+            return True
+        return False
+
+    content_widgets: List[Any] = [w for w in widgets if not _is_duplicate_top_level_heading_widget(w)]
 
     lines: List[str] = []
     if title:
-        lines.append(f"# {title}")
-    if description:
-        lines.append(description)
-    if title or description:
+        heading_line: str = f"# {title}"
+        if badge:
+            heading_line = f"{badge} {heading_line}"
+        lines.append(heading_line)
         lines.append("")
+        if description:
+            lines.append(description)
+            lines.append("")
 
     def _escape_pipe_cell(value: Any) -> str:
         text: str = str(value).replace("\n", " ").strip()
@@ -508,6 +559,30 @@ def _response_to_markdown(
                         cells.append("")
                     lines.append("| " + " | ".join(cells[: len(safe_headers)]) + " |")
                 lines.append("")
+
+                # --- DETAILS → one card per record with every field spelled
+                # out in full (no column-width budget to share, so nothing
+                # here is ever wrapped or cut). Generic to any TableWidget,
+                # not just storage containers, so every list-shaped CLI
+                # response gets a lossless detail view under its table.
+                # Heading level matches CONTAINERS-style list headings (## )
+                # so DETAILS sits at the same left alignment.
+                if rows_list:
+                    lines.append("## DETAILS")
+                    lines.append("")
+                    for row in rows_list:
+                        first_value: Any = row[0] if row else ""
+                        card_title: str = str(
+                            first_value if first_value is not None else ""
+                        ).replace("\n", " ").strip() or "—"
+                        lines.append(f"#### {card_title}")
+                        for col_index, header in enumerate(headers):
+                            cell_value: Any = row[col_index] if col_index < len(row) else ""
+                            cell_text: str = str(
+                                cell_value if cell_value is not None else ""
+                            ).replace("\n", " ").strip()
+                            lines.append(f"- {str(header).upper()}: {cell_text}")
+                        lines.append("")
             continue
 
         if wtype == "KeyValueWidget":
@@ -621,20 +696,47 @@ def _response_to_markdown(
                             f"| {_escape_pipe_cell(e.get('label', ''))} |"
                         )
                 lines.append("")
-            lines.append("### Graph")
             render_fn = getattr(widget, "render", None)
+            rendered_graph: List[str] = []
             if callable(render_fn):
                 try:
-                    rendered_graph: List[str] = list(render_fn(180) or [])
-                    # prefix each line with a single space so the markdown
-                    # parser doesn't try to re-flow it, paragraph, it keeps the
-                    # graph glyphs intact from the outer renderer.
-                    for gline in rendered_graph:
-                        lines.append(" " + str(gline))
+                    rendered_graph = list(render_fn(180) or [])
                 except Exception as exc:  # noqa: BLE001 — keep CLI from failing
-                    lines.append("```")
-                    lines.append(f"<graph-render-error {type(exc).__name__}: {exc}>")
-                    lines.append("```")
+                    rendered_graph = [
+                        "```",
+                        f"<graph-render-error {type(exc).__name__}: {exc}>",
+                        "```",
+                    ]
+            if rendered_graph:
+                lines.append("### Graph")
+                for gline in rendered_graph:
+                    if gline.startswith("```"):
+                        lines.append(str(gline))
+                    else:
+                        lines.append(" " + str(gline))
+                lines.append("")
+            continue
+
+        # --- TreeWidget → emit the pre-drawn directory-tree lines verbatim
+        #      (single leading space = don't reflow/reword-wrap them; the
+        #      tree's own guide lines and indentation must survive as-is).
+        if wtype == "TreeWidget":
+            render_fn = getattr(widget, "render", None)
+            rendered_tree: List[str] = []
+            if callable(render_fn):
+                try:
+                    rendered_tree = list(render_fn(180) or [])
+                except Exception as exc:  # noqa: BLE001 — keep CLI from failing
+                    rendered_tree = [
+                        "```",
+                        f"<tree-render-error {type(exc).__name__}: {exc}>",
+                        "```",
+                    ]
+            for tline in rendered_tree:
+                if tline.startswith("```"):
+                    lines.append(str(tline))
+                else:
+                    lines.append(" " + str(tline))
             lines.append("")
             continue
 

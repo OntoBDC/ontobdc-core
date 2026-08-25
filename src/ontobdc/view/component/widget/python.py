@@ -3,6 +3,7 @@ import textwrap
 from dataclasses import dataclass, field
 from typing import ClassVar, List, Optional, Pattern, Tuple
 
+from ontobdc.shared.adapter.terminal_color import severity_badge
 from ontobdc.view.domain.port.widget import Widget
 
 
@@ -12,6 +13,7 @@ class TextWidget(Widget):
 
     heading: str = ""
     body: str = ""
+    heading_severity: Optional[object] = None
 
     _HEADING_PATTERN: ClassVar[Pattern[str]] = re.compile(r"^\s{0,3}(#{1,6})\s+(.*)$")
     _BULLET_PATTERN: ClassVar[Pattern[str]] = re.compile(r"^(\s*)[-*+]\s+(.*)$")
@@ -23,7 +25,28 @@ class TextWidget(Widget):
         lines: List[str] = []
 
         if self.heading.strip():
-            lines.append(self.heading.strip())
+            badge: str = severity_badge(self.heading_severity, fallback=None)
+            heading_line: str = self.heading.strip()
+            heading_match = self._HEADING_PATTERN.match(heading_line)
+            level: Optional[int]
+            rest: str
+            if heading_match:
+                level = len(heading_match.group(1))
+                rest = heading_match.group(2).strip()
+            else:
+                if badge:
+                    level = 1
+                else:
+                    level = 2
+                rest = heading_line
+            if level == 1:
+                rest = rest.upper()
+            heading_markdown: str = f"{'#' * level} {rest}"
+            if badge:
+                heading_line = f"{badge} {heading_markdown}"
+            else:
+                heading_line = heading_markdown
+            lines.append(heading_line)
             lines.append("")
 
         if self.body.strip():

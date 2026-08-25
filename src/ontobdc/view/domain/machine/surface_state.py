@@ -11,9 +11,11 @@ class SurfaceGenerationProcessState(SurfaceGenerationProcessStatePort):
     SURFACE_INITIALIZED = "__surface_initialized__"
     SURFACE_ENRICHED = "__surface_enriched__"
     SURFACE_SET = "__surface_set__"
+    SURFACE_BRANDED = "__surface_branded__"
     SURFACE_MATCHED = "__surface_matched__"
     SURFACE_OPERATIONAL_MATCHED = "__surface_operational_matched__"
     SURFACE_ASSEMBLED = "__surface_assembled__"
+    SURFACE_PARAMETERS_ENSURED = "__surface_parameters_ensured__"
     SURFACE_PACKAGED = "__surface_packaged__"
     SURFACE_VALIDATED = "__surface_validated__"
     ENTITY_VIEWS_PUBLISHED = "__entity_views_published__"
@@ -28,9 +30,11 @@ class SurfaceGenerationProcessState(SurfaceGenerationProcessStatePort):
                 self.SURFACE_INITIALIZED: "Surface Initialized",
                 self.SURFACE_ENRICHED: "Surface Enriched",
                 self.SURFACE_SET: "Surface Set",
+                self.SURFACE_BRANDED: "Surface Branded",
                 self.SURFACE_MATCHED: "Surface Matched",
                 self.SURFACE_OPERATIONAL_MATCHED: "Surface Operational Matched",
                 self.SURFACE_ASSEMBLED: "Surface Assembled",
+                self.SURFACE_PARAMETERS_ENSURED: "Surface Parameters Ensured",
                 self.SURFACE_PACKAGED: "Surface Packaged",
                 self.SURFACE_VALIDATED: "Surface Validated",
                 self.ENTITY_VIEWS_PUBLISHED: "Entity Views Published",
@@ -43,9 +47,11 @@ class SurfaceGenerationProcessState(SurfaceGenerationProcessStatePort):
                 self.SURFACE_INITIALIZED: "Surface Inicializada",
                 self.SURFACE_ENRICHED: "Surface Enriquecida",
                 self.SURFACE_SET: "Surface Configurada",
+                self.SURFACE_BRANDED: "Surface com Branding",
                 self.SURFACE_MATCHED: "Surface Correlacionada",
                 self.SURFACE_OPERATIONAL_MATCHED: "Surface Operacional Correlacionada",
                 self.SURFACE_ASSEMBLED: "Surface Montada",
+                self.SURFACE_PARAMETERS_ENSURED: "Parametros da Surface Garantidos",
                 self.SURFACE_PACKAGED: "Surface Empacotada",
                 self.SURFACE_VALIDATED: "Surface Validada",
                 self.ENTITY_VIEWS_PUBLISHED: "Views de Entidade Publicadas",
@@ -63,9 +69,11 @@ class SurfaceGenerationProcessState(SurfaceGenerationProcessStatePort):
                 self.SURFACE_INITIALIZED: "The minimal offline HTML document and Presentation Surface host exist.",
                 self.SURFACE_ENRICHED: "Semantic data and metadata are embedded in the HTML document as JSON-LD.",
                 self.SURFACE_SET: "Surface regions and presentation rules are declared without fixing runtime viewport geometry.",
+                self.SURFACE_BRANDED: "Branding resources required by the Surface are declared in the HTML artefact.",
                 self.SURFACE_MATCHED: "Presentation data are matched to compatible Tile definitions and their support envelopes.",
                 self.SURFACE_OPERATIONAL_MATCHED: "The OperationRegion of the shipped default Surface layout (Logo/Language/Theme) is resolved when no explicit operation-region Tile was declared, and its SurfaceDefinition is embedded for client-side selection.",
                 self.SURFACE_ASSEMBLED: "Operation, content and pinned regions are composed with matched Tiles and runtime layout constraints.",
+                self.SURFACE_PARAMETERS_ENSURED: "The canonical URL-controlled presentation parameters (language, theme) have a declared default embedded in the artefact, so a generated page normalizes its own address bar on first open and every internal link inherits the live state.",
                 self.SURFACE_PACKAGED: "Required browser component implementations are embedded for offline execution.",
                 self.SURFACE_VALIDATED: "The packaged HTML Surface satisfies the offline Surface generation checks.",
                 self.ENTITY_VIEWS_PUBLISHED: "A standalone detail page was published for every entity ontobdc_view has a Page renderer for.",
@@ -78,9 +86,11 @@ class SurfaceGenerationProcessState(SurfaceGenerationProcessStatePort):
                 self.SURFACE_INITIALIZED: "O documento HTML offline minimo e o host da Presentation Surface existem.",
                 self.SURFACE_ENRICHED: "Dados e metadados semanticos estao incorporados ao HTML como JSON-LD.",
                 self.SURFACE_SET: "As regioes e regras da Surface estao declaradas sem fixar a geometria do viewport em runtime.",
+                self.SURFACE_BRANDED: "Os recursos de branding exigidos pela Surface estao declarados no artefato HTML.",
                 self.SURFACE_MATCHED: "Os dados de apresentacao estao correlacionados a Tiles compativeis e aos seus envelopes de suporte.",
                 self.SURFACE_OPERATIONAL_MATCHED: "A OperationRegion do layout padrao empacotado (Logo/Idioma/Tema) e resolvida quando nenhum Tile de operation foi declarado explicitamente, e sua SurfaceDefinition e incorporada para selecao no navegador.",
                 self.SURFACE_ASSEMBLED: "As regioes operation, content e pinned estao compostas com Tiles e restricoes de layout de runtime.",
+                self.SURFACE_PARAMETERS_ENSURED: "Os parametros de apresentacao controlados pela URL (idioma, tema) tem default declarado no artefato, de modo que a pagina gerada normaliza a propria barra de enderecos ao abrir e cada link interno herda o estado atual.",
                 self.SURFACE_PACKAGED: "As implementacoes browser necessarias estao incorporadas para execucao offline.",
                 self.SURFACE_VALIDATED: "A Surface HTML empacotada atende aos checks da geracao offline.",
                 self.ENTITY_VIEWS_PUBLISHED: "Foi publicada uma pagina de detalhe para cada entidade com uma Page registrada no ontobdc_view.",

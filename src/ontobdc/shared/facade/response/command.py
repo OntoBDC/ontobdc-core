@@ -1,2 +1,9 @@
 
-from ontobdc.cli.domain.response.command import CommandResponse, HelpCommandResponse, ListCommandResponse, ExceptionCommandResponse
+from ontobdc.cli.domain.response.command import (
+    CommandResponse,
+    ExceptionCommandResponse,
+    HelpCommandResponse,
+    InteractiveCommandResponse,
+    ListCommandResponse,
+    TreeCommandResponse,
+)

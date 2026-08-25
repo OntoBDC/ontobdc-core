@@ -1,7 +1,7 @@
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
-from rdflib import Graph, URIRef
+from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF
 
 from ontobdc.cli.domain.port.context import CliContextPort
@@ -23,6 +23,7 @@ from ontobdc.storage.adapter.attachment.transaction import (
 )
 
 AttachmentGraphNamespaceBootstrap.initialize()
+_CT = AttachmentGraphNamespaceBootstrap.CT
 _OBDC = AttachmentGraphNamespaceBootstrap.OBDC
 
 
@@ -91,7 +92,7 @@ class AttachmentMetadataService:
             rewritten_container,
             target_container_subject,
             DCTERMS.identifier,
-            target_container_id,
+            Literal(target_container_id),
         )
         AttachmentGraphOperations.set_single(
             rewritten_container,
@@ -100,7 +101,7 @@ class AttachmentMetadataService:
             target_container_location,
         )
 
-        self.attach_datasets(attachment_plan, mapping, rewritten_container)
+        self._attach_datasets_core(attachment_plan, mapping, rewritten_container)
 
         storage_file: Path = Path(attachment_plan["storage_file"])
         storage_graph: Graph = AttachmentGraphOperations.load_graph(
@@ -121,46 +122,43 @@ class AttachmentMetadataService:
         description: str = AttachmentGraphOperations.required_literal(
             rewritten_container,
             target_container_subject,
-            _OBDC.description,
+            _CT.description,
             ContainerAttachError,
             "container description",
         )
         creation_date: str = AttachmentGraphOperations.required_literal(
             rewritten_container,
             target_container_subject,
-            _OBDC.creationDate,
+            _CT.creationDate,
             ContainerAttachError,
             "container creation date",
         )
         storage_graph.add(
             (target_container_subject, RDF.type, _OBDC.DataContainer)
         )
-        storage_graph.add(
-            (
-                target_container_subject,
-                DCTERMS.title,
-                title,
-            )
+        AttachmentGraphOperations.set_single(
+            storage_graph,
+            target_container_subject,
+            DCTERMS.title,
+            title,
         )
-        storage_graph.add(
-            (
-                target_container_subject,
-                _OBDC.description,
-                description,
-            )
+        AttachmentGraphOperations.set_single(
+            storage_graph,
+            target_container_subject,
+            _CT.description,
+            description,
         )
-        storage_graph.add(
-            (
-                target_container_subject,
-                _OBDC.creationDate,
-                creation_date,
-            )
+        AttachmentGraphOperations.set_single(
+            storage_graph,
+            target_container_subject,
+            _CT.creationDate,
+            creation_date,
         )
         AttachmentGraphOperations.set_single(
             storage_graph,
             target_container_subject,
             DCTERMS.identifier,
-            target_container_id,
+            Literal(target_container_id),
         )
         AttachmentGraphOperations.set_single(
             storage_graph,
@@ -168,7 +166,7 @@ class AttachmentMetadataService:
             PROV.atLocation,
             target_container_location,
         )
-        self.attach_storage_index(rewritten_container, storage_graph)
+        self._attach_storage_index_core(rewritten_container, storage_graph)
 
         payloads: Dict[Path, Graph] = {
             container_file: rewritten_container,
@@ -214,7 +212,7 @@ class AttachmentMetadataService:
         return bool(completed)
 
     @classmethod
-    def attach_datasets(
+    def _attach_datasets_core(
         cls,
         attachment_plan: Dict[str, Any],
         mapping: Dict[URIRef, URIRef],
@@ -245,7 +243,7 @@ class AttachmentMetadataService:
                 rewritten,
                 dataset_subject,
                 DCTERMS.identifier,
-                dataset["target_id"],
+                Literal(dataset["target_id"]),
             )
             AttachmentGraphOperations.set_single(
                 rewritten,
@@ -267,7 +265,7 @@ class AttachmentMetadataService:
         return rewrites
 
     @classmethod
-    def is_datasets_attached(
+    def _is_datasets_attached_core(
         cls,
         attachment_plan: Dict[str, Any],
         rewritten_container: Graph,
@@ -289,7 +287,7 @@ class AttachmentMetadataService:
         return expected.issubset(actual)
 
     @classmethod
-    def attach_storage_index(
+    def _attach_storage_index_core(
         cls,
         rewritten_container: Graph,
         storage_graph: Graph,
@@ -340,7 +338,7 @@ class AttachmentMetadataService:
         return dataset_subjects
 
     @classmethod
-    def is_storage_index_attached(
+    def _is_storage_index_attached_core(
         cls,
         rewritten_container: Graph,
         storage_graph: Graph,
@@ -352,16 +350,19 @@ class AttachmentMetadataService:
             ContainerAttachError,
             "container",
         )
-        target_container_id: str = AttachmentGraphOperations.required_uri(
+        target_container_id: str = AttachmentGraphOperations.required_literal(
             rewritten_container,
             target_container_subject,
             DCTERMS.identifier,
             ContainerAttachError,
             "container identifier",
         )
-        if not storage_graph.contains(
-            (URIRef(target_container_id), RDF.type, _OBDC.DataContainer)
-        ):
+        target_container_triple: Tuple[URIRef, URIRef, URIRef] = (
+            URIRef(target_container_id),
+            RDF.type,
+            _OBDC.DataContainer,
+        )
+        if target_container_triple not in storage_graph:
             return False
         return True
 
@@ -383,3 +384,261 @@ class AttachmentMetadataService:
         )
         for subject in duplicates:
             AttachmentGraphOperations.remove_subject(storage_graph, subject)
+
+    @classmethod
+    def _build_rewritten_container(
+        cls,
+        attachment_plan: Dict[str, Any],
+    ) -> Graph:
+        container_file: Path = Path(attachment_plan["container_file"])
+        container_graph: Graph = AttachmentGraphOperations.load_graph(
+            container_file,
+            ContainerAttachError,
+        )
+        target_container_subject: URIRef = URIRef(
+            attachment_plan["target_container_subject"]
+        )
+        target_container_id: str = attachment_plan["target_container_id"]
+        target_container_location: str = attachment_plan["target_container_location"]
+        mapping: Dict[URIRef, URIRef] = AttachmentPlanner.uri_mapping(attachment_plan)
+        rewritten_container: Graph = AttachmentGraphOperations.rewrite_graph(
+            container_graph,
+            mapping,
+        )
+        AttachmentGraphOperations.set_single(
+            rewritten_container,
+            target_container_subject,
+            DCTERMS.identifier,
+            Literal(target_container_id),
+        )
+        AttachmentGraphOperations.set_single(
+            rewritten_container,
+            target_container_subject,
+            PROV.atLocation,
+            target_container_location,
+        )
+        return rewritten_container
+
+    @classmethod
+    def attach_datasets(
+        cls,
+        context: CliContextPort,
+        *,
+        plan_parameter: str = AttachmentPlanConstants.ATTACH_PLAN_PARAMETER,
+        completed_parameter: str = AttachmentPlanConstants.DATASETS_ATTACHED_COMPLETED_PARAMETER
+        if hasattr(AttachmentPlanConstants, "DATASETS_ATTACHED_COMPLETED_PARAMETER")
+        else AttachmentPlanConstants.ATTACH_COMPLETED_PARAMETER,
+        error_parameter: str = AttachmentPlanConstants.ATTACH_ERROR_PARAMETER,
+    ) -> Dict[str, Any]:
+        attachment_plan: Dict[str, Any] = AttachmentPlanner(
+            context,
+            plan_parameter=plan_parameter,
+        ).require_resolved_plan()
+        mapping: Dict[URIRef, URIRef] = AttachmentPlanner.uri_mapping(attachment_plan)
+        rewritten_container: Graph = cls._build_rewritten_container(attachment_plan)
+        if cls._is_datasets_attached_core(attachment_plan, rewritten_container):
+            return {
+                "container_file": str(attachment_plan["container_file"]),
+                "dataset_count": len(attachment_plan["datasets"]),
+            }
+        dataset_rewrites: List[Dict[str, Any]] = cls._attach_datasets_core(
+            attachment_plan,
+            mapping,
+            rewritten_container,
+        )
+        payloads: Dict[Path, Graph] = {
+            Path(attachment_plan["container_file"]): rewritten_container,
+        }
+        for dataset in dataset_rewrites:
+            payloads[Path(dataset["file"])] = dataset["_rewritten_graph"]
+        AttachmentTransactionCoordinator(
+            context,
+            attachment_plan,
+            plan_parameter,
+        ).ensure_backup()
+        try:
+            AttachmentTransactionCoordinator.write_graphs_transactionally(payloads)
+        except Exception as error:
+            AttachmentTransactionCoordinator(
+                context,
+                attachment_plan,
+                plan_parameter,
+            ).restore()
+            context.set_parameter_value(error_parameter, str(error))
+            raise DatasetAttachError(
+                f"Datasets attachment failed and backup was restored: {error}"
+            ) from error
+        AttachmentTransactionCoordinator(
+            context=None,  # type: ignore[arg-type]
+            plan=attachment_plan,
+            plan_parameter="",
+        ).discard_backup()
+        context.set_parameter_value(completed_parameter, True)
+        context.delete_parameter(error_parameter)
+        return {
+            "container_file": str(attachment_plan["container_file"]),
+            "dataset_count": len(attachment_plan["datasets"]),
+        }
+
+    @classmethod
+    def is_datasets_attached(
+        cls,
+        context: CliContextPort,
+        *,
+        plan_parameter: str = AttachmentPlanConstants.ATTACH_PLAN_PARAMETER,
+    ) -> bool:
+        if not AttachmentPlanner(
+            context,
+            plan_parameter=plan_parameter,
+        ).is_identity_resolved():
+            return False
+        attachment_plan: Dict[str, Any] = AttachmentPlanner(
+            context,
+            plan_parameter=plan_parameter,
+        ).require_resolved_plan()
+        rewritten_container: Graph = cls._build_rewritten_container(attachment_plan)
+        return cls._is_datasets_attached_core(attachment_plan, rewritten_container)
+
+    @classmethod
+    def attach_storage_index(
+        cls,
+        context: CliContextPort,
+        *,
+        plan_parameter: str = AttachmentPlanConstants.ATTACH_PLAN_PARAMETER,
+        completed_parameter: str = AttachmentPlanConstants.STORAGE_INDEX_ATTACHED_COMPLETED_PARAMETER
+        if hasattr(AttachmentPlanConstants, "STORAGE_INDEX_ATTACHED_COMPLETED_PARAMETER")
+        else AttachmentPlanConstants.ATTACH_COMPLETED_PARAMETER,
+        error_parameter: str = AttachmentPlanConstants.ATTACH_ERROR_PARAMETER,
+    ) -> Dict[str, Any]:
+        attachment_plan: Dict[str, Any] = AttachmentPlanner(
+            context,
+            plan_parameter=plan_parameter,
+        ).require_resolved_plan()
+        rewritten_container: Graph = cls._build_rewritten_container(attachment_plan)
+        storage_file: Path = Path(attachment_plan["storage_file"])
+        storage_graph: Graph = AttachmentGraphOperations.load_graph(
+            storage_file,
+            StorageIndexAttachError,
+        )
+        if cls._is_storage_index_attached_core(rewritten_container, storage_graph):
+            return {
+                "storage_file": str(storage_file),
+            }
+        cls._prune_conflicting_container_nodes(
+            storage_graph=storage_graph,
+            attachment_plan=attachment_plan,
+        )
+        target_container_subject: URIRef = URIRef(
+            attachment_plan["target_container_subject"]
+        )
+        title: str = AttachmentGraphOperations.required_literal(
+            rewritten_container,
+            target_container_subject,
+            DCTERMS.title,
+            StorageIndexAttachError,
+            "container title",
+        )
+        description: str = AttachmentGraphOperations.required_literal(
+            rewritten_container,
+            target_container_subject,
+            _CT.description,
+            StorageIndexAttachError,
+            "container description",
+        )
+        creation_date: str = AttachmentGraphOperations.required_literal(
+            rewritten_container,
+            target_container_subject,
+            _CT.creationDate,
+            StorageIndexAttachError,
+            "container creation date",
+        )
+        target_container_id: str = attachment_plan["target_container_id"]
+        target_container_location: str = attachment_plan["target_container_location"]
+        storage_graph.add((target_container_subject, RDF.type, _OBDC.DataContainer))
+        AttachmentGraphOperations.set_single(
+            storage_graph,
+            target_container_subject,
+            DCTERMS.title,
+            title,
+        )
+        AttachmentGraphOperations.set_single(
+            storage_graph,
+            target_container_subject,
+            _CT.description,
+            description,
+        )
+        AttachmentGraphOperations.set_single(
+            storage_graph,
+            target_container_subject,
+            _CT.creationDate,
+            creation_date,
+        )
+        AttachmentGraphOperations.set_single(
+            storage_graph,
+            target_container_subject,
+            DCTERMS.identifier,
+            Literal(target_container_id),
+        )
+        AttachmentGraphOperations.set_single(
+            storage_graph,
+            target_container_subject,
+            PROV.atLocation,
+            target_container_location,
+        )
+        cls._attach_storage_index_core(rewritten_container, storage_graph)
+        payloads: Dict[Path, Graph] = {
+            storage_file: storage_graph,
+        }
+        AttachmentTransactionCoordinator(
+            context,
+            attachment_plan,
+            plan_parameter,
+        ).ensure_backup()
+        try:
+            AttachmentTransactionCoordinator.write_graphs_transactionally(payloads)
+        except Exception as error:
+            AttachmentTransactionCoordinator(
+                context,
+                attachment_plan,
+                plan_parameter,
+            ).restore()
+            context.set_parameter_value(error_parameter, str(error))
+            raise StorageIndexAttachError(
+                f"Storage index attachment failed and backup was restored: {error}"
+            ) from error
+        AttachmentTransactionCoordinator(
+            context=None,  # type: ignore[arg-type]
+            plan=attachment_plan,
+            plan_parameter="",
+        ).discard_backup()
+        context.set_parameter_value(completed_parameter, True)
+        context.delete_parameter(error_parameter)
+        return {
+            "storage_file": str(storage_file),
+        }
+
+    @classmethod
+    def is_storage_index_attached(
+        cls,
+        context: CliContextPort,
+        *,
+        plan_parameter: str = AttachmentPlanConstants.ATTACH_PLAN_PARAMETER,
+    ) -> bool:
+        if not AttachmentPlanner(
+            context,
+            plan_parameter=plan_parameter,
+        ).is_identity_resolved():
+            return False
+        attachment_plan: Dict[str, Any] = AttachmentPlanner(
+            context,
+            plan_parameter=plan_parameter,
+        ).require_resolved_plan()
+        rewritten_container: Graph = cls._build_rewritten_container(attachment_plan)
+        storage_file: Path = Path(attachment_plan["storage_file"])
+        if not storage_file.is_file():
+            return False
+        storage_graph: Graph = AttachmentGraphOperations.load_graph(
+            storage_file,
+            StorageIndexAttachError,
+        )
+        return cls._is_storage_index_attached_core(rewritten_container, storage_graph)

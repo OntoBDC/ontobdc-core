@@ -18,6 +18,7 @@ class WorkStreamScriptGenerationProcessState(WorkStreamScriptGenerationProcessSt
     CSV_PREVIEW_SCRIPT_GENERATED = "__csv_preview_script_generated__"
     CONTAINER_CONNECTION_SCRIPT_GENERATED = "__container_connection_script_generated__"
     CONNECTION_STATE_SCRIPT_GENERATED = "__connection_state_script_generated__"
+    CHROME_CONTROLS_SCRIPT_GENERATED = "__chrome_controls_script_generated__"
     ANNOTATION_BRIDGE_SCRIPT_GENERATED = "__annotation_bridge_script_generated__"
     PYODIDE_RUNTIME_SCRIPT_GENERATED = "__pyodide_runtime_script_generated__"
     LINKSET_OPERATIONS_SCRIPT_GENERATED = "__linkset_operations_script_generated__"
@@ -33,6 +34,7 @@ class WorkStreamScriptGenerationProcessState(WorkStreamScriptGenerationProcessSt
                 self.CSV_PREVIEW_SCRIPT_GENERATED: "CSV Preview Script Generated",
                 self.CONTAINER_CONNECTION_SCRIPT_GENERATED: "Container Connection Script Generated",
                 self.CONNECTION_STATE_SCRIPT_GENERATED: "Connection State Script Generated",
+                self.CHROME_CONTROLS_SCRIPT_GENERATED: "Chrome Controls Script Generated",
                 self.ANNOTATION_BRIDGE_SCRIPT_GENERATED: "Annotation Bridge Script Generated",
                 self.PYODIDE_RUNTIME_SCRIPT_GENERATED: "Pyodide Runtime Script Generated",
                 self.LINKSET_OPERATIONS_SCRIPT_GENERATED: "Linkset Operations Script Generated",
@@ -46,6 +48,7 @@ class WorkStreamScriptGenerationProcessState(WorkStreamScriptGenerationProcessSt
                 self.CSV_PREVIEW_SCRIPT_GENERATED: "Script de Pre-visualizacao de CSV Gerado",
                 self.CONTAINER_CONNECTION_SCRIPT_GENERATED: "Script de Conexao de Pasta Gerado",
                 self.CONNECTION_STATE_SCRIPT_GENERATED: "Script de Estado de Conexao Gerado",
+                self.CHROME_CONTROLS_SCRIPT_GENERATED: "Script de Controles do Chrome Gerado",
                 self.ANNOTATION_BRIDGE_SCRIPT_GENERATED: "Script de Ponte de Anotacoes Gerado",
                 self.PYODIDE_RUNTIME_SCRIPT_GENERATED: "Script de Runtime do Pyodide Gerado",
                 self.LINKSET_OPERATIONS_SCRIPT_GENERATED: "Script de Operacoes de Linkset Gerado",
@@ -64,6 +67,7 @@ class WorkStreamScriptGenerationProcessState(WorkStreamScriptGenerationProcessSt
                 self.CSV_PREVIEW_SCRIPT_GENERATED: "csv_preview.js was generated: parses and renders CSV resource previews without depending on pyodide.",
                 self.CONTAINER_CONNECTION_SCRIPT_GENERATED: "container_connection.js was generated: File System Access API + IndexedDB folder connection (isContainerHandle, resolveContainerHandle, acquireContainerHandle, openContainer).",
                 self.CONNECTION_STATE_SCRIPT_GENERATED: "connection_state.js was generated: connect-button state transitions (setConnected, setConnectError, tryReconnectSilently) that never paint a fake connected state.",
+                self.CHROME_CONTROLS_SCRIPT_GENERATED: "chrome_controls.js was generated: wires the Page header chrome (connect-btn click listener, status dot indicator, refresh/workspace/subjects buttons, i18n label helper) plus the wireAnnotationControls alias required by dimension_card.js backward compatibility. Shared with Gantt.",
                 self.ANNOTATION_BRIDGE_SCRIPT_GENERATED: "annotation_bridge.js was generated: bridges to the native ontobdc OntoBDCAnnotations runtime.",
                 self.PYODIDE_RUNTIME_SCRIPT_GENERATED: "pyodide_runtime.js was generated: Pyodide bootstrap and the WORKBOOK_PARSE_SCRIPT embedded Python parse.",
                 self.LINKSET_OPERATIONS_SCRIPT_GENERATED: "linkset_operations.js was generated: relate/unrelate/suggest ICDD DirectedBinaryLink operations, generalized by linkset kind.",
@@ -77,6 +81,7 @@ class WorkStreamScriptGenerationProcessState(WorkStreamScriptGenerationProcessSt
                 self.CSV_PREVIEW_SCRIPT_GENERATED: "csv_preview.js foi gerado: parseia e renderiza pre-visualizacoes de CSV sem depender do pyodide.",
                 self.CONTAINER_CONNECTION_SCRIPT_GENERATED: "container_connection.js foi gerado: conexao de pasta via File System Access API + IndexedDB (isContainerHandle, resolveContainerHandle, acquireContainerHandle, openContainer).",
                 self.CONNECTION_STATE_SCRIPT_GENERATED: "connection_state.js foi gerado: transicoes de estado do botao de conexao (setConnected, setConnectError, tryReconnectSilently) que nunca pintam um estado de conectado falso.",
+                self.CHROME_CONTROLS_SCRIPT_GENERATED: "chrome_controls.js foi gerado: conecta o chrome do cabecalho da Page (listener de click no connect-btn, indicador ponto de status, botoes refresh/workspace/subjects, helper de rotulo i18n) mais o alias wireAnnotationControls exigido pela compatibilidade retroativa do dimension_card.js. Compartilhado com Gantt.",
                 self.ANNOTATION_BRIDGE_SCRIPT_GENERATED: "annotation_bridge.js foi gerado: ponte para o runtime nativo OntoBDCAnnotations do ontobdc.",
                 self.PYODIDE_RUNTIME_SCRIPT_GENERATED: "pyodide_runtime.js foi gerado: bootstrap do Pyodide e o parse Python embutido WORKBOOK_PARSE_SCRIPT.",
                 self.LINKSET_OPERATIONS_SCRIPT_GENERATED: "linkset_operations.js foi gerado: operacoes de relacionar/desrelacionar/sugerir do linkset ICDD DirectedBinaryLink, generalizadas por tipo de linkset.",

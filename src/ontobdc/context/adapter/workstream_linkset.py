@@ -7,7 +7,7 @@ from rdflib import BNode, Graph, Literal, Namespace, URIRef
 from rdflib.namespace import RDF, XSD
 
 LS = Namespace("https://standards.iso.org/iso/21597/-1/ed-1/en/Linkset#")
-OBDC = Namespace("http://ontobdc.org/ontology/domain/ns.ttl#")
+OBDC = Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#")
 
 
 class WorkStreamResourceLinkset:

@@ -3,6 +3,8 @@ import os
 import sys
 from typing import Optional, Union, List
 
+from ontobdc.shared.adapter.terminal_color import cursor_up, erase_line
+
 
 def prompt_choice(
     title_or_question: str,
@@ -140,7 +142,7 @@ def prompt_choice(
         nonlocal rendered_lines
         panel = render_panel(selected=selected, interactive=True)
         if rendered_lines:
-            sys.stdout.write(f"\033[{rendered_lines}A")
+            sys.stdout.write(cursor_up(rendered_lines))
         sys.stdout.write(panel)
         sys.stdout.flush()
         rendered_lines = panel.count("\n")
@@ -278,7 +280,7 @@ def prompt_raw_text(
     answer_chars: List[str] = []
 
     def render_input() -> None:
-        sys.stdout.write("\r\033[2K> " + "".join(answer_chars))
+        sys.stdout.write("\r" + erase_line() + "> " + "".join(answer_chars))
         sys.stdout.flush()
 
     try:

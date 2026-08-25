@@ -19,7 +19,7 @@ from ontobdc.storage.adapter.bootstrap import (
 
 
 OBDC: Namespace = Namespace(
-    "http://ontobdc.org/ontology/domain/ns.ttl#"
+    "http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#"
 )
 FACADE_FILE_NAME: str = "facade.ttl"
 LINKSET_DIRECTORY_NAME: str = "linkset"

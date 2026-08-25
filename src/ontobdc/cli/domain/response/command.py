@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field, fields, is_dataclass
 
 
@@ -9,12 +9,16 @@ class CommandResponse:
     title: str
     description: str
     content: Dict[str, Any] = field(default_factory=dict)
+    severity: Optional[object] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "title": self.title,
             "description": self.description,
             "content": self._serialize_response_value(self.content),
+            "severity": str(getattr(self.severity, "value", self.severity))
+            if self.severity is not None
+            else None,
         }
 
     def __str__(self) -> str:
@@ -54,6 +58,11 @@ class CommandResponse:
 
 
 @dataclass
+class InteractiveCommandResponse(CommandResponse):
+    """Response whose command already rendered an interactive application."""
+
+
+@dataclass
 class HelpCommandResponse(CommandResponse):
     content: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
@@ -88,6 +97,13 @@ class GridCommandResponse(CommandResponse):
 class GraphCommandResponse(CommandResponse):
     title: str = "Graph"
     description: str = "Visualize a graph in the terminal."
+    content: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class TreeCommandResponse(CommandResponse):
+    title: str = "Storage Container"
+    description: str = "Visualize a container's contents as a tree."
     content: Dict[str, Any] = field(default_factory=dict)
 
 

@@ -1,13 +1,26 @@
 import os
 import shutil
 import stat
+import sys
 import time
 from pathlib import Path
 from typing import Optional
 
 
+# Python 3.12 renamed `shutil.rmtree`'s error callback from `onerror` to
+# `onexc` (and deprecated the old name); 3.10/3.11 — both inside this
+# package's `requires-python` floor — only accept `onerror`, and passing
+# `onexc` there raises `TypeError: rmtree() got an unexpected keyword
+# argument`. The two callbacks differ only in their third argument, which
+# `_clear_readonly_and_retry` ignores, so selecting the keyword is enough.
+_RMTREE_HANDLER_KEYWORD: str = "onexc" if sys.version_info >= (3, 12) else "onerror"
+
+
 def _clear_readonly_and_retry(function, path, exc_info) -> None:
-    """`shutil.rmtree(onexc=...)` handler: drop the read-only bit and retry.
+    """`shutil.rmtree` error-callback: drop the read-only bit and retry.
+
+    Registered as `onexc` on Python 3.12+ and as `onerror` below it (see
+    `_RMTREE_HANDLER_KEYWORD`); the third argument is unused either way.
 
     Cloud-sync clients (OneDrive, Dropbox, etc.) commonly leave synced files
     marked read-only, which raises `PermissionError` on delete regardless of
@@ -38,14 +51,17 @@ def remove_directory_tree(
     - The sync client briefly holds an open handle while indexing/uploading
       -- transient, normally clears within a second or two.
 
-    Handles the first via `onexc`, and the second via a short retry loop
-    around the whole `shutil.rmtree` call. Raises the last error if `path`
+    Handles the first via the rmtree error-callback, and the second via a
+    short retry loop around the whole `shutil.rmtree` call. Raises the last error if `path`
     is still unremovable after all attempts.
     """
     last_error: Optional[OSError] = None
     for attempt in range(attempts):
         try:
-            shutil.rmtree(path, onexc=_clear_readonly_and_retry)
+            shutil.rmtree(
+                path,
+                **{_RMTREE_HANDLER_KEYWORD: _clear_readonly_and_retry},
+            )
             return
         except OSError as error:
             last_error = error

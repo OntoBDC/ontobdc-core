@@ -8,6 +8,7 @@ from ontobdc.cli.domain.response.command import (
 )
 from ontobdc.shared.adapter.capability import CapabilityExecutor
 from ontobdc.shared.adapter.loader import CapabilityLoader
+from ontobdc.shared.adapter.statechart import StatechartLocator
 from ontobdc.shared.adapter.worker import StateWorkerAdapter
 from ontobdc.shared.domain.port.capability import CapabilityPort
 from ontobdc.shared.facade.adapter.logger import NullLogRepository
@@ -254,13 +255,17 @@ class ContainerAttachStateTransitionHandler(
         except Exception as error:
             error_state = AttachmentErrorClassifier.error_state_for_exception(error)
             rollback_error: Optional[Exception] = None
-            try:
-                AttachmentContextManager(self._context).rollback_attachment()
-            except Exception as caught_rollback_error:
-                rollback_error = caught_rollback_error
-                error_state = (
-                    ContainerAttachProcessState.ATTACH_ROLLBACK_FAILED
-                )
+            attachment_plan: object = self._context.get_parameter_value(
+                AttachmentPlanConstants.ATTACH_PLAN_PARAMETER
+            )
+            if isinstance(attachment_plan, dict):
+                try:
+                    AttachmentContextManager(self._context).rollback_attachment()
+                except Exception as caught_rollback_error:
+                    rollback_error = caught_rollback_error
+                    error_state = (
+                        ContainerAttachProcessState.ATTACH_ROLLBACK_FAILED
+                    )
             self._context.set_parameter_value(
                 AttachmentPlanConstants.ATTACH_ERROR_PARAMETER,
                 error_state.value,
@@ -281,11 +286,9 @@ class ContainerAttachStateTransitionHandler(
             )
 
     def _get_statechart_file_path(self) -> Path:
-        return (
-            Path(__file__).resolve().parent.parent
-            / "domain"
-            / "machine"
-            / "standard_container_attach.yaml"
+        return StatechartLocator.locate(
+            __file__,
+            "standard_container_attach.yaml",
         )
 
     def bind_active_state(

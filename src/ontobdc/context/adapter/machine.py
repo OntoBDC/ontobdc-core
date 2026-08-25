@@ -8,6 +8,7 @@ from ontobdc.context.adapter.repository import EntityAnalysisStepRepository, Ent
 from ontobdc.context.domain.machine.learning_state import EntityAnalysisProcessState, EntityLearningProcessState
 from ontobdc.shared.adapter.capability import CapabilityExecutor
 from ontobdc.shared.adapter.loader import CapabilityLoader
+from ontobdc.shared.adapter.statechart import StatechartLocator
 from ontobdc.shared.adapter.worker import StateWorkerAdapter
 from ontobdc.shared.domain.port.capability import CapabilityPort
 from ontobdc.shared.facade.adapter.logger import NullLogRepository
@@ -143,7 +144,10 @@ class EntityLearningStateTransitionHandler:
         return materialized_states
 
     def _get_statechart_file_path(self) -> Path:
-        return Path(__file__).resolve().parent.parent / "domain" / "machine" / "standard_entity_learning.yaml"
+        return StatechartLocator.locate(
+            __file__,
+            "standard_entity_learning.yaml",
+        )
 
 
 class EntityAnalysisStateTransitionHandler:
@@ -281,4 +285,7 @@ class EntityAnalysisStateTransitionHandler:
         return materialized_states
 
     def _get_statechart_file_path(self) -> Path:
-        return Path(__file__).resolve().parent.parent / "domain" / "machine" / "standard_entity_analysis.yaml"
+        return StatechartLocator.locate(
+            __file__,
+            "standard_entity_analysis.yaml",
+        )

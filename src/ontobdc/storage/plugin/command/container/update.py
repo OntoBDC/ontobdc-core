@@ -58,14 +58,12 @@ class StorageUpdateCommand(CliCommandPort):
         if args == ["storage", "--update"]:
             return True
 
-        if (
-            len(args) == 3
-            and args[0] == "storage"
-            and args[1] in {"--container-id", "--container"}
-            and bool(str(args[2]).strip())
-        ):
-            return True
-
+        # NOTE: the bare ``storage --container <id>`` form (no trailing
+        # ``--update``) used to implicitly alias to this command. It now
+        # belongs to ``StorageContainerTreeCommand`` (see
+        # ``storage/plugin/command/container/tree.py``), which shows the
+        # container's tree view instead of running the update pipeline.
+        # Update always requires the explicit ``--update`` flag now.
         return (
             len(args) == 4
             and args[0] == "storage"
@@ -98,15 +96,6 @@ class StorageUpdateCommand(CliCommandPort):
                     "directory. Run the command inside a registered container "
                     "or provide --container-id <container_id>."
                 )
-
-        elif (
-            len(command_args) == 2
-            and command_args[0] in {"--container-id", "--container"}
-        ):
-            normalized_requested_container_id: str = command_args[1].strip()
-            if not normalized_requested_container_id:
-                return False
-            requested_container_id = normalized_requested_container_id
 
         elif (
             len(command_args) == 3

@@ -5,6 +5,7 @@ from ontobdc.cli.adapter.logger import NullLogRepository
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import CapabilityExecutor
 from ontobdc.shared.adapter.loader import CapabilityLoader
+from ontobdc.shared.adapter.statechart import StatechartLocator
 from ontobdc.shared.adapter.worker import StateWorkerAdapter
 from ontobdc.cli.domain.machine.state import CliInitProcessState
 from ontobdc.cli.domain.port.logger import LogRepositoryPort
@@ -137,7 +138,10 @@ class CliInitStateTransitionHandler(CliInitStateTransitionHandlerPort):
         )
 
     def _get_statechart_file_path(self) -> Path:
-        return Path(__file__).resolve().parent.parent / "domain" / "machine" / "standard_init.yaml"
+        return StatechartLocator.locate(
+            __file__,
+            "standard_init.yaml",
+        )
 
     def bind_active_state(self, state: CliInitProcessStatePort) -> None:
         self._active_state = state

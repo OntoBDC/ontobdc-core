@@ -22,7 +22,7 @@ from ontobdc.storage.adapter.repository import LoadedStorageGraph
 from ontobdc.storage.domain.port.repository import ContainerRepositoryPort
 
 
-OBDC = Namespace("http://ontobdc.org/ontology/domain/ns.ttl#")
+OBDC = Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#")
 
 
 class ContainerIdStrategy(

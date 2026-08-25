@@ -1,12 +1,27 @@
 from pathlib import Path
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Set, Type
 
-from rdflib import Graph, Literal, URIRef
+from rdflib import Graph, Literal, Node, URIRef
 from rdflib.namespace import DCTERMS, OWL, PROV, RDF, XSD, Namespace
 
 from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
 from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
 from ontobdc.storage.adapter.attachment.error import ContainerAttachError
+
+
+_URI_PREFIXES: tuple = ("http://", "https://", "urn:", "file:", "ftp://")
+
+
+def _to_rdflib_object(value: Any) -> Any:
+    if isinstance(value, Node):
+        return value
+    if isinstance(value, str):
+        stripped: str = value.strip()
+        lower: str = stripped.lower()
+        if lower.startswith(_URI_PREFIXES):
+            return URIRef(stripped)
+        return Literal(stripped)
+    return value
 
 
 class AttachmentGraphNamespaceBootstrap:
@@ -93,10 +108,21 @@ class AttachmentGraphOperations:
         error_type: Type[ContainerAttachError],
         label: str,
     ) -> Any:
-        values: List[Any] = list(graph.objects(subject, predicate))
-        if len(values) != 1 or not str(values[0]).strip():
+        raw_values: List[Any] = list(graph.objects(subject, predicate))
+        normalized: List[Any] = []
+        seen_values: Set[str] = set()
+        value: Any
+        for value in raw_values:
+            normalized_text: str = str(value).strip()
+            if not normalized_text:
+                continue
+            if normalized_text in seen_values:
+                continue
+            seen_values.add(normalized_text)
+            normalized.append(value)
+        if len(normalized) == 0:
             raise error_type(f"Expected exactly one {label}.")
-        return values[0]
+        return normalized[0]
 
     @classmethod
     def required_literal(
@@ -172,7 +198,7 @@ class AttachmentGraphOperations:
         object_value: Any,
     ) -> None:
         graph.remove((subject, predicate, None))
-        graph.add((subject, predicate, object_value))
+        graph.add((subject, predicate, _to_rdflib_object(object_value)))
 
     @classmethod
     def remove_subject(cls, graph: Graph, subject: URIRef) -> None:

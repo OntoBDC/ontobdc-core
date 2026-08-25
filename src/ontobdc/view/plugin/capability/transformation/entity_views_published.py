@@ -10,6 +10,9 @@ from ontobdc.shared.adapter.capability import TransformationCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.view.adapter.surface.document import JSONLD_ID, extract_json_script, set_state_marker
 from ontobdc.view.adapter.surface.transformation import SurfaceTransformationAdapter
+from ontobdc.view.adapter.gantt_script_machine import (
+    GanttScriptGenerationStateTransitionHandler,
+)
 from ontobdc.view.adapter.work_stream_script_machine import (
     WorkStreamScriptGenerationStateTransitionHandler,
 )
@@ -19,6 +22,7 @@ from ontobdc.view.plugin.check.is_entity_views_published.check import (
 )
 
 _WORK_STREAM_PATH_SEGMENT = "work_stream"
+_IFC_WORK_SCHEDULE_PATH_SEGMENT = "ifc_work_schedule"
 
 
 def _atomic_write_text(path: Path, content: str, *, durable: bool = False) -> None:
@@ -56,14 +60,17 @@ class EntityViewsPublishedCapability(TransformationCapability):
     fresh, the same way `index.html` itself has no incremental repair
     step, just full regeneration.
 
-    One exception to "no per-entity-type knowledge": once at least one
+    Two exceptions to "no per-entity-type knowledge": once at least one
     WorkStream page is published, this also drives
     `WorkStreamScriptGenerationProcessState` to (re)write that page's split
-    runtime JS under `.__ontobdc__/asset/work_stream_view/` — those
+    runtime JS under `.__ontobdc__/asset/work_stream_view/`; similarly,
+    once at least one IfcWorkSchedule Gantt page is published, this drives
+    `GanttScriptGenerationProcessState` to write that page's split runtime
+    JS under `.__ontobdc__/asset/ifc_work_schedule_view/`. Those
     `<script src>` tags are useless without it, and nothing else in the
-    pipeline currently triggers that statechart. A failure there is
-    reported back (`work_stream_scripts_error`) but never raised, so a
-    broken WorkStream runtime script never blocks every other entity's
+    pipeline currently triggers either statechart. A failure there is
+    reported back (`*_scripts_error`) but never raised, so a broken
+    WorkStream or Gantt runtime script never blocks every other entity's
     page from publishing.
     """
 
@@ -118,6 +125,8 @@ class EntityViewsPublishedCapability(TransformationCapability):
                 "published_view_count": 0,
                 "work_stream_scripts_generated": [],
                 "work_stream_scripts_error": "",
+                "gantt_scripts_generated": [],
+                "gantt_scripts_error": "",
             }
 
         #region debug-point (infobim-view-slow-crash): H1 instrumentation (201s step)
@@ -129,9 +138,17 @@ class EntityViewsPublishedCapability(TransformationCapability):
         #endregion
         container_path = self._surface.path(context).parent
         nodes = self._entity_nodes(document)
+        # The language this Surface was generated in. Without it every
+        # standalone Page fell back to render_entity_view's own "en"
+        # default, so a pt-BR Surface published English detail pages: the
+        # first click landed on the wrong language, and a Page opened
+        # directly — no link, no parameter — had no way to recover the
+        # right one.
+        language = str(context.get_parameter_value("language") or "en").strip() or "en"
 
         published: List[str] = []
         work_stream_page_published: bool = False
+        ifc_work_schedule_page_published: bool = False
         #region debug-point (infobim-view-slow-crash): H1 detailed loop instrumentation
         _dbg_loop_total: int = 0
         _dbg_skipped_render: int = 0
@@ -145,7 +162,7 @@ class EntityViewsPublishedCapability(TransformationCapability):
             _dbg_r0: float = time.perf_counter()
             #endregion
             result = ontobdc_view.render_entity_view(
-                self._type_uris(node), node, graph_nodes=nodes
+                self._type_uris(node), node, graph_nodes=nodes, language=language
             )
             #region debug-point (infobim-view-slow-crash): H1 per-iteration timer
             _dbg_r1: float = time.perf_counter()
@@ -177,6 +194,8 @@ class EntityViewsPublishedCapability(TransformationCapability):
             published.append(str(target_path))
             if path_segment == _WORK_STREAM_PATH_SEGMENT:
                 work_stream_page_published = True
+            if path_segment == _IFC_WORK_SCHEDULE_PATH_SEGMENT:
+                ifc_work_schedule_page_published = True
 
         work_stream_scripts_generated: List[str] = []
         work_stream_scripts_error: str = ""
@@ -190,6 +209,19 @@ class EntityViewsPublishedCapability(TransformationCapability):
                 )
             except Exception as exc:  # noqa: BLE001 - see docstring: never blocks other pages
                 work_stream_scripts_error = str(exc)
+
+        gantt_scripts_generated: List[str] = []
+        gantt_scripts_error: str = ""
+        if ifc_work_schedule_page_published:
+            try:
+                gantt_script_response = GanttScriptGenerationStateTransitionHandler(
+                    context
+                ).execute()
+                gantt_scripts_generated = list(
+                    gantt_script_response.content.get("visited_states", [])
+                )
+            except Exception as exc:  # noqa: BLE001 - see docstring: never blocks other pages
+                gantt_scripts_error = str(exc)
 
         #region debug-point (infobim-view-slow-crash): H1 after-loop timers
         _dbg_t_loop_done: float = time.perf_counter()
@@ -209,6 +241,8 @@ class EntityViewsPublishedCapability(TransformationCapability):
             "published_view_paths": published,
             "work_stream_scripts_generated": work_stream_scripts_generated,
             "work_stream_scripts_error": work_stream_scripts_error,
+            "gantt_scripts_generated": gantt_scripts_generated,
+            "gantt_scripts_error": gantt_scripts_error,
             #region debug-point (infobim-view-slow-crash): inject H1 evidence
             "_dbg_seconds_total": round(_dbg_t_write - _dbg_t0, 4),
             "_dbg_total_nodes": _dbg_loop_total,

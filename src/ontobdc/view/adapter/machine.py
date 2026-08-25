@@ -5,6 +5,7 @@ from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.cli.domain.response.command import CommandResponse
 from ontobdc.shared.adapter.capability import CapabilityExecutor
 from ontobdc.shared.adapter.loader import CapabilityLoader
+from ontobdc.shared.adapter.statechart import StatechartLocator
 from ontobdc.shared.adapter.worker import StateWorkerAdapter
 from ontobdc.shared.domain.port.capability import CapabilityPort
 from ontobdc.shared.facade.adapter.logger import NullLogRepository
@@ -200,11 +201,9 @@ class ContainerViewStateTransitionHandler(
         )
 
     def _get_statechart_file_path(self) -> Path:
-        return (
-            Path(__file__).resolve().parent.parent
-            / "domain"
-            / "machine"
-            / "standard_container_view.yaml"
+        return StatechartLocator.locate(
+            __file__,
+            "standard_container_view.yaml",
         )
 
     def bind_active_state(

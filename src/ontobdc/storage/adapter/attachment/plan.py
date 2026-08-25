@@ -38,6 +38,7 @@ class AttachmentPlanConstants:
 
     ATTACH_PLAN_PARAMETER: str = "container_attach_plan"
     ATTACH_COMPLETED_PARAMETER: str = "container_attach_completed"
+    ATTACH_FINALIZED_PARAMETER: str = "container_attach_finalized"
     ATTACH_ERROR_PARAMETER: str = "container_attach_error_state"
 
 
@@ -187,6 +188,7 @@ class AttachmentPlanner:
         }
         context.set_parameter_value(self._plan_parameter, attachment_plan)
         context.delete_parameter(AttachmentPlanConstants.ATTACH_COMPLETED_PARAMETER)
+        context.delete_parameter(AttachmentPlanConstants.ATTACH_FINALIZED_PARAMETER)
         context.delete_parameter(AttachmentPlanConstants.ATTACH_ERROR_PARAMETER)
         return {
             "container_path": str(container_path),

@@ -7,16 +7,16 @@ name = "ontobdc"
 authors = [
     { name = "Elias Magalhães", email = "elias@brasidata.com" }
 ]
-version = "0.18.0"
+version = "0.19.0"
 description = "OntoBDC (Ontology-Based Datasets & Containers)"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
-    "ontobdc-view>=0.4.0",
+    "ontobdc-view>=0.6.0",
     "brasidatacenter",
     "hatchling>=1.26",
     "setuptools",
@@ -28,10 +28,10 @@ dependencies = [
     "sismic",
     "rocrate",
     "rich",
+    "textual>=8.2.8",
     "netext>=0.5.0",
     "pyfiglet",
     "pymupdf4llm",
-    "langid",
     "openpyxl",
     "frictionless",
     "rfc3987",
@@ -43,6 +43,9 @@ dependencies = [
 dev = [
     "pytest",
     "coverage",
+]
+nlp = [
+    "langid",
 ]
 
 [project.scripts]

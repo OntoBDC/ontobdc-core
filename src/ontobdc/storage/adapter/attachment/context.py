@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from rdflib import Graph, URIRef
+from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF
 
 from ontobdc.cli.domain.port.context import CliContextPort
@@ -26,6 +26,7 @@ from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 
 
 AttachmentGraphNamespaceBootstrap.initialize()
+_CT = AttachmentGraphNamespaceBootstrap.CT
 _OBDC = AttachmentGraphNamespaceBootstrap.OBDC
 
 
@@ -48,14 +49,13 @@ class AttachmentContextManager:
     def attach_context(self) -> Dict[str, Any]:
         context: CliContextPort = self._context
         if AttachmentMetadataService(context).is_container_metadata_attached():
-            return {
+            metadata_summary: Dict[str, Any] = {
                 "container_metadata_attached": True,
-                "context_attached": self.is_context_attached(),
             }
-
-        metadata_summary: Dict[str, Any] = AttachmentMetadataService(
-            context
-        ).attach_container_metadata()
+        else:
+            metadata_summary = AttachmentMetadataService(
+                context
+            ).attach_container_metadata()
 
         attachment_plan: Dict[str, Any] = AttachmentPlanner(
             context
@@ -91,18 +91,18 @@ class AttachmentContextManager:
         container_description: str = AttachmentGraphOperations.required_literal(
             container_graph,
             target_container_subject,
-            _OBDC.description,
+            _CT.description,
             ContainerAttachError,
             "container description",
         )
         container_creation_date: str = AttachmentGraphOperations.required_literal(
             container_graph,
             target_container_subject,
-            _OBDC.creationDate,
+            _CT.creationDate,
             ContainerAttachError,
             "container creation date",
         )
-        container_location: str = AttachmentGraphOperations.required_literal(
+        container_location: str = AttachmentGraphOperations.required_uri(
             container_graph,
             target_container_subject,
             PROV.atLocation,
@@ -117,27 +117,31 @@ class AttachmentContextManager:
             (target_container_subject, RDF.type, _OBDC.DataContainer)
         )
         context_graph.add(
-            (target_container_subject, DCTERMS.title, container_title)
-        )
-        context_graph.add(
             (
                 target_container_subject,
-                _OBDC.description,
-                container_description,
+                DCTERMS.title,
+                Literal(container_title),
             )
         )
         context_graph.add(
             (
                 target_container_subject,
-                _OBDC.creationDate,
-                container_creation_date,
+                _CT.description,
+                Literal(container_description),
+            )
+        )
+        context_graph.add(
+            (
+                target_container_subject,
+                _CT.creationDate,
+                Literal(container_creation_date),
             )
         )
         AttachmentGraphOperations.set_single(
             context_graph,
             target_container_subject,
             DCTERMS.identifier,
-            container_id,
+            Literal(container_id),
         )
         AttachmentGraphOperations.set_single(
             context_graph,
@@ -184,8 +188,13 @@ class AttachmentContextManager:
         }
 
     def is_context_attached(self) -> bool:
+        attachment_plan: Optional[Dict[str, Any]] = AttachmentPlanner(
+            self._context
+        ).get_plan()
+        if attachment_plan is None:
+            return False
         context_file: Path = StorageBootstrap.get_context_file_path(
-            Path(StorageBootstrap.get_init_root_path())
+            Path(attachment_plan["container_path"])
         )
         return context_file.is_file()
 
@@ -201,39 +210,38 @@ class AttachmentContextManager:
                 "Container metadata was not attached; refusing to mark the "
                 "operation complete."
             )
+        context_file_exists: bool = self.is_context_attached()
         AttachmentTransactionCoordinator(
             context=None,  # type: ignore[arg-type]
             plan=attachment_plan,
             plan_parameter=self._plan_parameter,
         ).discard_backup()
+        context.set_parameter_value(
+            AttachmentPlanConstants.ATTACH_FINALIZED_PARAMETER,
+            str(Path(attachment_plan["container_path"]).resolve()),
+        )
         context.delete_parameter(self._plan_parameter)
         context.delete_parameter(self._completed_parameter)
         context.delete_parameter(self._error_parameter)
         return {
-            "context_file_exists": self.is_context_attached(),
+            "context_file_exists": context_file_exists,
             "container_id": attachment_plan["target_container_id"],
             "container_path": attachment_plan["container_path"],
         }
 
     def is_container_attached(self) -> bool:
-        context: CliContextPort = self._context
-        if AttachmentMetadataService(
-            context
-        ).is_container_metadata_attached():
-            return True
-        attachment_plan: Any = context.get_parameter_value(
-            self._plan_parameter
+        finalized: Any = self._context.get_parameter_value(
+            AttachmentPlanConstants.ATTACH_FINALIZED_PARAMETER
         )
-        if not isinstance(attachment_plan, dict):
+        container_path: Any = self._context.get_parameter_value(
+            "container_path"
+        )
+        if not isinstance(finalized, str) or not isinstance(
+            container_path,
+            str,
+        ):
             return False
-        container_file: Any = attachment_plan.get("container_file")
-        storage_file: Any = attachment_plan.get("storage_file")
-        return (
-            isinstance(container_file, str)
-            and Path(container_file).is_file()
-            and isinstance(storage_file, str)
-            and Path(storage_file).is_file()
-        )
+        return Path(finalized).resolve() == Path(container_path).resolve()
 
     def rollback_attachment(self) -> Dict[str, Any]:
         context: CliContextPort = self._context
@@ -256,6 +264,9 @@ class AttachmentContextManager:
             ) from error
         context.delete_parameter(self._plan_parameter)
         context.delete_parameter(self._completed_parameter)
+        context.delete_parameter(
+            AttachmentPlanConstants.ATTACH_FINALIZED_PARAMETER
+        )
         context.delete_parameter(self._error_parameter)
         return {
             "rolled_back_container_id": attachment_plan.get(

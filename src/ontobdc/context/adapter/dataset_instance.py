@@ -15,7 +15,7 @@ from ontobdc.storage.adapter.bootstrap import (
 
 
 OBDC: Namespace = Namespace(
-    "http://ontobdc.org/ontology/domain/ns.ttl#"
+    "http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#"
 )
 DATAPACKAGE_FILE_NAME: str = "datapackage.json"
 

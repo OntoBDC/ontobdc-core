@@ -10,6 +10,7 @@ from ontobdc.cli.domain.response.command import (
     GroupedGraphCommandResponse,
     HelpCommandResponse,
     ListCommandResponse,
+    TreeCommandResponse,
     WelcomeCommandResponse,
 )
 from ontobdc.view.component.widget.graph import GraphWidget
@@ -21,6 +22,7 @@ from ontobdc.view.component.widget.python import (
     TableWidget,
     TextWidget,
 )
+from ontobdc.view.component.widget.tree import TreeWidget
 
 
 class BaseResponseWidgetAdapter(ResponseWidgetAdapterPort):
@@ -45,7 +47,32 @@ class BaseResponseWidgetAdapter(ResponseWidgetAdapterPort):
         if not heading and not body:
             return None
 
-        return TextWidget(heading=heading, body=body)
+        severity: Optional[object] = getattr(response, "severity", None)
+        if severity is None:
+            severity = self._default_heading_severity(response)
+
+        return TextWidget(
+            heading=heading,
+            body=body,
+            heading_severity=severity,
+        )
+
+    def _default_heading_severity(self, response: CommandResponse) -> Optional[object]:
+        """Fallback severity badge policy applied when ``response.severity`` is unset.
+
+        Typed subclasses keep their stronger semantics: exceptions always
+        highlight as ERROR and help responses always highlight as INFO.
+        Everything else — generic ``CommandResponse`` success output, list
+        payloads, grouped graphs, grid payloads, welcome screens — is
+        informational by default, so every command's title line carries a
+        badge consistently without each command having to wire the field
+        explicitly.
+        """
+        if isinstance(response, ExceptionCommandResponse):
+            return "ERROR"
+        if isinstance(response, HelpCommandResponse):
+            return "INFO"
+        return "INFO"
 
     def _content_widgets(self, content: Any) -> List[Any]:
         return self._decompose(self._serialize_value(content))
@@ -87,8 +114,11 @@ class BaseResponseWidgetAdapter(ResponseWidgetAdapterPort):
     def _section_widgets(self, sections: Dict[Any, Any]) -> List[Any]:
         widgets: List[Any] = []
         for key, value in sections.items():
+            decomposed: List[Any] = self._decompose(value)
+            if not decomposed:
+                continue
             widgets.append(TextWidget(heading=self._format_label(key)))
-            widgets.extend(self._decompose(value))
+            widgets.extend(decomposed)
 
         return widgets
 
@@ -203,6 +233,38 @@ class CommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
 class HelpCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
     response_type: Type[CommandResponse] = HelpCommandResponse
 
+    def _content_widgets(self, content: Any) -> List[Any]:
+        if not isinstance(content, dict):
+            return super()._content_widgets(content)
+
+        widgets: List[Any] = []
+        items: List[Tuple[Any, Any]] = list(content.items())
+        if not items:
+            return widgets
+
+        plain_pairs: List[Tuple[str, str]] = []
+        key: Any
+        value: Any
+        for key, value in items:
+            if isinstance(value, str) and "\n" in value.strip():
+                label: str = self._format_label(key)
+                if plain_pairs:
+                    widgets.append(KeyValueWidget(pairs=plain_pairs))
+                    plain_pairs = []
+                widgets.append(TextWidget(heading=label))
+                widgets.append(CodeBlockWidget(text=str(value)))
+                continue
+            if self._is_scalar(value):
+                plain_pairs.append((self._format_label(key), str(value)))
+                continue
+            if plain_pairs:
+                widgets.append(KeyValueWidget(pairs=plain_pairs))
+                plain_pairs = []
+            widgets.extend(self._section_widgets({key: value}))
+        if plain_pairs:
+            widgets.append(KeyValueWidget(pairs=plain_pairs))
+        return widgets
+
 
 class ListCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
     response_type: Type[CommandResponse] = ListCommandResponse
@@ -300,6 +362,22 @@ class GridCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
                 pinned_enabled=bool(content.get("pinned_enabled", False)),
             )
         )
+        return widgets
+
+
+class TreeCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
+    response_type: Type[CommandResponse] = TreeCommandResponse
+
+    def widgets(self, response: CommandResponse) -> List[Any]:
+        content: Dict[str, Any] = response.content if isinstance(response.content, dict) else {}
+        widgets: List[Any] = []
+
+        heading_widget: Optional[TextWidget] = self._heading_widget(response)
+        if heading_widget is not None:
+            widgets.append(heading_widget)
+
+        tree: Any = content.get("tree")
+        widgets.append(TreeWidget(root=tree if isinstance(tree, dict) else {}))
         return widgets
 
 

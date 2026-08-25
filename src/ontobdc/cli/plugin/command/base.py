@@ -1,20 +1,19 @@
+from typing import Any, List
 
-from typing import List, Dict, Any
-from ontobdc.cli.domain.model.command import CliCommandMetadata
-from ontobdc.shared.adapter.loader import CommandLoader
 from ontobdc.cli.adapter.logger import NullLogRepository
-from ontobdc.cli.domain.model.logger import LogStrategyConfig
-from ontobdc.cli.domain.request.command import CliCommandRequest
+from ontobdc.cli.adapter.tree import CommandTreeAdapter
 from ontobdc.cli.domain.exception.command import CliCommandArgumentException
-from ontobdc.cli.domain.port.logger import LoggerAwarePort, LogRepositoryPort
+from ontobdc.cli.domain.model.command import CliCommandMetadata
+from ontobdc.cli.domain.model.logger import LogStrategyConfig
 from ontobdc.cli.domain.port.command import CliCommandPort
+from ontobdc.cli.domain.port.logger import LoggerAwarePort, LogRepositoryPort
+from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import CommandResponse, HelpCommandResponse
 
 
 class CliBaseCommand(CliCommandPort, LoggerAwarePort):
-    """
-    Helper class for base command loading.
-    """
+    """Base command shown by ``ontobdc`` with no arguments."""
+
     METADATA = CliCommandMetadata(
         id="base",
         logical_component="cli",
@@ -33,10 +32,6 @@ class CliBaseCommand(CliCommandPort, LoggerAwarePort):
 
     @staticmethod
     def accepts(args: List[str]) -> bool:
-        """
-        Check if the command accepts the given arguments.
-        Returns True if the command accepts the arguments, False otherwise.
-        """
         if not args:
             return True
 
@@ -47,64 +42,24 @@ class CliBaseCommand(CliCommandPort, LoggerAwarePort):
         self._logger = log_strategy.log_repository
 
     def check(self) -> bool:
-        """
-        Check if the command is valid.
-        Returns True if the command is valid, False otherwise.
-        """
         return self.__class__.accepts(self._request.command_args)
 
     def run(self) -> CommandResponse:
-        """
-        Execute the command.
-        """
-        if len(self._request.command_args) > 1 and self._request.command_args[0] not in ['--help', '-h']:
+        if (
+            len(self._request.command_args) > 1
+            and self._request.command_args[0] not in ["--help", "-h"]
+        ):
             raise CliCommandArgumentException()
 
-        command_list: Dict[str, Any] = {}
-
-        # Discover all logical components dynamically
-        dummy_loader = CommandLoader("", self._logger)
-        logical_components = sorted(list(set(
-            pkg.split('.')[1] for pkg in dummy_loader._list_plugin_folder("command")
-        )))
-
-        for component in logical_components:
-            loader = CommandLoader(component, self._logger)
-            for cmd_class in loader.get_all():
-                if not isinstance(cmd_class, type):
-                    continue
-                if cmd_class.METADATA.id == 'base':
-                    continue
-
-                # Recupera o comando principal diretamente do accepts definido nos argumentos
-                main_flag = ""
-                if cmd_class.METADATA.arguments and len(cmd_class.METADATA.arguments) > 0:
-                    accepts = cmd_class.METADATA.arguments[0].get("accepts", [])
-                    if accepts:
-                        main_flag = accepts[0]
-                
-                # Se não houver argumento mapeado (fallback extremo), pula ou usa o id
-                if not main_flag:
-                    continue
-
-                if component == 'cli':
-                    cmd_name = f"{main_flag}"
-                else:
-                    cmd_name = f"{component}-{main_flag.strip('-')}"
-
-                command_list[cmd_name] = {
-                            "id": cmd_class.METADATA.id,
-                            "logical_component": component,
-                            "accepts": accepts,
-                            "description": cmd_class.METADATA.description
-                        }
+        command_tree: str = CommandTreeAdapter(
+            logger=self._logger,
+        ).render()
 
         return HelpCommandResponse(
-            title="CLI Help",
-            description="Display help information for the CLI.",
+            title="OntoBDC Commands",
+            description="Available commands and options.",
             content={
-                "Usage": ["ontobdc <command> [flags/parameters]"],
-                "Commands": command_list,
-            }
+                "Usage": "ontobdc <command> [flags/parameters]",
+                "Commands": command_tree,
+            },
         )
-        

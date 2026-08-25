@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from rdflib import Graph, Literal, Namespace, URIRef
 from ontobdc.storage.domain.port.graph import StorageGraphModelPort
 
-OBDC: Namespace = Namespace("http://ontobdc.org/ontology/domain/ns.ttl#")
+OBDC: Namespace = Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#")
 CT: Namespace = Namespace("http://standards.iso.org/iso/21597/-1/ed-1/en/Container#")
 
 

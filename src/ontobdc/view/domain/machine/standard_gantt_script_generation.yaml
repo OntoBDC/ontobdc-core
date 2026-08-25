@@ -1,0 +1,75 @@
+statechart:
+  name: StandardGanttScriptGeneration
+  description: "Statechart for generating the IfcWorkSchedule Gantt Page's split runtime JS assets under .__ontobdc__/asset/ifc_work_schedule_view/, one file per state."
+
+  root state:
+    name: standard_gantt_script_generation
+    initial: undefined
+
+    states:
+      - name: undefined
+        description: "No ifc_work_schedule_view runtime script has been generated yet."
+        transitions:
+          - target: i18n_script_generated
+            guard: handler.can_transit_to(to_state = GanttScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = GanttScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = GanttScriptGenerationProcessStatePort.UNDEFINED, to_state = GanttScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED)
+
+      - name: i18n_script_generated
+        description: "i18n_apply.js was generated: applies [data-i18n]/[data-i18n-title]/[data-i18n-aria-label] chrome translations."
+        transitions:
+          - target: graph_reader_script_generated
+            guard: handler.can_transit_to(to_state = GanttScriptGenerationProcessStatePort.GRAPH_READER_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = GanttScriptGenerationProcessStatePort.GRAPH_READER_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = GanttScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED, to_state = GanttScriptGenerationProcessStatePort.GRAPH_READER_SCRIPT_GENERATED)
+
+      - name: graph_reader_script_generated
+        description: "graph_reader.js was generated: reads the embedded JSON-LD graph (IFC task types, literal/date parsers, enriched task list) and attaches everything to `window.OntoBDCGanttViewRuntime.state`."
+        transitions:
+          - target: container_connection_script_generated
+            guard: handler.can_transit_to(to_state = GanttScriptGenerationProcessStatePort.CONTAINER_CONNECTION_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = GanttScriptGenerationProcessStatePort.CONTAINER_CONNECTION_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = GanttScriptGenerationProcessStatePort.GRAPH_READER_SCRIPT_GENERATED, to_state = GanttScriptGenerationProcessStatePort.CONTAINER_CONNECTION_SCRIPT_GENERATED)
+
+      - name: container_connection_script_generated
+        description: "container_connection.js was generated: acquires the container directory handle (picker, IndexedDB persistence across reloads, permission prompt, dataset-folder descent) through the runtime shared with the WorkStream Page."
+        transitions:
+          - target: connection_state_script_generated
+            guard: handler.can_transit_to(to_state = GanttScriptGenerationProcessStatePort.CONNECTION_STATE_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = GanttScriptGenerationProcessStatePort.CONNECTION_STATE_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = GanttScriptGenerationProcessStatePort.CONTAINER_CONNECTION_SCRIPT_GENERATED, to_state = GanttScriptGenerationProcessStatePort.CONNECTION_STATE_SCRIPT_GENERATED)
+
+      - name: connection_state_script_generated
+        description: "connection_state.js was generated: reflects the connection status in the Page header and re-opens a previously connected folder on load."
+        transitions:
+          - target: pyodide_runtime_script_generated
+            guard: handler.can_transit_to(to_state = GanttScriptGenerationProcessStatePort.PYODIDE_RUNTIME_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = GanttScriptGenerationProcessStatePort.PYODIDE_RUNTIME_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = GanttScriptGenerationProcessStatePort.CONNECTION_STATE_SCRIPT_GENERATED, to_state = GanttScriptGenerationProcessStatePort.PYODIDE_RUNTIME_SCRIPT_GENERATED)
+
+      - name: pyodide_runtime_script_generated
+        description: "pyodide_runtime.js was generated: loads Pyodide with rdflib/openpyxl, mounts the connected folder and parses the schedule workbook into the Page's own JSON-LD graph, so the Gantt is drawn from the container's live spreadsheet rather than from build-time data."
+        transitions:
+          - target: task_table_timeline_script_generated
+            guard: handler.can_transit_to(to_state = GanttScriptGenerationProcessStatePort.TASK_TABLE_TIMELINE_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = GanttScriptGenerationProcessStatePort.TASK_TABLE_TIMELINE_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = GanttScriptGenerationProcessStatePort.PYODIDE_RUNTIME_SCRIPT_GENERATED, to_state = GanttScriptGenerationProcessStatePort.TASK_TABLE_TIMELINE_SCRIPT_GENERATED)
+
+      - name: task_table_timeline_script_generated
+        description: "task_table_timeline.js was generated: builds the left 6-column table (WBS/Name/Start/Finish/Duration/%), the SVG timeline grid, milestone diamonds, progress overlays, bar labels and left/right scroll sync."
+        transitions:
+          - target: dependency_arrows_script_generated
+            guard: handler.can_transit_to(to_state = GanttScriptGenerationProcessStatePort.DEPENDENCY_ARROWS_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = GanttScriptGenerationProcessStatePort.DEPENDENCY_ARROWS_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = GanttScriptGenerationProcessStatePort.TASK_TABLE_TIMELINE_SCRIPT_GENERATED, to_state = GanttScriptGenerationProcessStatePort.DEPENDENCY_ARROWS_SCRIPT_GENERATED)
+
+      - name: dependency_arrows_script_generated
+        description: "dependency_arrows.js was generated: walks the parsed IfcRelSequence edges and draws MS-Project-style SVG dependency arrows (horizontal + vertical + horizontal, arrowhead) — must run last because it depends on rendered bar geometries."
+        type: final

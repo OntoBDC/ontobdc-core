@@ -64,11 +64,20 @@ statechart:
       - name: surface_set
         description: "Surface regions and presentation rules are declared without fixing runtime viewport geometry."
         transitions:
+          - target: surface_branded
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_BRANDED)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_BRANDED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_SET, to_state = SurfaceGenerationProcessStatePort.SURFACE_BRANDED)
+
+      - name: surface_branded
+        description: "Branding resources required by the Surface are declared in the HTML artefact."
+        transitions:
           - target: surface_matched
             guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_MATCHED)
             action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_MATCHED)
             contract:
-              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_SET, to_state = SurfaceGenerationProcessStatePort.SURFACE_MATCHED)
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_BRANDED, to_state = SurfaceGenerationProcessStatePort.SURFACE_MATCHED)
 
       - name: surface_matched
         description: "Presentation data are matched to compatible Tile definitions and support envelopes."
@@ -91,11 +100,20 @@ statechart:
       - name: surface_assembled
         description: "Operation, content and pinned regions are composed with matched Tiles and runtime layout constraints."
         transitions:
+          - target: surface_parameters_ensured
+            guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_PARAMETERS_ENSURED)
+            action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_PARAMETERS_ENSURED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_ASSEMBLED, to_state = SurfaceGenerationProcessStatePort.SURFACE_PARAMETERS_ENSURED)
+
+      - name: surface_parameters_ensured
+        description: "The canonical URL-controlled presentation parameters (language, theme) have a declared default embedded in the artefact, so a generated page normalizes its own address bar on first open and every internal link inherits the live state."
+        transitions:
           - target: surface_packaged
             guard: handler.can_transit_to(to_state = SurfaceGenerationProcessStatePort.SURFACE_PACKAGED)
             action: handler.perform_state_transition(to_state = SurfaceGenerationProcessStatePort.SURFACE_PACKAGED)
             contract:
-              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_ASSEMBLED, to_state = SurfaceGenerationProcessStatePort.SURFACE_PACKAGED)
+              - after: handler.validate_state_transition(from_state = SurfaceGenerationProcessStatePort.SURFACE_PARAMETERS_ENSURED, to_state = SurfaceGenerationProcessStatePort.SURFACE_PACKAGED)
 
       - name: surface_packaged
         description: "Required browser component implementations are embedded for offline execution."
