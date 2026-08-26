@@ -1,6 +1,16 @@
 
 import re
-from typing import Any, ClassVar, Dict, List, Optional, Pattern, Tuple, Type
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    FrozenSet,
+    List,
+    Optional,
+    Pattern,
+    Tuple,
+    Type,
+)
 
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.port.logger import LogRepositoryPort
@@ -26,17 +36,24 @@ class CommandTreeAdapter:
         r'"[^"]*"|\[[^\]]*\]|<[^>]*>'
     )
 
-    _USAGE_PREFIX_SKIP: ClassVar[Pattern[str]] = re.compile(
-        r"^\s*(ontobdc(?:\s+dev)?)\s*"
-    )
-
-    _PRESET_TOKEN_BLOCKLIST: ClassVar[frozenset] = frozenset({
+    _PRESET_TOKEN_BLOCKLIST: ClassVar[FrozenSet[str]] = frozenset({
         "html", "json", "rich", "standard",
         "pt-br", "en", "en-us",
     })
 
-    def __init__(self, logger: Optional[LogRepositoryPort] = None) -> None:
+    def __init__(
+        self,
+        logger: Optional[LogRepositoryPort] = None,
+        root_package: str = "ontobdc",
+        executable: str = "ontobdc",
+        excluded_command_ids: Tuple[str, ...] = ("base",),
+    ) -> None:
         self._logger: LogRepositoryPort = logger or NullLogRepository()
+        self._root_package: str = root_package
+        self._executable: str = executable
+        self._excluded_command_ids: FrozenSet[str] = frozenset(
+            excluded_command_ids
+        )
 
     def render(self) -> str:
         paths: List[List[str]] = self.discover_command_paths()
@@ -86,7 +103,8 @@ class CommandTreeAdapter:
                         normalized: str = alt
                         if component == "dev":
                             normalized = normalized.replace(
-                                "ontobdc dev", "ontobdc"
+                                f"{self._executable} dev",
+                                self._executable,
                             )
                         path: List[str] = self._usage_to_path(
                             normalized, component
@@ -135,18 +153,17 @@ class CommandTreeAdapter:
 
         return sorted(paths, key=lambda item: tuple(item))
 
-    @classmethod
-    def _usage_to_path(cls, usage: str, component: str) -> List[str]:
+    def _usage_to_path(self, usage: str, component: str) -> List[str]:
         raw: str = str(usage).strip()
         if not raw:
             return []
-        stripped: str = cls._PLACEHOLDER_CHARS.sub(" ", raw)
+        stripped: str = self._PLACEHOLDER_CHARS.sub(" ", raw)
 
         tokens: List[str] = stripped.split()
         if not tokens:
             return []
 
-        if tokens[0] == "ontobdc":
+        if tokens[0] == self._executable:
             tokens = tokens[1:]
             if tokens and tokens[0] == component:
                 tokens = tokens[1:]
@@ -164,9 +181,9 @@ class CommandTreeAdapter:
                 continue
             if any(ch in token for ch in "<>[]\"'|"):
                 continue
-            if token in {"ontobdc"}:
+            if token == self._executable:
                 continue
-            if token.lower() in cls._PRESET_TOKEN_BLOCKLIST:
+            if token.lower() in self._PRESET_TOKEN_BLOCKLIST:
                 continue
             cleaned.append(token)
         return cleaned
@@ -191,9 +208,8 @@ class CommandTreeAdapter:
                 node = node.setdefault(token, {})
         return tree
 
-    @classmethod
-    def _render_trie(cls, tree: Dict[str, Dict[str, Any]]) -> str:
-        lines: List[str] = ["ontobdc"]
+    def _render_trie(self, tree: Dict[str, Dict[str, Any]]) -> str:
+        lines: List[str] = [self._executable]
 
         def render_token_plain(token: str) -> str:
             if not token:
@@ -231,10 +247,15 @@ class CommandTreeAdapter:
         return "\n".join(lines)
 
     def _discover_logical_components(self) -> List[str]:
-        dummy_loader: CommandLoader = CommandLoader("", self._logger)
+        dummy_loader: CommandLoader = CommandLoader(
+            "",
+            self._logger,
+            root_package=self._root_package,
+        )
         try:
             plugin_packages: List[str] = dummy_loader._list_plugin_folder(
-                "command"
+                "command",
+                root_package=self._root_package,
             )
         except Exception:
             plugin_packages = []
@@ -259,14 +280,18 @@ class CommandTreeAdapter:
         component: str
         for component in components:
             try:
-                loader: CommandLoader = CommandLoader(component, self._logger)
+                loader: CommandLoader = CommandLoader(
+                    component,
+                    self._logger,
+                    root_package=self._root_package,
+                )
             except Exception:
                 continue
             cmd_class: Type[CliCommandPort]
             for cmd_class in loader.get_all():
                 if not isinstance(cmd_class, type):
                     continue
-                if cmd_class.METADATA.id == "base":
+                if cmd_class.METADATA.id in self._excluded_command_ids:
                     continue
                 result.append((component, cmd_class))
         return result
