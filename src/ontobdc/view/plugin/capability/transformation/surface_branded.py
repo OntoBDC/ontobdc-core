@@ -1,6 +1,6 @@
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
@@ -29,6 +29,29 @@ _PRODUCT = {
         "logotype": "InfoBIMLogotype.svg",
     },
 }
+
+# Penultimate fallback for InfoBIM only, tried after the container, the
+# workspace, and https://infobim.org/ all failed to yield an SVG. "brand"
+# is pinned to a specific commit because that asset already exists there
+# today (verified). "logotype" isn't in that repo yet -- it tracks the
+# default branch on purpose so it starts resolving as soon as the asset is
+# pushed, with no code change needed here.
+_INFOBIM_GITHUB_SVG_FALLBACK = {
+    "brand": (
+        "https://raw.githubusercontent.com/InfoBIM-Community/.github/"
+        "0050a6cc1d45ddf634ce48d9fd5a1087213ac8eb/asset/InfoBIMBrand.svg"
+    ),
+    "logotype": (
+        "https://raw.githubusercontent.com/InfoBIM-Community/.github/"
+        "master/asset/InfoBIMLogotype.svg"
+    ),
+}
+
+# Absolute last resort, for every product: an empty (but valid) SVG so
+# branding resolution always succeeds and never blocks Surface packaging,
+# even when every other tier -- container, workspace, official page, and
+# (for InfoBIM) the GitHub fallback -- comes up empty.
+_EMPTY_SVG_FALLBACK = '<svg xmlns="http://www.w3.org/2000/svg"></svg>'
 
 
 class _SvgLinkParser(HTMLParser):
@@ -98,6 +121,8 @@ class SurfaceBrandedCapability(TransformationCapability):
             filename = str(spec[role])
             relative_path = Path(str(spec["hidden_dir"])) / str(spec["asset_dir"]) / filename
             path, source = self._resolve_svg(
+                product=product,
+                role=role,
                 container_root=container_root,
                 workspace_root=workspace_root,
                 relative_path=relative_path,
@@ -146,6 +171,8 @@ class SurfaceBrandedCapability(TransformationCapability):
     def _resolve_svg(
         cls,
         *,
+        product: str,
+        role: str,
         container_root: Path,
         workspace_root: Path,
         relative_path: Path,
@@ -162,11 +189,46 @@ class SurfaceBrandedCapability(TransformationCapability):
             cls._require_svg(workspace_candidate.read_bytes(), workspace_candidate)
             return workspace_candidate, "workspace"
 
-        payload, source_url = cls._download_svg_from_page(page_url, filename)
+        payload: Optional[bytes]
+        source_url: str
+        try:
+            payload, source_url = cls._download_svg_from_page(page_url, filename)
+        except (OSError, ValueError):
+            payload, source_url = None, ""
+
+        if payload is None:
+            fallback = cls._github_fallback_svg(product, role)
+            if fallback is not None:
+                payload, source_url = fallback
+
+        if payload is None:
+            payload, source_url = _EMPTY_SVG_FALLBACK.encode("utf-8"), "empty-fallback"
+
         cls._require_svg(payload, source_url)
         container_candidate.parent.mkdir(parents=True, exist_ok=True)
         container_candidate.write_bytes(payload)
         return container_candidate, source_url
+
+    @classmethod
+    def _github_fallback_svg(cls, product: str, role: str) -> Optional[Tuple[bytes, str]]:
+        """Penultimate fallback: a known-good SVG hosted on GitHub.
+
+        InfoBIM-only (see ``_INFOBIM_GITHUB_SVG_FALLBACK``) -- OntoBDC has
+        no equivalent configured. Any download/validation failure here is
+        swallowed so the caller falls through to the empty-SVG last resort
+        instead of blocking Surface packaging.
+        """
+        if product != "infobim":
+            return None
+        url = _INFOBIM_GITHUB_SVG_FALLBACK.get(role)
+        if not url:
+            return None
+        try:
+            payload = cls._download(url)
+            cls._require_svg(payload, url)
+        except (OSError, ValueError):
+            return None
+        return payload, url
 
     @classmethod
     def _download_svg_from_page(cls, page_url: str, filename: str) -> Tuple[bytes, str]:
