@@ -20,7 +20,18 @@ from ontobdc.view.domain.port.work_stream_script_machine import (
 )
 
 
+# Every non-UNDEFINED state must appear here. The evaluator walks the enum
+# in reverse and resolves each state's capability before evaluating any of
+# them, so a state present in the enum but absent from this table does not
+# merely skip its own file: it raises, and the whole runtime goes
+# ungenerated. That is what CHROME_CONTROLS_SCRIPT_GENERATED did -- the
+# state, its capability and its check all existed, only this entry was
+# missing, and the Page shipped with dead script tags.
 _CAPABILITY_ID_BY_STATE: Dict[WorkStreamScriptGenerationProcessState, str] = {
+    WorkStreamScriptGenerationProcessState.VENDOR_SHEET_JS_ASSET_GENERATED: (
+        "org.ontobdc.view.plugin.capability.transformation.target."
+        "work_stream_vendor_sheet_js_asset_generated"
+    ),
     WorkStreamScriptGenerationProcessState.I18N_SCRIPT_GENERATED: (
         "org.ontobdc.view.plugin.capability.transformation.target."
         "work_stream_i18n_script_generated"
@@ -40,6 +51,10 @@ _CAPABILITY_ID_BY_STATE: Dict[WorkStreamScriptGenerationProcessState, str] = {
     WorkStreamScriptGenerationProcessState.CONNECTION_STATE_SCRIPT_GENERATED: (
         "org.ontobdc.view.plugin.capability.transformation.target."
         "work_stream_connection_state_script_generated"
+    ),
+    WorkStreamScriptGenerationProcessState.CHROME_CONTROLS_SCRIPT_GENERATED: (
+        "org.ontobdc.view.plugin.capability.transformation.target."
+        "work_stream_chrome_controls_script_generated"
     ),
     WorkStreamScriptGenerationProcessState.ANNOTATION_BRIDGE_SCRIPT_GENERATED: (
         "org.ontobdc.view.plugin.capability.transformation.target."

@@ -13,6 +13,7 @@ class WorkStreamScriptGenerationProcessState(WorkStreamScriptGenerationProcessSt
     """
 
     UNDEFINED = "__undefined__"
+    VENDOR_SHEET_JS_ASSET_GENERATED = "__vendor_sheet_js_asset_generated__"
     I18N_SCRIPT_GENERATED = "__i18n_script_generated__"
     GRAPH_READER_SCRIPT_GENERATED = "__graph_reader_script_generated__"
     CSV_PREVIEW_SCRIPT_GENERATED = "__csv_preview_script_generated__"
@@ -29,6 +30,7 @@ class WorkStreamScriptGenerationProcessState(WorkStreamScriptGenerationProcessSt
         labels = {
             "en": {
                 self.UNDEFINED: "Undefined",
+                self.VENDOR_SHEET_JS_ASSET_GENERATED: "Vendored SheetJS Asset Generated",
                 self.I18N_SCRIPT_GENERATED: "i18n Script Generated",
                 self.GRAPH_READER_SCRIPT_GENERATED: "Graph Reader Script Generated",
                 self.CSV_PREVIEW_SCRIPT_GENERATED: "CSV Preview Script Generated",
@@ -43,6 +45,7 @@ class WorkStreamScriptGenerationProcessState(WorkStreamScriptGenerationProcessSt
             },
             "pt-br": {
                 self.UNDEFINED: "Indefinido",
+                self.VENDOR_SHEET_JS_ASSET_GENERATED: "Biblioteca SheetJS Materializada",
                 self.I18N_SCRIPT_GENERATED: "Script de i18n Gerado",
                 self.GRAPH_READER_SCRIPT_GENERATED: "Script de Leitura do Grafo Gerado",
                 self.CSV_PREVIEW_SCRIPT_GENERATED: "Script de Pre-visualizacao de CSV Gerado",

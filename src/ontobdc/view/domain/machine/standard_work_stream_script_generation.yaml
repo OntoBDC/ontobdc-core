@@ -10,11 +10,20 @@ statechart:
       - name: undefined
         description: "No work_stream_view runtime script has been generated yet."
         transitions:
+          - target: vendor_sheet_js_asset_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.VENDOR_SHEET_JS_ASSET_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.VENDOR_SHEET_JS_ASSET_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.UNDEFINED, to_state = WorkStreamScriptGenerationProcessStatePort.VENDOR_SHEET_JS_ASSET_GENERATED)
+
+      - name: vendor_sheet_js_asset_generated
+        description: "xlsx-0.18.5.full.min.js was written: the vendored SheetJS build the Page loads before its own runtime. Vendored rather than generated, but listed among the Page's script tags like the rest, so it is materialized by a state of this machine instead of a copy step alongside it."
+        transitions:
           - target: i18n_script_generated
             guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED)
             action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED)
             contract:
-              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.UNDEFINED, to_state = WorkStreamScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED)
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.VENDOR_SHEET_JS_ASSET_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.I18N_SCRIPT_GENERATED)
 
       - name: i18n_script_generated
         description: "i18n_apply.js was generated: applies [data-i18n]/[data-i18n-title]/[data-i18n-aria-label] chrome translations."
@@ -55,11 +64,20 @@ statechart:
       - name: connection_state_script_generated
         description: "connection_state.js was generated: connect-button state transitions that never paint a fake connected state."
         transitions:
+          - target: chrome_controls_script_generated
+            guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.CHROME_CONTROLS_SCRIPT_GENERATED)
+            action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.CHROME_CONTROLS_SCRIPT_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.CONNECTION_STATE_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.CHROME_CONTROLS_SCRIPT_GENERATED)
+
+      - name: chrome_controls_script_generated
+        description: "chrome_controls.js was generated: wires the header chrome (connect button, status indicator, refresh/workspace/subjects buttons) shared between the WorkStream and Gantt Pages."
+        transitions:
           - target: annotation_bridge_script_generated
             guard: handler.can_transit_to(to_state = WorkStreamScriptGenerationProcessStatePort.ANNOTATION_BRIDGE_SCRIPT_GENERATED)
             action: handler.perform_state_transition(to_state = WorkStreamScriptGenerationProcessStatePort.ANNOTATION_BRIDGE_SCRIPT_GENERATED)
             contract:
-              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.CONNECTION_STATE_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.ANNOTATION_BRIDGE_SCRIPT_GENERATED)
+              - after: handler.validate_state_transition(from_state = WorkStreamScriptGenerationProcessStatePort.CHROME_CONTROLS_SCRIPT_GENERATED, to_state = WorkStreamScriptGenerationProcessStatePort.ANNOTATION_BRIDGE_SCRIPT_GENERATED)
 
       - name: annotation_bridge_script_generated
         description: "annotation_bridge.js was generated: bridges to the native ontobdc OntoBDCAnnotations runtime."

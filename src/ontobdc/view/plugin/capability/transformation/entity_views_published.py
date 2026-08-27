@@ -226,6 +226,29 @@ class EntityViewsPublishedCapability(TransformationCapability):
         #region debug-point (infobim-view-slow-crash): H1 after-loop timers
         _dbg_t_loop_done: float = time.perf_counter()
         #endregion
+        # Raised after every page has been attempted, and before the state
+        # marker: a Surface must not record `entity_views_published` when a
+        # published page's mandatory runtime is missing, or a re-run will
+        # consider the step already done and never regenerate it. Collecting
+        # rather than raising on the spot keeps one broken runtime from
+        # stopping the other entity types' pages from being written -- but
+        # the build fails, which it previously did not: the error only ever
+        # reached `*_scripts_error`, which nothing inspected.
+        runtime_failures: List[str] = [
+            f"{page}: {error}"
+            for page, error in (
+                ("work_stream", work_stream_scripts_error),
+                ("ifc_work_schedule", gantt_scripts_error),
+            )
+            if error
+        ]
+        if runtime_failures:
+            raise RuntimeError(
+                "Published pages are missing their mandatory runtime scripts, "
+                "so they would open with dead <script src> tags:\n  "
+                + "\n  ".join(runtime_failures)
+            )
+
         document = set_state_marker(document, "entity_views_published")
         #region debug-point (infobim-view-slow-crash): state marker timer
         _dbg_t_state: float = time.perf_counter()
