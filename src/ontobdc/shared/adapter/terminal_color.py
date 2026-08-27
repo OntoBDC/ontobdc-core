@@ -237,6 +237,12 @@ _SEVERITY_STYLES: Dict[str, Dict[str, object]] = {
         "glyph": "·",
         "default_aliases": ("DBG", "TRACE"),
     },
+    "RUN": {
+        "bg": (117, 117, 117),    # matches the terminal renderer's "neutral" theme
+        "fg": (255, 255, 255),
+        "glyph": "🤖",
+        "default_aliases": (),
+    },
 }
 
 

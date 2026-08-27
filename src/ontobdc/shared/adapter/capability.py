@@ -46,13 +46,8 @@ class CapabilityLoggingSupport:
            This branch works for **every** compliant implementation
            including ones that skip the convenience helpers entirely.
 
-        **Final threshold guarantee.**  When the repository exposes a
-        ``set_log_level`` method we ensure at call-time that the
-        threshold stored on *repo* is at most ``INFORMATIONAL``.  This
-        protects against subtle bugs where a correctly-configured logger
-        reference stored on the broker or handler was reset / cloned /
-        reconstructed without its user-supplied threshold.  The check
-        only runs once per (repo, wrapper) pair.
+        The repository's configured threshold is authoritative. This method
+        only resolves an emitter and never changes that threshold.
         """
         if repo is None:
             return None
@@ -60,27 +55,11 @@ class CapabilityLoggingSupport:
         try:
             from ontobdc.cli.domain.model.logger import LogLevel as _LL
             _INFO_LEVEL: Any = _LL.INFORMATIONAL
-            _DEBUG_LEVEL: Any = _LL.DEBUG
         except Exception:
             _INFO_LEVEL = None
-            _DEBUG_LEVEL = None
-
-        _set_level: Any = getattr(repo, "set_log_level", None)
-        if callable(_set_level) and _DEBUG_LEVEL is not None:
-            try:
-                _set_level(_DEBUG_LEVEL)
-            except Exception:
-                pass
 
         via_info: Any = getattr(repo, "log_info", None)
         if callable(via_info) and _INFO_LEVEL is not None:
-            _threshold_poke: Any = getattr(repo, "set_log_level", None)
-            if callable(_threshold_poke):
-                try:
-                    _threshold_poke(_INFO_LEVEL)
-                except Exception:
-                    pass
-
             def _info_1(message: str) -> None:
                 try:
                     via_info(message)
@@ -91,13 +70,6 @@ class CapabilityLoggingSupport:
         via_log: Any = getattr(repo, "log", None)
         if callable(via_log) and _INFO_LEVEL is not None:
             level: Any = _INFO_LEVEL
-            _ensure = getattr(repo, "set_log_level", None)
-            if callable(_ensure):
-                try:
-                    _ensure(level)
-                except Exception:
-                    pass
-
             def _info_2(message: str) -> None:
                 try:
                     via_log(level, message)
@@ -144,9 +116,8 @@ class CapabilityLoggingSupport:
            or capability by programmatic users.
         4. **StandardConsoleLogger fallback** — only reached when no
            higher-quality channel fired (pure programmatic usage with
-           no orchestrator).  The freshly-built fallback has its
-           threshold lowered once to ``INFORMATIONAL`` so INFO messages
-           are not dropped by the default ``NOTICE`` threshold.
+           no orchestrator). The freshly-built fallback retains the
+           repository's default threshold.
         """
         # --- Channel 0: CLI broker ---
         try:
@@ -231,13 +202,6 @@ class CapabilityLoggingSupport:
             fallback_logger: Any = _SCL()
         except Exception:
             return None
-        try:
-            from ontobdc.cli.domain.model.logger import LogLevel as _FallbackLL
-            set_level: Any = getattr(fallback_logger, "set_log_level", None)
-            if callable(set_level):
-                set_level(_FallbackLL.INFORMATIONAL)
-        except Exception:
-            pass  # threshold might still be NOTICE — best-effort only
         return CapabilityLoggingSupport._extract_info_logger(fallback_logger)
 
     # ------------------------------------------------------------------
@@ -389,13 +353,6 @@ class CapabilityLoggingSupport:
         except Exception:
             _DEBUG_LEVEL = None
 
-        _set_level: Any = getattr(repo, "set_log_level", None)
-        if callable(_set_level) and _DEBUG_LEVEL is not None:
-            try:
-                _set_level(_DEBUG_LEVEL)
-            except Exception:
-                pass
-
         via_debug: Any = getattr(repo, "log_debug", None)
         if callable(via_debug) and _DEBUG_LEVEL is not None:
             def _debug_1(message: str) -> None:
@@ -504,13 +461,6 @@ class CapabilityLoggingSupport:
             fallback_logger: Any = _SCL()
         except Exception:
             return None
-        try:
-            from ontobdc.cli.domain.model.logger import LogLevel as _FallbackLL
-            set_level: Any = getattr(fallback_logger, "set_log_level", None)
-            if callable(set_level):
-                set_level(_FallbackLL.DEBUG)
-        except Exception:
-            pass
         return CapabilityLoggingSupport._extract_debug_logger(fallback_logger)
 
     # ------------------------------------------------------------------

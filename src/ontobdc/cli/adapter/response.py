@@ -10,6 +10,7 @@ from ontobdc.cli.domain.response.command import (
     GroupedGraphCommandResponse,
     HelpCommandResponse,
     ListCommandResponse,
+    RunCommandResponse,
     TreeCommandResponse,
     WelcomeCommandResponse,
 )
@@ -72,6 +73,8 @@ class BaseResponseWidgetAdapter(ResponseWidgetAdapterPort):
             return "ERROR"
         if isinstance(response, HelpCommandResponse):
             return "INFO"
+        if isinstance(response, RunCommandResponse):
+            return "RUN"
         return "INFO"
 
     def _content_widgets(self, content: Any) -> List[Any]:

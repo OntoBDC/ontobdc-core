@@ -13,6 +13,7 @@ class CliInitProcessState(CliInitProcessStatePort):
     EXECUTION_CONTEXT_HEALTHY = "__execution_context_healthy__"
     CONFIG_ADAPTER_READY = "__config_adapter_ready__"
     BRAND_READY = "__brand_ready__"
+    ENGLISH_NLP_MODEL_READY = "__english_nlp_model_ready__"
 
     def label(self, lang: str = "en") -> str:
         labels = {
@@ -24,6 +25,7 @@ class CliInitProcessState(CliInitProcessStatePort):
                 self.EXECUTION_CONTEXT_HEALTHY: "Execution Context Healthy",
                 self.CONFIG_ADAPTER_READY: "Config Adapter Ready",
                 self.BRAND_READY: "Brand Ready",
+                self.ENGLISH_NLP_MODEL_READY: "English NLP Model Ready",
             },
             "pt-br": {
                 self.UNDEFINED: "Indefinido",
@@ -33,6 +35,7 @@ class CliInitProcessState(CliInitProcessStatePort):
                 self.EXECUTION_CONTEXT_HEALTHY: "Contexto de Execucao Saudavel",
                 self.CONFIG_ADAPTER_READY: "Adapter de Config Pronto",
                 self.BRAND_READY: "Marca Pronta",
+                self.ENGLISH_NLP_MODEL_READY: "Modelo de PLN em Ingles Pronto",
             },
         }
         return labels.get(lang, labels["en"]).get(self, self.value)
@@ -47,6 +50,7 @@ class CliInitProcessState(CliInitProcessStatePort):
                 self.EXECUTION_CONTEXT_HEALTHY: "The context.ttl file exists and conforms to the bootstrap checks.",
                 self.CONFIG_ADAPTER_READY: "The config.yaml file exists and conforms to the bootstrap config contract.",
                 self.BRAND_READY: "The brand entry (name, mark_svg, logotype_svg, slogan) is available in the project configuration.",
+                self.ENGLISH_NLP_MODEL_READY: "The small English spaCy model (en_core_web_sm) is installed in this Python environment.",
             },
             "pt-br": {
                 self.UNDEFINED: "Estado inicial antes da execucao de qualquer etapa do init.",
@@ -56,6 +60,7 @@ class CliInitProcessState(CliInitProcessStatePort):
                 self.EXECUTION_CONTEXT_HEALTHY: "O arquivo context.ttl existe e esta conforme com os checks de bootstrap.",
                 self.CONFIG_ADAPTER_READY: "O arquivo config.yaml existe e esta conforme com o contrato de bootstrap de config.",
                 self.BRAND_READY: "A entrada de marca (name, mark_svg, logotype_svg, slogan) esta disponivel na configuracao do projeto.",
+                self.ENGLISH_NLP_MODEL_READY: "O modelo spaCy pequeno em ingles (en_core_web_sm) esta instalado neste ambiente Python.",
             },
         }
         return descriptions.get(lang, descriptions["en"]).get(self, "")

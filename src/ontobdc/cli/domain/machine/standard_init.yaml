@@ -63,4 +63,13 @@ statechart:
 
       - name: brand_ready
         description: "The brand entry (name, mark_svg, logotype_svg, slogan) exists and conforms to the bootstrap config contract."
+        transitions:
+          - target: english_nlp_model_ready
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.ENGLISH_NLP_MODEL_READY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.ENGLISH_NLP_MODEL_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.BRAND_READY, to_state = CliInitProcessStatePort.ENGLISH_NLP_MODEL_READY)
+
+      - name: english_nlp_model_ready
+        description: "The small English spaCy model (en_core_web_sm) is installed."
         type: final

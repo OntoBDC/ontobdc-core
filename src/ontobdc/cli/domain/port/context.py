@@ -124,15 +124,3 @@ class PromptChoiceAwarePort(ABC):
         Injects the prompt choice callable into the implementing class.
         """
         ...
-
-
-class PromptRawTextAwarePort(ABC):
-    """
-    Port for classes that require a prompt function to request raw text input from the user.
-    """
-    @abstractmethod
-    def set_prompt_raw_text(self, prompt_raw_text: Callable[[str], str]) -> None:
-        """
-        Injects the prompt raw text callable into the implementing class.
-        """
-        ...

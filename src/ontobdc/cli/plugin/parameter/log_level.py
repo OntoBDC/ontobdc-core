@@ -1,6 +1,10 @@
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
-from ontobdc.cli.domain.model.logger import LogLevel, LogStrategyConfig
+from ontobdc.cli.domain.model.logger import (
+    LogLevel,
+    LogLevelPolicy,
+    LogStrategyConfig,
+)
 from ontobdc.cli.domain.port.context import CliContextPort, CliContextStrategyPort
 from ontobdc.cli.domain.port.logger import LoggerAwarePort
 from ontobdc.shared.domain.model.parameter import ParameterMetadata
@@ -104,6 +108,7 @@ class LogLevelStrategy(ParameterPort, CliContextStrategyPort, LoggerAwarePort):
     def _resolve(raw_level: str) -> LogLevel:
         normalized = raw_level.strip().upper().replace("-", "_")
         aliases = {
+            "RESET": LogLevelPolicy.DEFAULT,
             "WARN": LogLevel.WARNING,
             "INFORMATIONAL": LogLevel.INFORMATIONAL,
         }
@@ -114,7 +119,8 @@ class LogLevelStrategy(ParameterPort, CliContextStrategyPort, LoggerAwarePort):
             if normalized in {level.name, level.value}:
                 return level
 
-        supported = ", ".join(level.value for level in LogLevel)
+        supported_levels: List[str] = [level.value for level in LogLevel]
+        supported: str = ", ".join([*supported_levels, "RESET"])
         raise ValueError(
             f"Unsupported log level: {raw_level!r}. "
             f"Supported levels: {supported}."

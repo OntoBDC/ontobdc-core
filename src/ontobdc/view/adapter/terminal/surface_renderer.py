@@ -6,6 +6,7 @@ from ontobdc.shared.adapter.surface.selector import DefaultSurfaceLayoutSelector
 from ontobdc.shared.adapter.terminal_color import (
     ANSI_ESCAPE_REGEX,
     BOLD,
+    GRAY,
     RESET,
     CSI,
     rgb_fg,
@@ -963,7 +964,16 @@ def _display_width(text: str) -> int:
 
 
 _HEADING_RE = _re.compile(r"^(?P<prefix>.*?)(?<!\\)(#{1,6})\s+(.*)$")
-_BULLET_RE = _re.compile(r"^(\s*)[-*+]\s+(.*)$")
+# "•" is included alongside the plain markdown markers because
+# TextWidget.render() (view/component/widget/python.py) already converts
+# "- item" lines into "• item" before handing its output back through this
+# same markdown pipeline (see the TextWidget fallback in
+# cli/__init__.py's _response_to_markdown). Without "•" here, those
+# already-bulleted lines are unrecognised, plain paragraph text and get
+# merged onto a single line by the paragraph flusher below -- the single
+# point every list in the CLI (any command, any widget) funnels through,
+# so fixing it here fixes every list at once.
+_BULLET_RE = _re.compile(r"^(\s*)[-*+•]\s+(.*)$")
 _BULLET_LABEL_RE = _re.compile(r"^([A-Z][A-Z0-9 _-]*):\s(.*)$")
 _BOLD_RE = _re.compile(r"\*\*(.+?)\*\*")
 _CODE_RE = _re.compile(r"`([^`]+)`")
@@ -1172,6 +1182,29 @@ class _MarkdownBodyTile(TerminalTileRenderable):
                     )
                 lines.append(f"{prefix}{styled_heading}")
                 lines.append("")
+                continue
+
+            # Detail line: a raw line prefixed with a literal tab is a
+            # dimmed, indented sub-line attached to the bullet/paragraph
+            # above it (e.g. the "Example: ..." line under a "Commands"
+            # entry -- see ``_response_to_markdown`` in ``cli/__init__.py``).
+            # It is flushed on its own, never merged into a paragraph, and
+            # never mistaken for a markdown table header even if its text
+            # contains "|" (a joined usage example). Tab is otherwise unused
+            # by any markdown this renderer produces, so this cannot collide
+            # with heading/bullet/table detection above.
+            if raw.startswith("\t"):
+                flush_paragraph()
+                flush_graph_verbatim()
+                detail_text: str = raw[1:]
+                detail_indent: str = "  "
+                available: int = max(1, width - len(detail_indent))
+                visible: int = _display_width(ANSI_ESCAPE_REGEX.sub("", detail_text))
+                if visible > available:
+                    detail_text = TerminalSurfaceRenderer._truncate_visible(
+                        detail_text, available
+                    )
+                lines.append(f"{detail_indent}{detail_text}")
                 continue
 
             bullet_match = _BULLET_RE.match(raw)

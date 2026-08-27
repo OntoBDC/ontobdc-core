@@ -6,17 +6,18 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ontobdc.cli.adapter.command import CliCommandRunAdapter
 from ontobdc.cli.adapter.logger import BaseLoggerAdapter, InLineLogger, NullLogRepository, StandardConsoleLogger
-from ontobdc.cli.adapter.terminal import prompt_choice, prompt_raw_text
+from ontobdc.cli.adapter.terminal import prompt_choice
 from ontobdc.cli.domain.exception.command import CliCommandArgumentException
 from ontobdc.cli.domain.model.logger import LogLevel, LogStrategyConfig
 from ontobdc.cli.domain.port.command import CliCommandPort
-from ontobdc.cli.domain.port.context import CliContextPort, PromptChoiceAwarePort, PromptRawTextAwarePort
+from ontobdc.cli.domain.port.context import CliContextPort, PromptChoiceAwarePort
 from ontobdc.cli.domain.port.logger import LoggerAwarePort, LogRepositoryPort
 from ontobdc.cli.domain.response.command import (
     CommandResponse,
     ExceptionCommandResponse,
     HelpCommandResponse,
     InteractiveCommandResponse,
+    RunCommandResponse,
 )
 from ontobdc.shared.adapter.loader import ParameterLoader
 from ontobdc.shared.domain.port.loader import PluginLoaderPort
@@ -56,21 +57,14 @@ def main() -> None:
             incoming_args
         )
 
-        # Apply log threshold *before* exposing the logger through the
-        # global broker so any consumer (including the capability success
-        # logging path) reaches an already-configured instance.  When the
-        # user omits --log-level we still want INFO messages to surface
-        # on side-effecting capabilities, so we default to INFORMATIONAL
-        # in that case instead of the base NOTICE default.
+        # Apply an explicit threshold before exposing the logger through the
+        # global broker. When --log-level is omitted, the repository keeps
+        # LogLevelPolicy.DEFAULT (NOTICE).
         if resolved_log_level is not None:
             _ = LogStrategyConfig(
                 log_level=resolved_log_level,
                 log_repository=logger,
             )
-        else:
-            if hasattr(logger, "set_log_level"):
-                from ontobdc.cli.domain.model.logger import LogLevel as _LL
-                logger.set_log_level(_LL.INFORMATIONAL)
 
         set_active_log_repository(logger)
 
@@ -96,9 +90,6 @@ def main() -> None:
 
             if isinstance(cli_command_run, PromptChoiceAwarePort):
                 cli_command_run.set_prompt_choice(prompt_choice)
-
-            if isinstance(cli_command_run, PromptRawTextAwarePort):
-                cli_command_run.set_prompt_raw_text(prompt_raw_text)
 
             response: CommandResponse = cli_command_run.run()
             if not silent and not isinstance(
@@ -258,7 +249,9 @@ class CliParameterValidationOrchestrator:
         context: CliContextPort,
     ) -> None:
         """Copy every valued long-flag (``--foo value``) declared by the
-        command's ``METADATA`` into ``context`` as snake_case keys.
+        command's ``METADATA`` into ``context``. The optional ``parameter``
+        metadata entry owns the context key; otherwise the flag's snake_case
+        name is used.
 
         Bails silently when the command declares no ``arguments`` list, no
         valued entries, or when the user did not supply a value token after
@@ -293,8 +286,12 @@ class CliParameterValidationOrchestrator:
                 if next_index >= len(incoming_args):
                     return
 
+                parameter_name: str = str(
+                    argument_definition.get("parameter")
+                    or accepted_flag[2:].replace("-", "_")
+                )
                 context.set_parameter_value(
-                    accepted_flag[2:].replace("-", "_"),
+                    parameter_name,
                     incoming_args[next_index],
                 )
                 break
@@ -303,13 +300,13 @@ class CliParameterValidationOrchestrator:
         self,
         cli_command_run: CliCommandPort,
     ) -> Set[str]:
-        """Return the snake_case parameter keys the command's ``METADATA``
-        declares as valued long-flags.
+        """Return the parameter keys the command's ``METADATA`` declares.
 
         Parameter strategies whose ``METADATA.name`` is not in this set are
         skipped during the implicit stage, which keeps the parameter
         pipeline deterministic and avoids leaking shared strategies into
-        commands that never asked for them.
+        commands that never asked for them. An explicit ``parameter`` entry
+        takes precedence over the long flag's derived snake_case name.
         """
         metadata: Optional[Any] = getattr(cli_command_run, "METADATA", None)
         arguments: Any = getattr(metadata, "arguments", [])
@@ -326,6 +323,14 @@ class CliParameterValidationOrchestrator:
 
             accepts: Any = argument_definition.get("accepts", [])
             if not isinstance(accepts, list):
+                continue
+
+            explicit_parameter_name: Any = argument_definition.get("parameter")
+            if (
+                isinstance(explicit_parameter_name, str)
+                and explicit_parameter_name.strip()
+            ):
+                required_parameter_names.add(explicit_parameter_name.strip())
                 continue
 
             accepted_flag: Any
@@ -359,8 +364,7 @@ class CliParameterValidationOrchestrator:
     ) -> None:
         """Attach shared runtime callbacks (logger, interactive prompts)
         to a parameter strategy that declares support for them via the
-        ``LoggerAwarePort`` / ``PromptChoiceAwarePort`` /
-        ``PromptRawTextAwarePort`` marker ports.
+        ``LoggerAwarePort`` / ``PromptChoiceAwarePort`` marker ports.
         """
         if isinstance(parameter_strategy, LoggerAwarePort):
             parameter_strategy.set_log_strategy(
@@ -371,9 +375,6 @@ class CliParameterValidationOrchestrator:
 
         if isinstance(parameter_strategy, PromptChoiceAwarePort):
             parameter_strategy.set_prompt_choice(prompt_choice)
-
-        if isinstance(parameter_strategy, PromptRawTextAwarePort):
-            parameter_strategy.set_prompt_raw_text(prompt_raw_text)
 
 
 _PARAMETER_VALIDATOR = CliParameterValidationOrchestrator()
@@ -477,12 +478,15 @@ def _default_severity_for_response(response: CommandResponse) -> Optional[str]:
     from ontobdc.cli.domain.response.command import (
         ExceptionCommandResponse,
         HelpCommandResponse,
+        RunCommandResponse,
     )
 
     if isinstance(response, ExceptionCommandResponse):
         return "ERROR"
     if isinstance(response, HelpCommandResponse):
         return "INFO"
+    if isinstance(response, RunCommandResponse):
+        return "RUN"
     return "INFO"
 
 
@@ -495,7 +499,7 @@ def _response_to_markdown(
 ) -> str:
     title: str = str(response.title or "").strip()
     description: str = str(response.description or "").strip()
-    from ontobdc.shared.adapter.terminal_color import severity_badge
+    from ontobdc.shared.adapter.terminal_color import GRAY, RESET, severity_badge
 
     severity: Optional[object] = getattr(response, "severity", None)
     if severity is None:
@@ -605,22 +609,55 @@ def _response_to_markdown(
                     lines.append(f"{label}  {value}")
                     lines.append("")
                     continue
-                # Multi-pair records: render as a compact label/value block,
-                # one pair per line, key right-padded to the longest key so
-                # all value columns start at the same column.  Never emit the
-                # generic pipe table grid (neutral / cyan separators) because
-                # small descriptive KV blocks read cleaner as plain label +
-                # value alignment than as a drawn table chrome.
-                max_key_w: int = max(1, max(len(str(p[0])) for p in pairs))
+                # Multi-pair records: render as one bullet per pair ("LABEL:
+                # value"), never as plain aligned lines. Plain lines with no
+                # markdown marker are indistinguishable from ordinary prose
+                # to the downstream markdown-body renderer, which merges
+                # every consecutive non-blank line into a single paragraph
+                # and re-wraps it -- destroying the one-line-per-pair layout
+                # (every KEY/value pair runs together). A "- " bullet is
+                # recognised and flushed independently by that renderer (see
+                # ``_MarkdownBodyTile.render_wrapped``'s bullet handling),
+                # which also styles the "LABEL:" prefix in the theme accent
+                # colour -- the same convention already used by the per-row
+                # DETAILS cards under a TableWidget, so this stays visually
+                # consistent rather than introducing a new format. A key
+                # that happens to contain "|" (joined flag aliases, e.g.
+                # "--container-id | --container") would otherwise also be
+                # misread as a markdown table header by that same renderer;
+                # bullets are matched before the table-header heuristic, so
+                # this sidesteps that false positive too.
+                #
+                # A value may carry extra lines after its first ("\n"
+                # separated, e.g. a "description\nExample: ..." pair built
+                # by ``CliBaseCommand._command_summaries``). Each extra line
+                # is emitted as a "\t"-prefixed detail line -- a convention
+                # ``_MarkdownBodyTile.render_wrapped`` recognises and
+                # renders indented and dimmed, on its own row, without
+                # merging it into the next pair's bullet. A blank line is
+                # inserted after every pair (not just once at the end) so
+                # the list reads as separated items instead of one dense
+                # block.
                 for pair in pairs:
                     try:
                         k, v = pair[0], pair[1]
                     except Exception:
                         k, v = str(pair), ""
-                    key_text: str = str(k).upper().strip()
-                    value_text: str = "" if v is None else str(v).strip()
-                    lines.append(f"{key_text:<{max_key_w}}  {value_text}")
-                lines.append("")
+                    key_text = str(k).upper().strip()
+                    raw_value: str = "" if v is None else str(v).strip()
+                    value_lines: List[str] = raw_value.split("\n")
+                    lines.append(f"- {key_text}: {value_lines[0].strip()}")
+                    for detail_line in value_lines[1:]:
+                        detail_text: str = detail_line.strip()
+                        if not detail_text:
+                            continue
+                        label_part, sep, rest_part = detail_text.partition(":")
+                        if sep:
+                            detail_text = f"{label_part}:{GRAY}{rest_part}{RESET}"
+                        else:
+                            detail_text = f"{GRAY}{detail_text}{RESET}"
+                        lines.append(f"\t{detail_text}")
+                    lines.append("")
             continue
 
         if wtype in ("CodeBlockWidget",):
@@ -783,6 +820,8 @@ def _ux_theme_for(response: CommandResponse) -> str:
         return "error"
     if isinstance(response, HelpCommandResponse):
         return "info"
+    if isinstance(response, RunCommandResponse):
+        return "neutral"
     return "ontobdc"
 
 

@@ -21,6 +21,7 @@ from ontobdc.storage.plugin.check.is_root_set.check import main as check_storage
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 from ontobdc.cli.plugin.check.has_valid_config_file.check import main as check_config_file
 from ontobdc.cli.plugin.check.has_valid_brand.check import main as check_brand
+from ontobdc.cli.plugin.check.has_english_nlp_model.check import main as check_english_nlp_model
 from ontobdc.context.plugin.check.has_valid_context.check import main as check_execution_context
 
 
@@ -50,7 +51,10 @@ class CliInitStateEvaluatorAdapter(CliInitStateEvaluatorPort):
         if check_brand(root_path=str(root_path)) != 0:
             return CliInitProcessState.CONFIG_ADAPTER_READY
 
-        return CliInitProcessState.BRAND_READY
+        if check_english_nlp_model(root_path=str(root_path)) != 0:
+            return CliInitProcessState.BRAND_READY
+
+        return CliInitProcessState.ENGLISH_NLP_MODEL_READY
 
 
 class CliInitStateTransitionHandler(CliInitStateTransitionHandlerPort):

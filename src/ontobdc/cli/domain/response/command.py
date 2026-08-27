@@ -68,6 +68,20 @@ class HelpCommandResponse(CommandResponse):
 
 
 @dataclass
+class RunCommandResponse(CommandResponse):
+    """Response for the ``run`` component: a resolved natural-language
+    prompt. A dedicated type (rather than a generic ``CommandResponse``)
+    so the terminal renderer paints it with the neutral/gray theme and a
+    ``RUN`` badge instead of the default ontobdc-blue border and ``INFO``
+    badge.
+    """
+
+    title: str = "OntoBDC Run"
+    description: str = "Received prompt."
+    content: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class ExceptionCommandResponse(CommandResponse):
     title: str = "Run Exception"
     description: str = "Command execution failed."

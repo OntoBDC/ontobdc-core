@@ -1,3 +1,4 @@
+import base64
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -69,6 +70,35 @@ def _read_text_if_svg(path: Path) -> Optional[str]:
             return raw.decode("utf-8", errors="replace")
         except Exception:
             return None
+
+
+def _read_img_markup_if_png(path: Path) -> Optional[str]:
+    """Return an inline ``<img>`` tag embedding ``path`` if it is a PNG.
+
+    Mirrors ``ontobdc_view.component.adapter.source._read_img_markup_if_png``
+    -- the seeded ``mark_svg``/``logotype_svg`` values are injected as raw
+    markup by the Tile, so a PNG fallback must already be a self-contained
+    tag, same as inline SVG markup.
+    """
+    try:
+        if not path.is_file():
+            return None
+        raw = path.read_bytes()
+    except (OSError, ValueError):
+        return None
+    if raw[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    encoded = base64.b64encode(raw).decode("ascii")
+    return f'<img src="data:image/png;base64,{encoded}" alt="" />'
+
+
+def _read_brand_asset_markup(assets: Path, svg_filename: str) -> Optional[str]:
+    """Resolve renderable markup for a brand asset, SVG first, PNG second."""
+    svg_markup = _read_text_if_svg(assets / svg_filename)
+    if svg_markup is not None:
+        return svg_markup.strip()
+    png_path = (assets / svg_filename).with_suffix(".png")
+    return _read_img_markup_if_png(png_path)
 
 
 def _candidate_brand_roots(resolved_root_path: Optional[Path]) -> List[Path]:
@@ -176,14 +206,14 @@ def _discover_brand_from_assets(root_path: Path) -> Optional[Dict[str, str]]:
                 if not marker.is_dir():
                     continue
                 assets = marker / asset_dir
-                brand_svg = _read_text_if_svg(assets / brand_file)
-                logotype_svg = _read_text_if_svg(assets / logotype_file)
-                if brand_svg is None or logotype_svg is None:
+                brand_markup = _read_brand_asset_markup(assets, brand_file)
+                logotype_markup = _read_brand_asset_markup(assets, logotype_file)
+                if brand_markup is None or logotype_markup is None:
                     continue
                 return {
                     "name": name,
-                    "mark_svg": brand_svg.strip(),
-                    "logotype_svg": logotype_svg.strip(),
+                    "mark_svg": brand_markup,
+                    "logotype_svg": logotype_markup,
                     "slogan": slogan,
                 }
     return None

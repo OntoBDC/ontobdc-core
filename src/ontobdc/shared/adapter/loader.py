@@ -6,7 +6,7 @@ import inspect
 import importlib
 import importlib.util
 from abc import abstractmethod
-from typing import List, Optional, Tuple, Type, Any
+from typing import Any, List, Optional, Set, Tuple, Type
 from rdflib import Graph, URIRef
 from rdflib.namespace import RDF
 from ontobdc.shared.adapter.capability import Capability
@@ -138,6 +138,13 @@ class CapabilityLoader(PluginLoader):
     """
     Plugin loader specifically responsible for discovering and loading Capability plugins.
     """
+
+    def __init__(
+        self,
+        root_packages: Tuple[str, ...] = ("ontobdc",),
+    ) -> None:
+        self._root_packages: Tuple[str, ...] = root_packages
+
     def get(self, id: str) -> Type[CapabilityPort]:
         """
         Retrieves a capability plugin by its unique ID.
@@ -149,7 +156,15 @@ class CapabilityLoader(PluginLoader):
         Retrieves all available capability plugins discovered in the application's plugin folders.
         """
         capabilities: List[Type[CapabilityPort]] = []
-        for pkg_name in self._list_plugin_folder(resource):
+        capability_ids: Set[str] = set()
+        plugin_packages: List[str] = []
+        root_package: str
+        for root_package in self._root_packages:
+            plugin_packages.extend(
+                self._list_plugin_folder(resource, root_package)
+            )
+
+        for pkg_name in plugin_packages:
             try:
                 package = importlib.import_module(pkg_name)
             except ImportError:
@@ -191,7 +206,11 @@ class CapabilityLoader(PluginLoader):
                         if not metadata_obj.id:
                             continue
 
+                        if metadata_obj.id in capability_ids:
+                            continue
+
                         capabilities.append(obj)
+                        capability_ids.add(metadata_obj.id)
                 except Exception as e:
                     print(
                         f"[CapabilityLoader] Error loading module {name}: {e}",
@@ -356,7 +375,11 @@ class ParameterLoader(PluginLoader):
     Plugin loader responsible for discovering and loading Parameter Strategy plugins.
     """
 
-    def __init__(self, logger: Optional[LogRepositoryPort] = None) -> None:
+    def __init__(
+        self,
+        logger: Optional[LogRepositoryPort] = None,
+        root_packages: Tuple[str, ...] = ("ontobdc",),
+    ) -> None:
         try:
             from ontobdc.cli.adapter.logger import NullLogRepository as _NullLog
         except Exception:
@@ -365,14 +388,15 @@ class ParameterLoader(PluginLoader):
         if logger is None and _NullLog is not None:
             logger = _NullLog()
         self._logger: Optional[LogRepositoryPort] = logger
+        self._root_packages: Tuple[str, ...] = root_packages
 
-    def get(self, id: str) -> Type[CliContextStrategyPort]:
+    def get(self, id: str) -> CliContextStrategyPort:
         """
         Retrieves a parameter strategy plugin by its unique ID.
         """
         return super().get("parameter", id)
 
-    def get_all(self, resource: str = "parameter") -> List[Type[CliContextStrategyPort]]:
+    def get_all(self, resource: str = "parameter") -> List[CliContextStrategyPort]:
         """
         Retrieves all available parameter strategy plugins discovered in the application.
 
@@ -385,8 +409,16 @@ class ParameterLoader(PluginLoader):
         exception message so the operator can fix the plugin instead of
         wondering why a declared strategy never runs.
         """
-        strategies: List[Type[CliContextStrategyPort]] = []
-        for pkg_name in self._list_plugin_folder(resource):
+        strategies: List[CliContextStrategyPort] = []
+        strategy_ids: Set[str] = set()
+        plugin_packages: List[str] = []
+        root_package: str
+        for root_package in self._root_packages:
+            plugin_packages.extend(
+                self._list_plugin_folder(resource, root_package)
+            )
+
+        for pkg_name in plugin_packages:
             try:
                 package = importlib.import_module(pkg_name)
             except ImportError as import_error:
@@ -423,7 +455,16 @@ class ParameterLoader(PluginLoader):
                         if (inspect.isclass(obj)
                                 and issubclass(obj, CliContextStrategyPort)
                                 and obj is not CliContextStrategyPort):
-                            strategies.append(obj())
+                            strategy: CliContextStrategyPort = obj()
+                            metadata: Any = getattr(strategy, "METADATA", None)
+                            strategy_id: str = str(
+                                getattr(metadata, "id", "") or ""
+                            ).strip()
+                            if strategy_id and strategy_id in strategy_ids:
+                                continue
+                            strategies.append(strategy)
+                            if strategy_id:
+                                strategy_ids.add(strategy_id)
                 except Exception as exception:
                     if self._logger is not None:
                         self._logger.log_warning(
