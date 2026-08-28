@@ -5,8 +5,6 @@ from pathlib import Path
 from types import ModuleType
 from typing import List, Type
 
-import vtracer
-
 from ontobdc.shared.domain.model.draw import (
     DrawSource,
     DrawSourceKind,
@@ -70,6 +68,18 @@ class VTracerSvgDrawAdapter(SvgDrawPort):
     def draw(self, source: DrawSource) -> str:
         if source.kind is DrawSourceKind.VECTOR:
             return source.content.decode("utf-8")
+
+        # Imported lazily: only raster tracing needs it, so a runtime without
+        # the (Rust-backed) ``vtracer`` wheel can still load this module and
+        # pass SVG sources through unchanged.
+        try:
+            import vtracer
+        except ImportError as error:  # pragma: no cover - depends on env
+            raise RuntimeError(
+                "Tracing a raster logo to SVG requires the optional 'vtracer' "
+                "package. Install it (pip install 'ontobdc[logo]') or provide "
+                "an SVG source instead."
+            ) from error
 
         svg: str = vtracer.convert_raw_image_to_svg(
             source.content,

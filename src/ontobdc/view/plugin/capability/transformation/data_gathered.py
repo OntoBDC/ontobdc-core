@@ -272,12 +272,6 @@ class DataGatheredCapability(TransformationCapability):
             return
         entity_type: URIRef = entity_types[0]
 
-        fields: List[Dict[str, Any]] = self._resolve_facade_fields(
-            facade_graph, entity_type
-        )
-        if not fields:
-            return
-
         identifiers: List[Any] = list(
             local_graph.objects(entity_subject, DCTERMS.identifier)
         )
@@ -287,6 +281,26 @@ class DataGatheredCapability(TransformationCapability):
 
         row: Any = self._find_entity_row(dataset_path, entity_type, entity_identifier)
         if row is None:
+            return
+
+        # Name / Description are written onto the entity as dcterms:title /
+        # dcterms:description at dataset-creation time and stay frozen there —
+        # no facade field maps to those predicates, and the facade linkage this
+        # capability follows (hasDataEntityFacade) is absent for some entity
+        # types anyway. Refresh both straight from the current workbook row so a
+        # value edited in the xlsx (e.g. through the Gantt page's inline editor)
+        # reaches the generated view instead of the creation-time value.
+        row_name: str = str(row.get("Name") or "").strip()
+        if row_name:
+            graph.set((entity_subject, DCTERMS.title, Literal(row_name)))
+        row_description: str = str(row.get("Description") or "").strip()
+        if row_description:
+            graph.set((entity_subject, DCTERMS.description, Literal(row_description)))
+
+        fields: List[Dict[str, Any]] = self._resolve_facade_fields(
+            facade_graph, entity_type
+        )
+        if not fields:
             return
 
         for field in fields:
