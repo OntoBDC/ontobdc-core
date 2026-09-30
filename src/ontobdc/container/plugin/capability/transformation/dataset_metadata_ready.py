@@ -1,0 +1,70 @@
+from typing import Any, Dict
+
+from ontobdc.cli.domain.port.context import CliContextPort
+from ontobdc.shared.adapter.capability import TransactionCapability
+from ontobdc.shared.domain.model.capability import CapabilityMetadata
+from ontobdc.container.plugin.machine.container_create.state import DatasetCreateProcessState
+from ontobdc.container.plugin.check.is_dataset_metadata_ready.check import (
+    main as check_dataset_metadata_ready,
+)
+from ontobdc.container.plugin.check.is_dataset_metadata_ready.hotfix import (
+    main as hotfix_dataset_metadata_ready,
+)
+
+
+class DatasetMetadataReadyCapability(TransactionCapability):
+    METADATA = CapabilityMetadata(
+        id="org.ontobdc.container.plugin.capability.transformation.target.dataset_metadata_ready",
+        version="1.0.0",
+        name="Dataset Metadata Ready",
+        description="Ensure that the target storage dataset metadata file exists with valid dataset metadata.",
+        author=["TRAE"],
+        tags=["storage", "dataset", "create", "metadata"],
+        supported_languages=["en", "pt-br"],
+        log_message={
+            "info": {
+                "en": (
+                    "Dataset-level metadata (name, description, schemas, columns, "
+                    "ontology references) was fully harvested and written into the "
+                    "in-memory dataset record."
+                ),
+            },
+            "debug_entry": {
+                "en": (
+                    "Harvesting dataset-level metadata (name, description, "
+                    "schemas, columns, ontology references) and writing it "
+                    "into the in-memory dataset record."
+                ),
+            },
+        },
+    )
+
+    def label(self, lang: str = "en") -> str:
+        return "Dataset Metadata Ready"
+
+    def description(self, lang: str = "en") -> str:
+        return "Creates the local dataset metadata file without requiring linkset or payload relations."
+
+    def execute(self, context: CliContextPort) -> Dict[str, Any]:
+        target_path: str = str(context.get_parameter_value("dataset_path")).strip()
+        root_path: str = str(context.root_path).strip()
+        if check_dataset_metadata_ready(
+            dataset_path=target_path,
+            root_path=root_path,
+        ) != 0:
+            if hotfix_dataset_metadata_ready(
+                dataset_path=target_path,
+                root_path=root_path,
+            ) != 0:
+                raise ValueError("Failed to hotfix dataset metadata during storage dataset creation.")
+
+        if check_dataset_metadata_ready(
+            dataset_path=target_path,
+            root_path=root_path,
+        ) != 0:
+            raise ValueError("Dataset metadata is still invalid after the storage dataset hotfix.")
+
+        return {
+            "resulting_state": DatasetCreateProcessState.DATASET_METADATA_READY,
+            "path": target_path,
+        }

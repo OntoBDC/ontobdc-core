@@ -7,7 +7,7 @@ name = "ontobdc"
 authors = [
     { name = "Elias Magalhães", email = "elias@brasidata.com" }
 ]
-version = "0.21.0"
+version = "0.22.0"
 description = "OntoBDC (Ontology-Based Datasets & Containers)"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -15,29 +15,26 @@ requires-python = ">=3.10"
 classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
+
 dependencies = [
-    "ontobdc-view>=0.8.0",
-    "brasidatacenter",
-    "hatchling>=1.26",
-    "setuptools",
-    "requests",
-    "rdflib",
     "pydantic",
     "PyYAML",
-    "Jinja2",
-    "sismic",
-    "rocrate",
-    "rich",
-    "textual>=8.2.8",
-    "netext>=0.5.0",
-    "pyfiglet",
-    "pymupdf4llm",
-    "openpyxl",
-    "frictionless",
     "rfc3987",
+    "rdflib",
+    "requests",
+    "frictionless",
+    "sismic",
+    "pyfiglet",
+    "pyshacl",
+    "textual",
+    "Jinja2",
+    
 ]
 
 [project.optional-dependencies]
+a3 = [
+    "ontobdc-a3",
+]
 dev = [
     "ontobdc-dev",
 ]
@@ -55,6 +52,7 @@ package-dir = {"" = "src"}
 "ontobdc" = [
     "**/*.yaml",
     "**/*.yml",
+    "**/*.jinja",
     "check/*.json",
     "core/**",
     "module/**",

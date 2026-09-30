@@ -1,87 +1,79 @@
+from typing import List, Optional
 
-import os
-import re
-import importlib
-from typing import List
-from ontobdc.shared.facade.port.context import CliContextPort
-from ontobdc.shared.adapter.config import ConfigDataAdapter
-from ontobdc.shared.adapter.util import to_snake_case, to_pascal_case
-from ontobdc.shared.domain.port.resolver import DynamicParamResolverPort
+from ontobdc.cli.domain.port.context import CliContextPort
+from ontobdc.shared.domain.port.loader import ResolverLoaderPort
+from ontobdc.shared.domain.port.resolver import (
+    DynamicParamResolverPort,
+    ParamResolverStrategyPort,
+)
+from ontobdc.shared.domain.exception.resolver import (
+    ParamResolverStrategyNotFoundError,
+)
 
-class DynamicParamResolverAdapter(DynamicParamResolverPort):
+
+class UnresolvedParamResolver(DynamicParamResolverPort):
     """
-    Adapter that dynamically resolves parameters based on URIs.
-    It inspects the filesystem for specific plugin resolvers and executes them.
+    Resolver that deliberately resolves nothing.
+
+    It is the default composition wherever parameter resolution is not wired
+    yet, and it says so in its name: an input declaring a URI is left exactly
+    as the context already holds it.
     """
-    RESOLVABLE_URI: List[str] = [
-        'http://ontobdc.org/ontology/domain/',
-        'org.ontobdc.',
-    ]
 
-    def resolve(self, context: CliContextPort, prop_uri: str, prop: str) -> None:
+    def resolve(
+        self,
+        context: CliContextPort,
+        parameter_uri: str,
+        parameter_name: str,
+    ) -> None:
         """
-        Dynamically finds and invokes the specific resolver for the given property URI.
+        Leave the parameter untouched.
         """
-        uri = (prop_uri or "").strip()
-        if not uri:
-            return
+        return None
 
-        if not any(uri.startswith(base) for base in self.RESOLVABLE_URI):
-            return
 
-        resolver_base = self._resolver_base_name(uri)
-        if not resolver_base:
-            return
+class StrategyParamResolver(DynamicParamResolverPort):
+    """
+    Resolver that delegates to the discovered strategy supporting the URI.
 
-        module_basename = to_snake_case(resolver_base)
-        resolver_class_name = f"{to_pascal_case(resolver_base)}ParamResolver"
+    Selection asks each strategy whether it supports the URI, so namespaces
+    are owned by the strategies that answer for them rather than by a list
+    kept in this class. Strategies come from an injected loader; nothing here
+    touches the filesystem, a module name, or a class name.
+    """
 
-        ontobdc_dir = str(ConfigDataAdapter().script_dir)
+    def __init__(self, loader: ResolverLoaderPort) -> None:
+        self._loader: ResolverLoaderPort = loader
+        self._strategies: Optional[List[ParamResolverStrategyPort]] = None
 
-        for entry in sorted(os.listdir(ontobdc_dir)):
-            entry_path = os.path.join(ontobdc_dir, entry)
-            if not os.path.isdir(entry_path):
-                continue
-            if entry.startswith((".", "_")):
-                continue
-
-            resolver_dir = os.path.join(entry_path, "plugin", "resolver")
-
-            if not os.path.isdir(resolver_dir):
-                continue
-
-            resolver_path = os.path.join(resolver_dir, f"{module_basename}.py")
-
-            if not os.path.isfile(resolver_path):
-                continue
-
-            module_name = f"ontobdc.{entry}.plugin.resolver.{module_basename}"
-            module = importlib.import_module(module_name)
-            resolver_cls = getattr(module, resolver_class_name, None)
-            if resolver_cls is None:
-                raise ImportError(f"Resolver class '{resolver_class_name}' not found in '{module_name}'")
-
-            resolver = resolver_cls()
-            resolve_fn = getattr(resolver, "resolve", None)
-            if not callable(resolve_fn):
-                raise TypeError(f"Resolver '{resolver_class_name}' must implement a callable 'resolve' method")
-
-            resolve_fn(context, uri, prop)
-
-            return
-
-    def _resolver_base_name(self, uri: str) -> str:
+    def resolve(
+        self,
+        context: CliContextPort,
+        parameter_uri: str,
+        parameter_name: str,
+    ) -> None:
         """
-        Extracts the base name from a given URI to identify the resolver module.
+        Resolve the parameter through the first strategy that supports its URI.
+
+        :raises ParamResolverStrategyNotFoundError: No strategy answers for
+            the URI, which means the plugin owning it is missing.
         """
-        if uri.startswith("org.ontobdc."):
-            return uri.split(".")[-1].strip()
+        strategy: ParamResolverStrategyPort
+        for strategy in self._available_strategies():
+            if strategy.supports(parameter_uri):
+                strategy.resolve(context, parameter_uri, parameter_name)
+                return
 
-        if "#" in uri:
-            return uri.split("#")[-1].strip()
+        raise ParamResolverStrategyNotFoundError(parameter_uri, parameter_name)
 
-        m = re.search(r"/([^/#]+)$", uri)
-        if m:
-            return (m.group(1) or "").strip()
+    def _available_strategies(self) -> List[ParamResolverStrategyPort]:
+        """
+        Instantiate the discovered strategies once per resolver.
+        """
+        if self._strategies is None:
+            self._strategies = [
+                strategy_type()
+                for strategy_type in self._loader.get_all()
+            ]
 
-        return ""
+        return self._strategies

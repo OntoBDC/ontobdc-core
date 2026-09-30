@@ -1,14 +1,17 @@
-
 import os
-import yaml
-import subprocess
-from pathlib import Path
-from importlib.metadata import distributions
 from typing import Any, Dict, List, Optional
+from pathlib import Path
+import subprocess
+from importlib.util import find_spec
+from importlib.metadata import distributions
+
+import yaml
 
 from ontobdc.shared.domain.port.config import ConfigDataPort
 from ontobdc.shared.domain.model.language import LanguageResource
-from ontobdc.shared.domain.exception.config import ProjectRootDirectoryNotSetError
+from ontobdc.shared.domain.exception.config import (
+    ProjectRootDirectoryNotSetError,
+)
 
 
 class ConfigDataAdapter(ConfigDataPort):
@@ -128,6 +131,21 @@ class ConfigDataAdapter(ConfigDataPort):
         """
         return self._context_data
 
+    @staticmethod
+    def is_a3_installed() -> bool:
+        """
+        Return True when the optional ``ontobdc-a3`` natural-language
+        reasoning package (import name ``ontobdc_a3``) is importable.
+
+        ``ontobdc-a3`` carries the spaCy stack, so features that need
+        lemmatization, tokenization or intent parsing must guard on this
+        before importing anything from ``ontobdc_a3``.
+        """
+        try:
+            return find_spec("ontobdc_a3") is not None
+        except (AttributeError, ImportError, ValueError):
+            return False
+
     def get_config_file(self, config_dir: str = None) -> str:
         """
         Get the configuration file path (config.yaml) inside the configuration directory.
@@ -190,6 +208,10 @@ class ConfigDataAdapter(ConfigDataPort):
         raise ProjectRootDirectoryNotSetError("Project root directory not set.")
 
     def _get_script_dir(self) -> str:
+        return ConfigDataAdapter.get_script_dir()
+
+    @staticmethod
+    def get_script_dir() -> str:
         """
         Get the module root directory (ontobdc/).
         

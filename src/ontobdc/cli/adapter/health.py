@@ -1,16 +1,16 @@
-from pathlib import Path
 from typing import List, Optional
+from pathlib import Path
 
-from ontobdc.cli.domain.port.health import CliCommandHealthPort
-from ontobdc.cli.domain.port.logger import LogRepositoryPort
 from ontobdc.shared.adapter.config import (
     ConfigDataAdapter,
     UnsetProjectRootConfigDataAdapter,
 )
+from ontobdc.cli.domain.port.health import CliCommandHealthPort
+from ontobdc.cli.domain.port.logger import LogRepositoryPort
+from ontobdc.shared.domain.port.config import ConfigDataPort
 from ontobdc.shared.domain.exception.config import (
     ProjectRootDirectoryNotSetError,
 )
-from ontobdc.shared.domain.port.config import ConfigDataPort
 
 
 class NoHealthCheckAdapter(CliCommandHealthPort):

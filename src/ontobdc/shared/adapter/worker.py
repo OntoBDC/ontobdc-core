@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
 
 import yaml
-from sismic.interpreter import Interpreter
 from sismic.io import import_from_yaml
 from sismic.model import Statechart
+from sismic.interpreter import Interpreter
 
 
 class StateWorkerAdapter:
@@ -31,7 +31,10 @@ class StateWorkerAdapter:
         statechart_data: Dict[str, Any] = self._statechart_data.get("statechart", {})
         return str(statechart_data.get("name", self._statechart_file_path.stem))
 
-    def work(self, stop_state: Optional[Any] = None) -> List[str]:
+    def get_state_sequence(self) -> List[str]:
+        return StateWorkerAdapter.compute_state_sequence(self._statechart_data)
+
+    def work(self) -> List[str]:
         initial_state: Any = self._handler.current_state
         if hasattr(self._logger, "log_info"):
             self._logger.log_info(
@@ -49,9 +52,6 @@ class StateWorkerAdapter:
         interpreter: Interpreter = Interpreter(statechart, initial_context=context)
         self._bind_current_interpreter_state(interpreter, fallback_state=initial_state)
         visited_states: List[str] = [self._handler.current_state.value]
-
-        if stop_state is not None and self._handler.current_state == stop_state:
-            return visited_states
 
         if self._is_final_state(initial_state_code):
             return visited_states
@@ -71,9 +71,6 @@ class StateWorkerAdapter:
 
             if visited_states[-1] != current_state.value:
                 visited_states.append(current_state.value)
-
-            if stop_state is not None and current_state == stop_state:
-                break
 
         return visited_states
 
@@ -216,3 +213,47 @@ class StateWorkerAdapter:
             cleaned_items.append(item)
 
         return cleaned_items
+
+    @staticmethod
+    def get_persisted_event(event_path: Path, state: Any) -> Optional[Any]:
+        state_value: str = state.value if hasattr(state, "value") else str(state)
+        for event_file in event_path.iterdir():
+            # print(event_file.name)
+            if event_file.name.startswith(f"{state_value}."):
+                # print('==========================')
+                return event_file.read_text(encoding="utf-8")
+
+        raise FileNotFoundError(f"No event file found for state: {state_value}")
+
+    @staticmethod
+    def compute_state_sequence(statechart_data: Dict[str, Any]) -> List[str]:
+        """
+        Return every state name the statechart declares, in transition
+        order, starting from the root's own declared initial state.
+        """
+        statechart_root: Dict[str, Any] = statechart_data.get("statechart", {})
+        root_state: Dict[str, Any] = statechart_root.get("root state", {})
+        states_raw: Any = root_state.get("states")
+        if not isinstance(states_raw, list):
+            return []
+
+        states_by_name: Dict[str, Dict[str, Any]] = {}
+        state: Any
+        for state in states_raw:
+            if isinstance(state, dict) and isinstance(state.get("name"), str):
+                states_by_name[state["name"]] = state
+
+        initial_name: Any = root_state.get("initial")
+        if not isinstance(initial_name, str):
+            return []
+
+        current_name: str = initial_name
+        sequence: List[str] = [current_name]
+        while True:
+            current_def: Optional[Dict[str, Any]] = states_by_name.get(current_name)
+            transitions: Any = current_def.get("transitions") if current_def is not None else None
+            if not transitions:
+                return sequence
+
+            current_name = transitions[0]["target"]
+            sequence.append(current_name)

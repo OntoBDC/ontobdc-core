@@ -1,0 +1,101 @@
+statechart:
+  name: DictionaryInspection
+  description: "Statechart for generic semantic dictionary inspection of arbitrary text."
+
+  root state:
+    name: dictionary_inspection
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the input text has been normalized."
+          pt-br: "Estado inicial antes da normalizacao do texto de entrada."
+        transitions:
+          - target: text_normalized
+            guard: handler.can_transit_to(to_state = DictionaryInspectionProcessStatePort.TEXT_NORMALIZED)
+            action: handler.perform_state_transition(to_state = DictionaryInspectionProcessStatePort.TEXT_NORMALIZED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DictionaryInspectionProcessStatePort.UNDEFINED, to_state = DictionaryInspectionProcessStatePort.TEXT_NORMALIZED)
+
+      - name: text_normalized
+        label:
+          en: "Text Normalized"
+          pt-br: "Texto Normalizado"
+        description:
+          en: "The input text has a deterministic normalized representation."
+          pt-br: "O texto de entrada possui uma representacao normalizada deterministica."
+        transitions:
+          - target: text_language_identified
+            guard: handler.can_transit_to(to_state = DictionaryInspectionProcessStatePort.TEXT_LANGUAGE_IDENTIFIED)
+            action: handler.perform_state_transition(to_state = DictionaryInspectionProcessStatePort.TEXT_LANGUAGE_IDENTIFIED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DictionaryInspectionProcessStatePort.TEXT_NORMALIZED, to_state = DictionaryInspectionProcessStatePort.TEXT_LANGUAGE_IDENTIFIED)
+
+      - name: text_language_identified
+        label:
+          en: "Text Language Identified"
+          pt-br: "Idioma do Texto Identificado"
+        description:
+          en: "The language of the normalized text has been identified."
+          pt-br: "O idioma do texto normalizado foi identificado."
+        transitions:
+          - target: text_lemmatized
+            guard: handler.can_transit_to(to_state = DictionaryInspectionProcessStatePort.TEXT_LEMMATIZED)
+            action: handler.perform_state_transition(to_state = DictionaryInspectionProcessStatePort.TEXT_LEMMATIZED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DictionaryInspectionProcessStatePort.TEXT_LANGUAGE_IDENTIFIED, to_state = DictionaryInspectionProcessStatePort.TEXT_LEMMATIZED)
+
+      - name: text_lemmatized
+        label:
+          en: "Text Lemmatized"
+          pt-br: "Texto Lematizado"
+        description:
+          en: "The normalized text has been reduced to language-aware lemmas."
+          pt-br: "O texto normalizado foi reduzido a lemas dependentes do idioma."
+        transitions:
+          - target: ontology_term_resolved
+            guard: handler.can_transit_to(to_state = DictionaryInspectionProcessStatePort.ONTOLOGY_TERM_RESOLVED)
+            action: handler.perform_state_transition(to_state = DictionaryInspectionProcessStatePort.ONTOLOGY_TERM_RESOLVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DictionaryInspectionProcessStatePort.TEXT_LEMMATIZED, to_state = DictionaryInspectionProcessStatePort.ONTOLOGY_TERM_RESOLVED)
+
+      - name: ontology_term_resolved
+        label:
+          en: "Ontology Term Resolved"
+          pt-br: "Termo da Ontologia Resolvido"
+        description:
+          en: "The lemmatized text has been resolved against the ontology dictionary using exact or fuzzy matching."
+          pt-br: "O texto lematizado foi resolvido contra o dicionario de ontologias por correspondencia exata ou fuzzy."
+        transitions:
+          - target: kind_representation_resolved
+            guard: handler.can_transit_to(to_state = DictionaryInspectionProcessStatePort.KIND_REPRESENTATION_RESOLVED)
+            action: handler.perform_state_transition(to_state = DictionaryInspectionProcessStatePort.KIND_REPRESENTATION_RESOLVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DictionaryInspectionProcessStatePort.ONTOLOGY_TERM_RESOLVED, to_state = DictionaryInspectionProcessStatePort.KIND_REPRESENTATION_RESOLVED)
+
+      - name: kind_representation_resolved
+        label:
+          en: "Kind Representation Resolved"
+          pt-br: "Representacao do Tipo Resolvida"
+        description:
+          en: "The representations declared for every resolved ontology term have been fetched."
+          pt-br: "As representacoes declaradas para cada termo resolvido foram obtidas."
+        transitions:
+          - target: markdown_rendered
+            guard: handler.can_transit_to(to_state = DictionaryInspectionProcessStatePort.MARKDOWN_RENDERED)
+            action: handler.perform_state_transition(to_state = DictionaryInspectionProcessStatePort.MARKDOWN_RENDERED)
+            contract:
+              - after: handler.validate_state_transition(from_state = DictionaryInspectionProcessStatePort.KIND_REPRESENTATION_RESOLVED, to_state = DictionaryInspectionProcessStatePort.MARKDOWN_RENDERED)
+
+      - name: markdown_rendered
+        label:
+          en: "Markdown Rendered"
+          pt-br: "Markdown Renderizado"
+        description:
+          en: "The dictionary inspection result has been rendered and persisted as a Markdown ETL state file."
+          pt-br: "O resultado da inspecao do dicionario foi renderizado e persistido como arquivo de estado ETL Markdown."
+        type: final

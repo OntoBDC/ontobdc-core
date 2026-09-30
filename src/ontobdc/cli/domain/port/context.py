@@ -1,6 +1,5 @@
-
 from abc import ABC, abstractmethod
-from typing import Any, Callable, List, Optional
+from typing import Any, List, Optional
 
 
 class CliContextPort(ABC):
@@ -49,12 +48,11 @@ class CliContextPort(ABC):
 
     @property
     @abstractmethod
-    def language(self, fallback: str = None) -> Optional[str]:
+    def language(self) -> Optional[str]:
         """
         Returns the language of the context.
         Defaults to the system's language.
-        :param fallback: The fallback language if the system's language is not available.
-        :return: The language of the context, or the fallback if not available.
+        :return: The language of the context, or None if not available.
         """
         ...
 
@@ -110,17 +108,5 @@ class CliContextStrategyPort(ABC):
     def execute(self, context: CliContextPort) -> CliContextPort:
         """
         Executes the strategy against the provided CLI context.
-        """
-        ...
-
-
-class PromptChoiceAwarePort(ABC):
-    """
-    Port for classes that require a prompt function to let the user choose among options.
-    """
-    @abstractmethod
-    def set_prompt_choice(self, prompt_choice: Callable[..., str]) -> None:
-        """
-        Injects the prompt choice callable into the implementing class.
         """
         ...

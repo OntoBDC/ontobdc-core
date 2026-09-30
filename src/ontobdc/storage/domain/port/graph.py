@@ -1,8 +1,8 @@
-
-from pathlib import Path
-from rdflib import Graph, URIRef
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+
+from rdflib import Graph, URIRef
 
 
 class StorageGraphModelPort(ABC):
@@ -30,7 +30,6 @@ class StorageGraphModelPort(ABC):
         predicate_objects: List[Tuple[Any, Any]],
     ) -> None:
         ...
-
 
 
 class StorageGraphRepositoryPort(ABC):

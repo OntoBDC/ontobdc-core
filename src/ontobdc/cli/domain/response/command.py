@@ -1,6 +1,6 @@
 import json
-from pathlib import Path
 from typing import Any, Dict, List, Optional
+from pathlib import Path
 from dataclasses import dataclass, field, fields, is_dataclass
 
 
@@ -63,6 +63,30 @@ class InteractiveCommandResponse(CommandResponse):
 
 
 @dataclass
+class InteractiveTreeCommandResponse(InteractiveCommandResponse):
+    """Response whose command rendered an interactive collapsible tree via
+    the Textual widget (Textual is a declared dependency of ontobdc).
+
+    The command that returns this subclass is responsible for starting
+    the Textual event loop itself and therefore must inherit from
+    :class:`InteractiveCommandResponse`: the outer CLI shell will skip
+    its own markdown/rich/static renderer so that the interactive
+    surface owns the terminal.
+
+    ``title`` and ``description`` are mirrored into the header of the
+    TUI; ``content`` is the same dict the command would have returned
+    for static rendering (``content["tree"]`` is the ``{name, kind,
+    children}`` dict the :class:`TreeWidget` static reader already
+    understands) so that piping, JSON export and downstream callers
+    keep consuming identical data.
+    """
+
+    title: str = "Tree Viewer"
+    description: str = "Interactive collapsible tree view."
+    content: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class HelpCommandResponse(CommandResponse):
     content: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
@@ -75,7 +99,6 @@ class RunCommandResponse(CommandResponse):
     ``RUN`` badge instead of the default ontobdc-blue border and ``INFO``
     badge.
     """
-
     title: str = "OntoBDC Run"
     description: str = "Received prompt."
     content: Dict[str, Any] = field(default_factory=dict)
@@ -89,14 +112,28 @@ class ExceptionCommandResponse(CommandResponse):
 
 
 @dataclass
+class HealthCheckCommandResponse(CommandResponse):
+    """Response listing the verifications a health check capability ran.
+
+    A dedicated type so the terminal renderer paints the listing as
+    outcome badges rather than as the generic key/value block every other
+    dictionary content falls into.
+    """
+
+    title: str = "Health Check"
+    description: str = "Verifications reported."
+    content: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class ListCommandResponse(CommandResponse):
     content: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
 class WelcomeCommandResponse(CommandResponse):
-    title: str = "InfoBIM Welcome"
-    description: str = "Display the InfoBIM welcome experience."
+    title: str = "Welcome"
+    description: str = "Display the welcome experience."
     content: Dict[str, Any] = field(default_factory=dict)
 
 

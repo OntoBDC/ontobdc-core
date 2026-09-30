@@ -1,6 +1,3 @@
-
-
-
 class ProjectRootDirectoryNotSetError(FileNotFoundError):
     """
     Raised when the project root directory cannot be resolved.

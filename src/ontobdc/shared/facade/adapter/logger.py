@@ -1,43 +1,5 @@
 from typing import Any, Optional
 
-__all__ = [
-    "ActiveLogRepositoryBroker",
-    "NullLogRepository",
-    "clear_active_log_repository",
-    "get_active_log_repository",
-    "set_active_log_repository",
-]
-
-
-def __getattr__(name: str) -> Any:
-    """Lazy module-level attribute resolver (PEP 562).
-
-    Preserves the **original public contract** of this facade module
-    (which used to eagerly re-export ``NullLogRepository`` from
-    ``ontobdc.cli.adapter.logger`` on behalf of plugin modules)
-    **without** introducing a circular import between
-    ``shared.facade.adapter.logger`` and ``ontobdc.cli.__init__`` the
-    moment this module is loaded first.
-
-    External callers (storage plugin commands, *etc.*) that do::
-
-        from ontobdc.shared.facade.adapter.logger import NullLogRepository
-
-    will land here lazily.  At that point the CLI module graph is
-    already initialised enough that the sub-import is always safe; the
-    only circularity that existed was a module-load-time cycle triggered
-    by importing *from the top of this file* while ``ontobdc.cli`` was
-    itself being imported (because ``cli/__init__.py`` imports this
-    module to reach ``set_active_log_repository``).
-    """
-    if name == "NullLogRepository":
-        from ontobdc.cli.adapter.logger import (  # noqa: WPS433
-            NullLogRepository as _NullLogRepository,
-        )
-        globals()["NullLogRepository"] = _NullLogRepository
-        return _NullLogRepository
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 class ActiveLogRepositoryBroker:
     """Singleton broker that exposes the currently active
@@ -142,29 +104,3 @@ class ActiveLogRepositoryBroker:
 
     def clear(self) -> None:
         self._active = None
-
-
-def get_active_log_repository() -> Optional[Any]:
-    """Convenience module-level alias for
-    :meth:`ActiveLogRepositoryBroker.instance().get`.
-
-    Returns the currently active logger repository registered by the
-    CLI entry-point, or ``None`` when no broker is active (the typical
-    case for pure programmatic use outside the ``ontobdc`` CLI
-    process).
-    """
-    return ActiveLogRepositoryBroker.instance().get()
-
-
-def set_active_log_repository(repository: Optional[Any]) -> None:
-    """Convenience module-level alias for
-    :meth:`ActiveLogRepositoryBroker.instance().set`.
-    """
-    ActiveLogRepositoryBroker.instance().set(repository)
-
-
-def clear_active_log_repository() -> None:
-    """Convenience module-level alias for
-    :meth:`ActiveLogRepositoryBroker.instance().clear`.
-    """
-    ActiveLogRepositoryBroker.instance().clear()

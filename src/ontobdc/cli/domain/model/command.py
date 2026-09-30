@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 from typing import Any, Dict, List
+from dataclasses import dataclass
 
 
 @dataclass
@@ -10,6 +10,7 @@ class CliCommandMetadata:
     usage: str = ""
     arguments: List[Dict[str, Any]] = None
     depends_on: List[str] | str = "DEFAULT"
+    interactive: bool = False
 
     def __post_init__(self) -> None:
         if self.arguments is None:

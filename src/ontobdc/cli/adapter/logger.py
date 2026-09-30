@@ -1,68 +1,66 @@
-
 from abc import abstractmethod
-from datetime import datetime
 import sys
-from typing import Callable, Dict, List, Optional, TextIO, Tuple
+from typing import ClassVar, Dict, List, TextIO, Tuple, Callable, Optional
+from datetime import datetime
 
-from ontobdc.cli.domain.model.logger import (
-    LogLevel,
-    LogLevelPolicy,
-)
 from ontobdc.cli.domain.port.logger import LogLevelPort, LogRepositoryPort
-from ontobdc.shared.adapter.terminal_color import (
-    RESET as _RESET,
-    GRAY as _GRAY,
-    WHITE as _WHITE,
-    RED as _RED,
-    GREEN as _GREEN,
-    YELLOW as _YELLOW,
-    BLUE as _BLUE,
-    CYAN as _CYAN,
-)
+from ontobdc.cli.domain.model.logger import LogLevel, LogLevelPolicy
+from ontobdc.shared.adapter.terminal_color import TerminalColor
 
 
-def _get_level_style(level: str) -> Tuple[str, str, str]:
-    normalized_level: str = level.upper()
-    level_styles: Dict[str, Tuple[str, str, str]] = {
-        "INFO": (_BLUE, "▶", "INFO"),
-        "WARN": (_YELLOW, "⚠️ ", "WARNING"),
-        "WARNING": (_YELLOW, "⚠️ ", "WARNING"),
-        "ERROR": (_RED, "❌", "ERROR"),
-        "DEBUG": (_CYAN, "▶", "DEBUG"),
-        "SUCCESS": (_GREEN, "✔", "SUCCESS"),
-        "NOTICE": (_CYAN, "▶", "NOTICE"),
+class InlineLogFormatter:
+    """
+    Formats a single in-line log entry as one colored terminal line.
+    """
+    _LEVEL_STYLES: ClassVar[Dict[str, Tuple[str, str]]] = {
+        "INFO": (TerminalColor.BLUE, "\u25b6"),
+        "WARN": (TerminalColor.YELLOW, "\u26a0\ufe0f "),
+        "WARNING": (TerminalColor.YELLOW, "\u26a0\ufe0f "),
+        "ERROR": (TerminalColor.RED, "\u274c"),
+        "DEBUG": (TerminalColor.CYAN, "\u25b6"),
+        "SUCCESS": (TerminalColor.GREEN, "\u2714"),
+        "NOTICE": (TerminalColor.CYAN, "\u25b6"),
     }
-    return level_styles.get(
-        normalized_level,
-        (_WHITE, "•", normalized_level),
-    )
+    _LEVEL_ALIASES: ClassVar[Dict[str, str]] = {"WARN": "WARNING"}
+    _DEFAULT_STYLE: ClassVar[Tuple[str, str]] = (TerminalColor.WHITE, "\u2022")
+    _TIMESTAMP_FORMAT: ClassVar[str] = "%H:%M:%S"
 
+    def format(
+        self,
+        level: str,
+        message: str,
+        args: List[str],
+        *,
+        timestamp: datetime,
+    ) -> str:
+        normalized_level: str = level.upper()
+        level_color, level_icon = self._LEVEL_STYLES.get(
+            normalized_level,
+            self._DEFAULT_STYLE,
+        )
+        display_level: str = self._LEVEL_ALIASES.get(
+            normalized_level,
+            normalized_level,
+        )
+        parts: List[str] = [
+            f"{TerminalColor.GRAY}[{timestamp:{self._TIMESTAMP_FORMAT}}]"
+            f"{TerminalColor.RESET} ",
+            f"{level_color}{level_icon} {display_level}{TerminalColor.RESET} ",
+            f"{TerminalColor.WHITE}{message}{TerminalColor.RESET}",
+        ]
+        parts.extend(self._argument_part(argument) for argument in args)
 
-def _format_inline_log(
-    level: str,
-    message: str,
-    args: List[str],
-    *,
-    timestamp: datetime,
-) -> str:
-    level_color, level_icon, normalized_level = _get_level_style(level)
-    output_parts: List[str] = [
-        f"{_GRAY}[{timestamp:%H:%M:%S}]{_RESET} ",
-        f"{level_color}{level_icon} {normalized_level}{_RESET} ",
-        f"{_WHITE}{message}{_RESET}",
-    ]
+        return "".join(parts)
 
-    for argument in args:
-        if "=" in argument:
-            key, value = argument.split("=", 1)
-            output_parts.append(
-                f" {_BLUE}{key}{_RESET}={_GRAY}{value}{_RESET}"
-            )
-            continue
+    def _argument_part(self, argument: str) -> str:
+        key, separator, value = argument.partition("=")
+        if not separator:
+            return f" {TerminalColor.GRAY}{argument}{TerminalColor.RESET}"
 
-        output_parts.append(f" {_GRAY}{argument}{_RESET}")
-
-    return "".join(output_parts)
+        return (
+            f" {TerminalColor.BLUE}{key}{TerminalColor.RESET}"
+            f"={TerminalColor.GRAY}{value}{TerminalColor.RESET}"
+        )
 
 
 class BaseLoggerAdapter:
@@ -163,10 +161,12 @@ class InLineLogger(LogRepositoryPort, BaseLoggerAdapter):
         stream: Optional[TextIO] = None,
         clock: Optional[Callable[[], datetime]] = None,
         log_level: LogLevelPort = LogLevelPolicy.DEFAULT,
+        formatter: Optional[InlineLogFormatter] = None,
     ) -> None:
         super().__init__(log_level=log_level)
         self._stream: TextIO = stream if stream is not None else sys.stdout
         self._clock: Callable[[], datetime] = clock or datetime.now
+        self._formatter: InlineLogFormatter = formatter or InlineLogFormatter()
 
     def log(
         self,
@@ -177,7 +177,7 @@ class InLineLogger(LogRepositoryPort, BaseLoggerAdapter):
         if not self._should_log(level):
             return
         level_value: str = str(getattr(level, "value", level))
-        line: str = _format_inline_log(
+        line: str = self._formatter.format(
             level_value,
             message,
             [str(argument) for argument in args],

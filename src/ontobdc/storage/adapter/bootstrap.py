@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, ClassVar, Optional
 import os
+from typing import Any, ClassVar, Optional
+from pathlib import Path
+from datetime import datetime, timezone
 
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, OWL, RDF, XSD, Namespace
@@ -9,7 +9,9 @@ from rdflib.namespace import DCTERMS, OWL, RDF, XSD, Namespace
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
 from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
-from ontobdc.shared.domain.exception.config import ProjectRootDirectoryNotSetError
+from ontobdc.shared.domain.exception.config import (
+    ProjectRootDirectoryNotSetError,
+)
 
 
 class StorageLayoutConstants:
@@ -62,9 +64,6 @@ class StorageNamespaceBootstrap:
         cls.OBDC = adapter.get_ontology_namespace_by_prefix("obdc")
         cls.CT = adapter.get_ontology_namespace_by_prefix("ct")
         cls.PROV = adapter.get_ontology_namespace_by_prefix("prov")
-
-
-StorageNamespaceBootstrap.initialize()
 
 
 class StoragePathStatHelper:
@@ -251,7 +250,11 @@ class StorageBootstrap:
             (storage_reference, StorageNamespaceBootstrap.CT.description, description)
         )
         graph.add(
-            (storage_reference, PROV.atLocation, URIRef(root_path.as_uri()))
+            (
+                storage_reference,
+                StorageNamespaceBootstrap.PROV.atLocation,
+                URIRef(root_path.as_uri()),
+            )
         )
 
         return graph
@@ -290,54 +293,3 @@ class StorageBootstrap:
         )
 
         return graph
-
-
-# ---------------------------------------------------------------- public
-# Re-exports for callers that import from the module directly (for example
-# ``from ontobdc.storage.adapter.bootstrap import get_dataset_storage_file_path``)
-# instead of going through ``StorageBootstrap`` classmethod accessors.
-# These names are consumed across ontobdc/context and ontobdc/storage plugin
-# packages; they were historically available at module scope so we mirror
-# them here right after the owning classes are defined, avoiding any
-# forward-reference or circular-import timing issues during import.
-
-ONTOBDC_DIRECTORY_NAME = StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME
-STORAGE_FILE_NAME = StorageLayoutConstants.STORAGE_FILE_NAME
-CONTEXT_FILE_NAME = StorageLayoutConstants.CONTEXT_FILE_NAME
-CONTAINER_STORAGE_FILE_NAME = StorageLayoutConstants.CONTAINER_STORAGE_FILE_NAME
-DATASET_STORAGE_FILE_NAME = StorageLayoutConstants.DATASET_STORAGE_FILE_NAME
-CRATE_METADATA_FILE_NAME = StorageLayoutConstants.CRATE_METADATA_FILE_NAME
-DEFAULT_CONTEXT_LANGUAGE = StorageLayoutConstants.DEFAULT_CONTEXT_LANGUAGE
-STORAGE_IDENTIFIER = StorageLayoutConstants.STORAGE_IDENTIFIER
-
-OBDC = StorageNamespaceBootstrap.OBDC
-CT = StorageNamespaceBootstrap.CT
-PROV = StorageNamespaceBootstrap.PROV
-
-
-def get_ontobdc_directory(root_path: Path) -> Path:
-    return StorageBootstrap.get_ontobdc_directory(root_path)
-
-
-def get_storage_file_path(root_path: Path) -> Path:
-    return StorageBootstrap.get_storage_file_path(root_path)
-
-
-def get_context_file_path(root_path: Path) -> Path:
-    return StorageBootstrap.get_context_file_path(root_path)
-
-
-def get_container_storage_file_path(root_path: Path) -> Path:
-    return StorageBootstrap.get_container_storage_file_path(root_path)
-
-
-def get_dataset_storage_file_path(root_path: Path) -> Path:
-    return StorageBootstrap.get_dataset_storage_file_path(root_path)
-
-
-def get_container_crate_metadata_file_path(container_path: Path) -> Path:
-    return StorageBootstrap.get_container_crate_metadata_file_path(container_path)
-
-
-def ensure_ontobdc_directory(root_path: Path) -> Path:
-    return StorageBootstrap.ensure_ontobdc_directory(root_path)

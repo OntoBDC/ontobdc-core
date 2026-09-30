@@ -1,6 +1,6 @@
-
-from typing import List
 from abc import ABC, abstractmethod
+from typing import List
+
 from ontobdc.cli.domain.port.logger import LogRepositoryPort
 
 

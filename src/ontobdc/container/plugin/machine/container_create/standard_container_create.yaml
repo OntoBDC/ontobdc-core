@@ -1,0 +1,84 @@
+statechart:
+  name: StandardContainerCreate
+  description: "Statechart for OntoBDC storage container creation."
+
+  root state:
+    name: standard_container_create
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the target container directory exists."
+          pt-br: "Estado inicial antes da existencia do diretorio alvo do container."
+        transitions:
+          - target: invalid_path
+            guard: handler.can_transit_to(to_state = ContainerCreateProcessStatePort.INVALID_PATH)
+          - target: directory_ready
+            guard: handler.can_transit_to(to_state = ContainerCreateProcessStatePort.DIRECTORY_READY)
+            action: handler.perform_state_transition(to_state = ContainerCreateProcessStatePort.DIRECTORY_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerCreateProcessStatePort.UNDEFINED, to_state = ContainerCreateProcessStatePort.DIRECTORY_READY)
+
+      - name: invalid_path
+        label:
+          en: "Invalid Path"
+          pt-br: "Caminho Invalido"
+        description:
+          en: "The target path points to an existing file and cannot be used as a container directory."
+          pt-br: "O caminho alvo aponta para um arquivo existente e nao pode ser usado como diretorio de container."
+        type: final
+
+      - name: directory_ready
+        label:
+          en: "Directory Ready"
+          pt-br: "Diretorio Pronto"
+        description:
+          en: "The target container directory exists and is ready for the next creation steps."
+          pt-br: "O diretorio alvo do container existe e esta pronto para as proximas etapas da criacao."
+        transitions:
+          - target: container_metadata_ready
+            guard: handler.can_transit_to(to_state = ContainerCreateProcessStatePort.CONTAINER_METADATA_READY)
+            action: handler.perform_state_transition(to_state = ContainerCreateProcessStatePort.CONTAINER_METADATA_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerCreateProcessStatePort.DIRECTORY_READY, to_state = ContainerCreateProcessStatePort.CONTAINER_METADATA_READY)
+
+      - name: container_metadata_ready
+        label:
+          en: "Container Metadata Ready"
+          pt-br: "Metadados do Container Prontos"
+        description:
+          en: "The container metadata file exists and contains a valid data container description without requiring datasets."
+          pt-br: "O arquivo de metadados do container existe e contem uma descricao valida do data container sem exigir datasets."
+        transitions:
+          - target: container_storage_index_ready
+            guard: handler.can_transit_to(to_state = ContainerCreateProcessStatePort.CONTAINER_STORAGE_INDEX_READY)
+            action: handler.perform_state_transition(to_state = ContainerCreateProcessStatePort.CONTAINER_STORAGE_INDEX_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerCreateProcessStatePort.CONTAINER_METADATA_READY, to_state = ContainerCreateProcessStatePort.CONTAINER_STORAGE_INDEX_READY)
+
+      - name: container_storage_index_ready
+        label:
+          en: "Container Storage Index Ready"
+          pt-br: "Indice de Storage do Container Pronto"
+        description:
+          en: "The storage index entry for the container matches the container metadata file and is synchronized."
+          pt-br: "A entrada do container no indice de storage esta sincronizada com o arquivo de metadados do container."
+        transitions:
+          - target: container_manifest_synced
+            guard: handler.can_transit_to(to_state = ContainerCreateProcessStatePort.CONTAINER_MANIFEST_SYNCED)
+            action: handler.perform_state_transition(to_state = ContainerCreateProcessStatePort.CONTAINER_MANIFEST_SYNCED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerCreateProcessStatePort.CONTAINER_STORAGE_INDEX_READY, to_state = ContainerCreateProcessStatePort.CONTAINER_MANIFEST_SYNCED)
+
+      - name: container_manifest_synced
+        label:
+          en: "Container Manifest Synced"
+          pt-br: "Manifesto do Container Sincronizado"
+        description:
+          en: "The container manifest file exists and lists all container files excluding marker and dataset directories."
+          pt-br: "O manifesto do container existe e lista todos os arquivos do container exceto diretorios de marker e datasets."
+        type: final

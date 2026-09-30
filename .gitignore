@@ -91,3 +91,6 @@ venv/
 # ontology cache, ...) -- generated/repaired in place by the CLI init
 # state machine's check+hotfix pairs, never hand-authored or committed.
 .__ontobdc__/
+
+# Node.js/npm package install trees, local or nested (e.g. viewer bundles).
+node_modules/

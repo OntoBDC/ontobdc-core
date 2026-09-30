@@ -1,0 +1,51 @@
+# Dictionary inspection: {{ text }}
+
+- **Normalized text:** `{{ normalized_text }}`
+- **Language:** `{{ language }}`
+- **Lemma:** `{{ lemma }}`
+- **Match:** `exact`
+
+## Exact correspondence
+
+{% for exact_match in exact_matches %}
+### {{ loop.index }}. {{ exact_match.label }}
+
+- **IRI:** `{{ exact_match.iri }}`
+- **Domain:** `{{ exact_match.ontology_prefix }}`
+- **Ontology:** `{{ exact_match.ontology_type }}`
+- **Term type:** `{{ exact_match.term_type }}`
+- **Label language:** `{{ exact_match.label_language }}`
+{% set representations = kind_representations[exact_match.iri] %}
+- **Representations:** {{ representations | length }}
+
+{% for representation in representations %}
+#### Representation: {{ representation.name }}
+
+- **IRI:** `{{ representation.iri }}`
+{% if representation.classification is not none %}
+- **Classification:** `{{ representation.classification }}`
+{% endif %}
+- **Subclass of:** {{ representation.superclasses | join(", ") }}
+{% if representation.binds is defined and representation.binds | length > 0 %}
+- **Binds kinds:** {{ representation.binds | join(", ") }}
+{% endif %}
+{% for restriction in representation.restrictions %}
+- **{{ restriction.property }}:** {{ restriction.value }}
+{% endfor %}
+{% if representation.ifc is not none %}
+
+##### IFC
+
+- **Class:** {{ representation.ifc.class }}
+- **Schema:** {{ representation.ifc.schema }}
+{% if representation.ifc.predefined_type is not none %}
+- **Predefined type:** **{{ representation.ifc.predefined_type }}**
+{% endif %}
+{% for material in representation.ifc.materials %}
+- **Material:** {{ material }}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+
+{% endfor %}

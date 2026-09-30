@@ -1,7 +1,12 @@
 from typing import Any, ClassVar, Dict
 
 from pydantic import BaseModel, ConfigDict
-from ontobdc.cli.domain.port.logger import LogLevelPort, LogRepositoryPort, LogStrategyContainerPort
+
+from ontobdc.cli.domain.port.logger import (
+    LogLevelPort,
+    LogRepositoryPort,
+    LogStrategyContainerPort,
+)
 
 
 class LogLevel(LogLevelPort):

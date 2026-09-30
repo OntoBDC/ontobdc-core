@@ -197,6 +197,101 @@ Presentation is fully decoupled from semantics: the same container can have
 multiple views (flags `--type standard`, `--representation html`,
 `--language pt/en`).
 
+### 8.1 Terminal Surface — the frame every command prints
+
+Every command the CLI runs in `rich` mode comes back framed:
+
+```
+┌── >_ OntoBDC ────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│ CONTAINERS                                                                   │
+│                                                                              │
+│ Found 3 container(s) in the storage.                                         │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+That frame is the terminal's Presentation Surface. It is not decoration
+around printed text: it is the same surface model as the HTML one described
+above — regions, tiles, placements — rendered with box-drawing characters
+instead of DOM.
+
+#### The three bands
+
+A surface is one outer border enclosing three vertical bands:
+
+| Band | Where | Carries |
+|---|---|---|
+| `OperationRegion` | top chrome | the brand tile — the `>_ OntoBDC` you see cut into the top border |
+| `ContentRegion` | body | the response, full inner width unless a layout says otherwise |
+| `PinnedRegion` | bottom chrome | tiles pinned to the bottom border |
+
+**The cutouts are the mechanism, not an effect.** The top border is normally
+a solid `┌────────┐`. A tile placed in the `OperationRegion` *opens a hole*
+in that line and sits flush inside the frame at that column, replacing the
+border glyphs with its own content. The bottom border works the same way for
+the `PinnedRegion`. This mirrors the HTML operation bar, where the logo tile
+is the first element.
+
+#### How a response becomes a frame
+
+```
+CommandResponse
+    ↓  ResponseWidgetLoaderAdapter        decides WHAT: a list of Widgets
+    ↓  WidgetMarkdownStrategyFactory      decides HOW each Widget reads as markdown
+    ↓  ResponseMarkdownComposer           one markdown body
+    ↓  TerminalSurfaceRenderer            decides the framing: width, bands, cutouts
+string with ANSI
+```
+
+A `CommandResponse` never knows it will be framed, and never knows whether
+its content will end up a table, a key-value list or a bullet list. Only the
+widget adapters know that, and only the renderer knows the terminal is
+80 columns wide today.
+
+#### The colour is the response type
+
+The whole border is tinted, and the tint is chosen from the kind of response,
+not passed in by the command:
+
+| Response | Theme | RGB |
+|---|---|---|
+| `ExceptionCommandResponse` | `error` | `(186, 26, 26)` |
+| `HelpCommandResponse` | `info` | `(2, 119, 189)` |
+| `RunCommandResponse` | `neutral` | `(117, 117, 117)` |
+| anything else | `ontobdc` | `(0, 180, 216)` |
+
+`ResponsePresentationPolicy` walks the response's MRO to find the theme, so a
+subclass inherits its parent's presentation without declaring anything. A
+response that carries its own `severity` overrides the badge, not the theme.
+
+`SurfacePalette` is the single source for those values, and it also holds
+`success` and `warning` for responses that want them.
+
+#### Where each piece lives
+
+| Piece | Module |
+|---|---|
+| the renderer, bands, cutout maths | `cli/adapter/surface.py` — `TerminalSurfaceRenderer` |
+| the port the CLI depends on | `cli/domain/port/renderer.py` — `TerminalSurfacePort` |
+| box-drawing characters | `shared/adapter/surface/box.py` — `SurfaceBox` |
+| theme colours | `shared/adapter/surface/palette.py` — `SurfacePalette` |
+| region and placement model | `shared/domain/model/surface.py` |
+| widgets | `cli/component/widget/python.py` |
+| widget → markdown | `cli/adapter/renderer.py` |
+
+#### Putting another brand in the frame
+
+`TerminalSurfaceRenderer.with_content_surface(body, theme=..., operation_tile=...)`
+takes a ready-made `TerminalTileRenderable` and registers it as the operation
+tile, so a downstream executable gets its own name in the cutout without
+touching the renderer or re-implementing frame assembly.
+
+That is exactly how the sibling `infobim` CLI prints
+`┌── >_ InfoBIM ──` over the same surface: it implements
+`TerminalSurfacePort` with a renderer call that passes its own tile, and
+changes nothing else.
+
 ### 9. dWorker — "digital workers" / agents
 
 **dWorkers** are specialized workers that perform bounded work over data and

@@ -1,8 +1,9 @@
+from abc import abstractmethod
+from typing import Any, Dict, List
 
-from typing import Any, Dict
-from abc import ABC, abstractmethod
-from ontobdc.shared.facade.port.context import CliContextPort
+from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.domain.port.loader import PluginLoaderPort
+from ontobdc.shared.domain.model.health import HealthCheck
 
 
 class CapabilityPort(PluginLoaderPort):
@@ -24,13 +25,6 @@ class CapabilityPort(PluginLoaderPort):
         ...
 
 
-class QueryCapabilityPort(CapabilityPort):
-    """
-    Port representing a capability designed to query information without side effects.
-    """
-    pass
-
-
 class TransformationCapabilityPort(CapabilityPort):
     """
     Port representing a capability designed to transform data structures.
@@ -45,15 +39,32 @@ class TransactionCapabilityPort(CapabilityPort):
     pass
 
 
-class EntityQueryCapabilityVisitablePort(ABC):
+class PersisterCapabilityPort(CapabilityPort):
     """
-    Port for capabilities that can accept visitors.
+    Port representing a capability that persists data through a repository.
     """
+    pass
+
+
+class ReadOnlyCapabilityPort(CapabilityPort):
+    """
+    Port representing a capability that only reads and returns data.
+    """
+    pass
+
+
+class HealthCheckCapabilityPort(ReadOnlyCapabilityPort):
+    """
+    Port representing a capability that reports verifications it runs.
+
+    Unlike the transformation family, a health check repairs nothing: it
+    looks at what is there, says which verifications hold, and leaves the
+    subject exactly as it found it.
+    """
+
     @abstractmethod
-    def accept(self, visitor: 'RemoteDatasetCapabilityVisitorPort') -> Any:
+    def checks(self, context: CliContextPort) -> List[HealthCheck]:
         """
-        Accept a visitor and return the result.
+        Return every verification this capability reports, in reading order.
         """
         ...
-
-

@@ -2,28 +2,30 @@ import json
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ontobdc.cli.domain.port.response import ResponseWidgetAdapterPort
+from ontobdc.cli.component.widget.tree import TreeWidget
+from ontobdc.cli.component.widget.graph import GraphWidget
+from ontobdc.cli.component.widget.python import (
+    CodeBlockWidget,
+    ErrorWidget,
+    GridWidget,
+    HealthCheckWidget,
+    KeyValueWidget,
+    TableWidget,
+    TextWidget,
+)
 from ontobdc.cli.domain.response.command import (
     CommandResponse,
     ExceptionCommandResponse,
     GraphCommandResponse,
     GridCommandResponse,
     GroupedGraphCommandResponse,
+    HealthCheckCommandResponse,
     HelpCommandResponse,
     ListCommandResponse,
     RunCommandResponse,
     TreeCommandResponse,
     WelcomeCommandResponse,
 )
-from ontobdc.view.component.widget.graph import GraphWidget
-from ontobdc.view.component.widget.python import (
-    CodeBlockWidget,
-    ErrorWidget,
-    GridWidget,
-    KeyValueWidget,
-    TableWidget,
-    TextWidget,
-)
-from ontobdc.view.component.widget.tree import TreeWidget
 
 
 class BaseResponseWidgetAdapter(ResponseWidgetAdapterPort):
@@ -95,6 +97,9 @@ class BaseResponseWidgetAdapter(ResponseWidgetAdapterPort):
             return []
 
         if isinstance(value, dict):
+            if self._is_tree_node(value):
+                return [TreeWidget(root=value)]
+
             if self._is_harmonious_record(value):
                 return [KeyValueWidget(pairs=self._record_pairs(value))]
 
@@ -162,6 +167,21 @@ class BaseResponseWidgetAdapter(ResponseWidgetAdapterPort):
             return ", ".join(str(item) for item in value)
 
         return str(value)
+
+    @staticmethod
+    def _is_tree_node(content: Dict[Any, Any]) -> bool:
+        """A dict shaped like a tree node is drawn as a tree.
+
+        ``name``/``kind``/``children`` is the vocabulary TreeWidget reads,
+        and a dict carrying exactly those three keys is one — there is
+        nothing else it could be. Recognising it here is what lets any
+        response carrying a tree anywhere in its content be drawn as one,
+        rather than only the responses whose type says so.
+        """
+        if set(content.keys()) != {"name", "kind", "children"}:
+            return False
+
+        return isinstance(content.get("children"), list)
 
     def _is_harmonious_record(self, content: Dict[Any, Any]) -> bool:
         """A flat, non-empty dict of scalars reads better as a two-column table."""
@@ -323,15 +343,100 @@ class ListCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
         return [KeyValueWidget(pairs=pairs)]
 
 
+class HealthCheckCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
+    response_type: Type[CommandResponse] = HealthCheckCommandResponse
+
+    CHECKS_KEY: str = "checks"
+    # The overall verdict is what the response description already says, so
+    # repeating it as a key/value line under the listing says nothing new.
+    HEALTHY_KEY: str = "healthy"
+
+    def widgets(self, response: CommandResponse) -> List[Any]:
+        content: Dict[str, Any] = response.content if isinstance(response.content, dict) else {}
+        widgets: List[Any] = []
+
+        heading_widget: Optional[TextWidget] = self._heading_widget(response)
+        if heading_widget is not None:
+            widgets.append(heading_widget)
+
+        checks: Any = content.get(self.CHECKS_KEY)
+        if isinstance(checks, list) and checks:
+            widgets.append(
+                HealthCheckWidget(
+                    checks=[self._check_of(check) for check in checks],
+                )
+            )
+
+        widgets.extend(
+            self._content_widgets(
+                {
+                    key: value
+                    for key, value in content.items()
+                    if key not in (self.CHECKS_KEY, self.HEALTHY_KEY)
+                }
+            )
+        )
+
+        return widgets
+
+    SCOPE_SEPARATOR: str = " · "
+
+    @classmethod
+    def _check_of(cls, check: Any) -> Tuple[str, bool]:
+        """
+        Return the line a reported check reads as, and its outcome.
+
+        A check about a subject of its own — one dataset among several —
+        names that subject ahead of the label, so the listing stays flat
+        while still saying what each line is about.
+        """
+        label: Any = getattr(check, "label", None)
+        passed: Any = getattr(check, "passed", None)
+        scope: Any = getattr(check, "scope", None)
+        if isinstance(check, dict):
+            label = check.get("label")
+            passed = check.get("passed")
+            scope = check.get("scope")
+
+        line: str = str(label).strip()
+        if isinstance(scope, str) and scope.strip():
+            line = f"{scope.strip()}{cls.SCOPE_SEPARATOR}{line}"
+
+        return line, bool(passed)
+
+
 class ExceptionCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
     response_type: Type[CommandResponse] = ExceptionCommandResponse
+
+    SUGGESTION_KEY: str = "did you mean"
 
     def widgets(self, response: CommandResponse) -> List[Any]:
         content: Dict[str, Any] = response.content if isinstance(response.content, dict) else {}
         message: str = str(content.get("error") or response.description or "").strip()
         traceback_text: Optional[str] = str(content.get("traceback") or "").strip() or None
 
-        return [ErrorWidget(message=message, traceback=traceback_text)]
+        widgets: List[Any] = [ErrorWidget(message=message, traceback=traceback_text)]
+        widgets.extend(self._suggestion_widgets(content))
+
+        return widgets
+
+    def _suggestion_widgets(self, content: Dict[str, Any]) -> List[Any]:
+        """Render the commands closest to the rejected invocation, if any.
+
+        The error widget shows the failure alone; the suggestions belong
+        beside it as their own labeled block so the reader sees the forms
+        the CLI accepts without having to read them out of the message.
+        """
+        suggested_commands: Any = content.get(self.SUGGESTION_KEY)
+        if not isinstance(suggested_commands, list) or not suggested_commands:
+            return []
+
+        return [
+            TextWidget(
+                heading=self._format_label(self.SUGGESTION_KEY),
+                body="\n".join(f"- {command}" for command in suggested_commands),
+            )
+        ]
 
 
 class WelcomeCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
@@ -379,8 +484,16 @@ class TreeCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
         if heading_widget is not None:
             widgets.append(heading_widget)
 
+        fields: Dict[str, Any] = {
+            key: value
+            for key, value in content.items()
+            if key != "tree"
+        }
+        widgets.extend(self._content_widgets(fields))
+
         tree: Any = content.get("tree")
-        widgets.append(TreeWidget(root=tree if isinstance(tree, dict) else {}))
+        if isinstance(tree, dict):
+            widgets.append(TreeWidget(root=tree))
         return widgets
 
 

@@ -1,151 +1,201 @@
+from typing import Any, ClassVar, Dict, List
 from pathlib import Path
-from typing import Any, List, Optional, Type
+from datetime import datetime, timezone
+
+import yaml
+from rdflib import Graph, Literal, Namespace, URIRef
+from rdflib.namespace import DCTERMS, OWL, RDF, XSD
 
 from ontobdc.cli.adapter.logger import NullLogRepository
-from ontobdc.cli.domain.port.context import CliContextPort
-from ontobdc.shared.adapter.capability import CapabilityExecutor
-from ontobdc.shared.adapter.loader import CapabilityLoader
-from ontobdc.shared.adapter.statechart import StatechartLocator
-from ontobdc.shared.adapter.worker import StateWorkerAdapter
-from ontobdc.cli.domain.machine.state import CliInitProcessState
 from ontobdc.cli.domain.port.logger import LogRepositoryPort
-from ontobdc.cli.domain.port.machine import (
-    CliInitProcessStatePort,
-    CliInitStateEvaluatorPort,
-    CliInitStateTransitionHandlerPort,
-)
+from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.cli.domain.response.command import CommandResponse
-from ontobdc.shared.domain.port.capability import CapabilityPort
-from ontobdc.cli.plugin.check.has_valid_engine.check import main as check_engine
-from ontobdc.storage.plugin.check.is_root_set.check import main as check_storage_index
-from ontobdc.storage.adapter.bootstrap import StorageBootstrap
-from ontobdc.cli.plugin.check.has_valid_config_file.check import main as check_config_file
-from ontobdc.cli.plugin.check.has_valid_brand.check import main as check_brand
-from ontobdc.cli.plugin.check.has_english_nlp_model.check import main as check_english_nlp_model
-from ontobdc.context.plugin.check.has_valid_context.check import main as check_execution_context
 
 
-class CliInitStateEvaluatorAdapter(CliInitStateEvaluatorPort):
-    @property
-    def process_state_class(self) -> Type[CliInitProcessStatePort]:
-        return CliInitProcessState
+class CliInitStateTransitionHandler:
+    """Bootstrap an OntoBDC project through the canonical init states."""
 
-    def evaluate(self, context: CliContextPort) -> CliInitProcessStatePort:
-        root_path: Path = StorageBootstrap.get_init_root_path(context=context)
-        ontobdc_directory: Path = StorageBootstrap.get_ontobdc_directory(root_path)
-        if not ontobdc_directory.is_dir():
-            return CliInitProcessState.UNDEFINED
+    _STATE_SEQUENCE: ClassVar[List[str]] = [
+        "__ontobdc_directory_ready__",
+        "__engine_ready__",
+        "__storage_index_healthy__",
+        "__execution_context_healthy__",
+        "__config_adapter_ready__",
+        "__brand_ready__",
+    ]
+    _DEFAULT_BRAND: ClassVar[Dict[str, str]] = {
+        "name": "OntoBDC",
+        "mark_svg": (
+            '<svg viewBox="0 0 64 64" aria-hidden="true">'
+            '<circle cx="32" cy="32" r="25" fill="none" '
+            'stroke="currentColor" stroke-width="8"/>'
+            '<circle cx="32" cy="32" r="7" fill="currentColor"/></svg>'
+        ),
+        "logotype_svg": (
+            '<svg viewBox="0 0 260 64" aria-hidden="true">'
+            '<circle cx="32" cy="32" r="23" fill="none" '
+            'stroke="var(--onto-theme-accent, currentColor)" '
+            'stroke-width="7"/>'
+            '<circle cx="32" cy="32" r="6" '
+            'fill="var(--onto-theme-accent, currentColor)"/>'
+            '<text x="68" y="42" fill="currentColor" '
+            'font-family="system-ui, sans-serif" font-size="31" '
+            'font-weight="700">OntoBDC</text></svg>'
+        ),
+        "slogan": "Data with Brains",
+    }
+    _OBDC: ClassVar[Namespace] = Namespace(
+        "http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#"
+    )
+    _CT: ClassVar[Namespace] = Namespace(
+        "http://standards.iso.org/iso/21597/-1/ed-1/en/Container#"
+    )
+    _PROV: ClassVar[Namespace] = Namespace("http://www.w3.org/ns/prov#")
+    _CONTEXT: ClassVar[Namespace] = Namespace("urn:ontobdc:context/")
+    _STORAGE_IDENTIFIER: ClassVar[str] = "urn:ontobdc:storage/local"
 
-        if check_engine(root_path=str(root_path)) != 0:
-            return CliInitProcessState.ONTOBDC_DIRECTORY_READY
-
-        if check_storage_index(root_path=str(root_path)) != 0:
-            return CliInitProcessState.ENGINE_READY
-
-        if check_execution_context(root_path=str(root_path)) != 0:
-            return CliInitProcessState.STORAGE_INDEX_HEALTHY
-
-        if check_config_file(root_path=str(root_path)) != 0:
-            return CliInitProcessState.EXECUTION_CONTEXT_HEALTHY
-
-        if check_brand(root_path=str(root_path)) != 0:
-            return CliInitProcessState.CONFIG_ADAPTER_READY
-
-        if check_english_nlp_model(root_path=str(root_path)) != 0:
-            return CliInitProcessState.BRAND_READY
-
-        return CliInitProcessState.ENGLISH_NLP_MODEL_READY
-
-
-class CliInitStateTransitionHandler(CliInitStateTransitionHandlerPort):
     def __init__(
         self,
         context: CliContextPort,
-        logger: Optional[LogRepositoryPort] = None,
+        logger: LogRepositoryPort | None = None,
     ) -> None:
         self._context: CliContextPort = context
         self._logger: LogRepositoryPort = logger or NullLogRepository()
-        self._state_evaluator: CliInitStateEvaluatorPort = CliInitStateEvaluatorAdapter()
-        self._active_state: Optional[CliInitProcessStatePort] = None
-
-    @property
-    def current_state(self) -> CliInitProcessStatePort:
-        if self._active_state is not None:
-            return self._active_state
-
-        return self.observed_state
-
-    @property
-    def observed_state(self) -> CliInitProcessStatePort:
-        return self._state_evaluator.evaluate(self._context)
-
-    @property
-    def state_sequence(self) -> List[CliInitProcessStatePort]:
-        return list(CliInitProcessState)
-
-    def can_transit_to(self, to_state: CliInitProcessStatePort) -> bool:
-        return self.current_state != to_state
-
-    def perform_state_transition(self, to_state: CliInitProcessStatePort) -> None:
-        self._logger.log_info(
-            f"CLI init transition: {self.current_state.value} -> {to_state.value}",
-        )
-        capability_id: str = (
-            f"org.ontobdc.cli.plugin.capability.transformation.target.{to_state.value.strip('_')}"
-        )
-        capability_type: Any = CapabilityLoader().get(capability_id)
-        if capability_type is None:
-            raise ValueError(f"CLI init capability not found: {capability_id}")
-
-        capability: CapabilityPort = capability_type()
-        CapabilityExecutor.execute(capability, self._context)
-
-    def validate_state_transition(
-        self,
-        from_state: CliInitProcessStatePort,
-        to_state: CliInitProcessStatePort,
-    ) -> bool:
-        if from_state == to_state:
-            return False
-
-        observed_state: CliInitProcessStatePort = self.observed_state
-        if observed_state == to_state:
-            return True
-
-        state_sequence: List[CliInitProcessStatePort] = self.state_sequence
-        if to_state not in state_sequence or observed_state not in state_sequence:
-            return False
-
-        return state_sequence.index(observed_state) > state_sequence.index(to_state)
 
     def execute(self) -> CommandResponse:
-        worker: StateWorkerAdapter = StateWorkerAdapter(
-            state_adapter=CliInitProcessState,
-            state_context_name="CliInitProcessStatePort",
-            handler=self,
-            logger=self._logger,
-            statechart_file_path=self._get_statechart_file_path(),
-        )
-        visited_states: List[str] = worker.work()
+        root_path: Path = Path(self._context.root_path).expanduser().resolve()
+        ontobdc_directory: Path = root_path / ".__ontobdc__"
+        ontobdc_directory.mkdir(parents=True, exist_ok=True)
 
-        root_path: Path = StorageBootstrap.get_init_root_path(context=self._context)
+        self._write_config(root_path, ontobdc_directory / "config.yaml")
+        self._write_context(root_path, ontobdc_directory / "context.ttl")
+        self._write_storage(root_path, ontobdc_directory / "storage.ttl")
+
         self._logger.log_notice("OntoBDC init bootstrap finished successfully.")
         return CommandResponse(
             title="Init",
             description="Bootstrap initialization executed successfully.",
             content={
                 "root_path": str(root_path),
-                "ontobdc_directory": str(StorageBootstrap.get_ontobdc_directory(root_path)),
-                "current_state": self.current_state.value,
-                "visited_states": visited_states,
+                "ontobdc_directory": str(ontobdc_directory),
+                "current_state": self._STATE_SEQUENCE[-1],
+                "visited_states": list(self._STATE_SEQUENCE),
             },
         )
 
-    def _get_statechart_file_path(self) -> Path:
-        return StatechartLocator.locate(
-            __file__,
-            "standard_init.yaml",
+    def _write_config(self, root_path: Path, config_file: Path) -> None:
+        config: Dict[str, Any] = {}
+        if config_file.is_file():
+            loaded_config: Any = yaml.safe_load(
+                config_file.read_text(encoding="utf-8")
+            )
+            if isinstance(loaded_config, dict):
+                config = loaded_config
+
+        directory: Any = config.get("directory")
+        if not isinstance(directory, dict):
+            directory = {}
+        root: Any = directory.get("root")
+        if not isinstance(root, dict):
+            root = {}
+        root["absolute_path"] = str(root_path)
+        directory["root"] = root
+        config["directory"] = directory
+
+        engine: Any = config.get("engine")
+        if not isinstance(engine, str) or not engine.strip():
+            config["engine"] = "venv"
+
+        brand: Any = config.get("brand")
+        if not isinstance(brand, dict):
+            brand = {}
+        brand_key: str
+        brand_value: str
+        for brand_key, brand_value in self._DEFAULT_BRAND.items():
+            current_value: Any = brand.get(brand_key)
+            if not isinstance(current_value, str) or not current_value.strip():
+                brand[brand_key] = brand_value
+        config["brand"] = brand
+
+        config_file.write_text(
+            yaml.safe_dump(config, default_flow_style=False, sort_keys=False),
+            encoding="utf-8",
         )
 
-    def bind_active_state(self, state: CliInitProcessStatePort) -> None:
-        self._active_state = state
+    def _write_context(self, root_path: Path, context_file: Path) -> None:
+        if self._is_valid_graph(context_file):
+            return
+
+        graph: Graph = Graph()
+        graph.bind("", self._CONTEXT)
+        graph.bind("obdc", self._OBDC)
+        graph.bind("owl", OWL)
+        context_reference: URIRef = self._CONTEXT["CurrentContext"]
+        graph.add((context_reference, RDF.type, self._OBDC.ExecutionContext))
+        graph.add((context_reference, RDF.type, OWL.NamedIndividual))
+        graph.add((context_reference, self._OBDC.contextLanguage, Literal("en")))
+        graph.add(
+            (
+                context_reference,
+                self._OBDC.projectRootLocation,
+                URIRef(root_path.as_uri()),
+            )
+        )
+        graph.serialize(destination=context_file, format="turtle")
+
+    def _write_storage(self, root_path: Path, storage_file: Path) -> None:
+        if self._is_valid_graph(storage_file):
+            return
+
+        graph: Graph = Graph()
+        graph.bind("dcterms", DCTERMS)
+        graph.bind("ct", self._CT)
+        graph.bind("prov", self._PROV)
+        graph.bind("xsd", XSD)
+        graph.bind("obdc", self._OBDC)
+        storage_reference: URIRef = URIRef(self._STORAGE_IDENTIFIER)
+        created_at: Literal = Literal(
+            datetime.now(timezone.utc).isoformat(),
+            datatype=XSD.dateTime,
+        )
+        graph.add((storage_reference, RDF.type, self._OBDC.DataStorage))
+        graph.add(
+            (
+                storage_reference,
+                DCTERMS.identifier,
+                Literal(self._STORAGE_IDENTIFIER),
+            )
+        )
+        graph.add(
+            (
+                storage_reference,
+                DCTERMS.title,
+                Literal("The Main Storage Index", lang="en"),
+            )
+        )
+        graph.add((storage_reference, self._CT.creationDate, created_at))
+        graph.add(
+            (
+                storage_reference,
+                self._CT.description,
+                Literal(
+                    f"Main storage container for project at "
+                    f"{root_path.name or root_path.as_posix()}",
+                    lang="en",
+                ),
+            )
+        )
+        graph.add(
+            (storage_reference, self._PROV.atLocation, URIRef(root_path.as_uri()))
+        )
+        graph.serialize(destination=storage_file, format="turtle")
+
+    def _is_valid_graph(self, graph_file: Path) -> bool:
+        if not graph_file.is_file():
+            return False
+
+        try:
+            Graph().parse(graph_file, format="turtle")
+        except Exception:
+            return False
+        return True

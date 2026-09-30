@@ -1,0 +1,143 @@
+statechart:
+  name: FileMeaningSuggestion
+  description: "Statechart for semantic file meaning suggestions derived from paths."
+
+  root state:
+    name: file_meaning_suggestion
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the source file path has been normalized."
+          pt-br: "Estado inicial antes da normalizacao do caminho do arquivo de origem."
+        transitions:
+          - target: path_normalized
+            guard: handler.can_transit_to(to_state = FileMeaningSuggestionProcessStatePort.PATH_NORMALIZED)
+            action: handler.perform_state_transition(to_state = FileMeaningSuggestionProcessStatePort.PATH_NORMALIZED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileMeaningSuggestionProcessStatePort.UNDEFINED, to_state = FileMeaningSuggestionProcessStatePort.PATH_NORMALIZED)
+
+      - name: path_normalized
+        label:
+          en: "Path Normalized"
+          pt-br: "Caminho Normalizado"
+        description:
+          en: "The source path has a normalized representation ready for language identification."
+          pt-br: "O caminho de origem possui uma representacao normalizada pronta para identificacao de idioma."
+        transitions:
+          - target: path_language_identified
+            guard: handler.can_transit_to(to_state = FileMeaningSuggestionProcessStatePort.PATH_LANGUAGE_IDENTIFIED)
+            action: handler.perform_state_transition(to_state = FileMeaningSuggestionProcessStatePort.PATH_LANGUAGE_IDENTIFIED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileMeaningSuggestionProcessStatePort.PATH_NORMALIZED, to_state = FileMeaningSuggestionProcessStatePort.PATH_LANGUAGE_IDENTIFIED)
+
+      - name: path_language_identified
+        label:
+          en: "Path Language Identified"
+          pt-br: "Idioma do Caminho Identificado"
+        description:
+          en: "The language of the normalized path has been identified for lemmatization."
+          pt-br: "O idioma do caminho normalizado foi identificado para lematizacao."
+        transitions:
+          - target: file_metadata_extracted
+            guard: handler.can_transit_to(to_state = FileMeaningSuggestionProcessStatePort.FILE_METADATA_EXTRACTED)
+            action: handler.perform_state_transition(to_state = FileMeaningSuggestionProcessStatePort.FILE_METADATA_EXTRACTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileMeaningSuggestionProcessStatePort.PATH_LANGUAGE_IDENTIFIED, to_state = FileMeaningSuggestionProcessStatePort.FILE_METADATA_EXTRACTED)
+
+      - name: file_metadata_extracted
+        label:
+          en: "File Metadata Extracted"
+          pt-br: "Metadados do Arquivo Extraidos"
+        description:
+          en: "Metadata relevant to semantic matching has been extracted from the normalized file path."
+          pt-br: "Os metadados relevantes para correspondencia semantica foram extraidos do caminho normalizado do arquivo."
+        transitions:
+          - target: path_lemmatized
+            guard: handler.can_transit_to(to_state = FileMeaningSuggestionProcessStatePort.PATH_LEMMATIZED)
+            action: handler.perform_state_transition(to_state = FileMeaningSuggestionProcessStatePort.PATH_LEMMATIZED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileMeaningSuggestionProcessStatePort.FILE_METADATA_EXTRACTED, to_state = FileMeaningSuggestionProcessStatePort.PATH_LEMMATIZED)
+
+      - name: path_lemmatized
+        label:
+          en: "Path Lemmatized"
+          pt-br: "Caminho Lematizado"
+        description:
+          en: "The normalized path has been reduced to its lemma, ready for token-level corpus statistics."
+          pt-br: "O caminho normalizado foi reduzido ao seu lema, pronto para estatisticas de corpus em nivel de token."
+        transitions:
+          - target: token_statistics_computed
+            guard: handler.can_transit_to(to_state = FileMeaningSuggestionProcessStatePort.TOKEN_STATISTICS_COMPUTED)
+            action: handler.perform_state_transition(to_state = FileMeaningSuggestionProcessStatePort.TOKEN_STATISTICS_COMPUTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileMeaningSuggestionProcessStatePort.PATH_LEMMATIZED, to_state = FileMeaningSuggestionProcessStatePort.TOKEN_STATISTICS_COMPUTED)
+
+      - name: token_statistics_computed
+        label:
+          en: "Token Statistics Computed"
+          pt-br: "Estatisticas de Token Computadas"
+        description:
+          en: "Deterministic token-level corpus statistics have been computed from every lemmatized path."
+          pt-br: "Estatisticas deterministicas de corpus em nivel de token foram computadas a partir de cada caminho lematizado."
+        transitions:
+          - target: chunk_candidates_generated
+            guard: handler.can_transit_to(to_state = FileMeaningSuggestionProcessStatePort.CHUNK_CANDIDATES_GENERATED)
+            action: handler.perform_state_transition(to_state = FileMeaningSuggestionProcessStatePort.CHUNK_CANDIDATES_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileMeaningSuggestionProcessStatePort.TOKEN_STATISTICS_COMPUTED, to_state = FileMeaningSuggestionProcessStatePort.CHUNK_CANDIDATES_GENERATED)
+
+      - name: chunk_candidates_generated
+        label:
+          en: "Chunk Candidates Generated"
+          pt-br: "Candidatos a Chunk Gerados"
+        description:
+          en: "Contiguous multi-token expressions have been generated as chunk candidates with traceable corpus evidence."
+          pt-br: "Expressoes contiguas de multiplos tokens foram geradas como candidatos a chunk com evidencias rastreaveis do corpus."
+        transitions:
+          - target: chunks_extracted
+            guard: handler.can_transit_to(to_state = FileMeaningSuggestionProcessStatePort.CHUNKS_EXTRACTED)
+            action: handler.perform_state_transition(to_state = FileMeaningSuggestionProcessStatePort.CHUNKS_EXTRACTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileMeaningSuggestionProcessStatePort.CHUNK_CANDIDATES_GENERATED, to_state = FileMeaningSuggestionProcessStatePort.CHUNKS_EXTRACTED)
+
+      - name: chunks_extracted
+        label:
+          en: "Chunks Extracted"
+          pt-br: "Chunks Extraidos"
+        description:
+          en: "Statistically supported chunk candidates have been promoted to deterministic accepted chunks."
+          pt-br: "Os candidatos a chunk com suporte estatistico foram promovidos a chunks aceitos de forma deterministica."
+        transitions:
+          - target: ontology_terms_matched
+            guard: handler.can_transit_to(to_state = FileMeaningSuggestionProcessStatePort.ONTOLOGY_TERMS_MATCHED)
+            action: handler.perform_state_transition(to_state = FileMeaningSuggestionProcessStatePort.ONTOLOGY_TERMS_MATCHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileMeaningSuggestionProcessStatePort.CHUNKS_EXTRACTED, to_state = FileMeaningSuggestionProcessStatePort.ONTOLOGY_TERMS_MATCHED)
+
+      - name: ontology_terms_matched
+        label:
+          en: "Ontology Terms Matched"
+          pt-br: "Termos da Ontologia Correspondidos"
+        description:
+          en: "Accepted chunks have been matched against explicitly declared ontology terms."
+          pt-br: "Os chunks aceitos foram comparados com termos explicitamente declarados na ontologia."
+        transitions:
+          - target: category_candidates_found
+            guard: handler.can_transit_to(to_state = FileMeaningSuggestionProcessStatePort.CATEGORY_CANDIDATES_FOUND)
+            action: handler.perform_state_transition(to_state = FileMeaningSuggestionProcessStatePort.CATEGORY_CANDIDATES_FOUND)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileMeaningSuggestionProcessStatePort.ONTOLOGY_TERMS_MATCHED, to_state = FileMeaningSuggestionProcessStatePort.CATEGORY_CANDIDATES_FOUND)
+
+      - name: category_candidates_found
+        label:
+          en: "Category Candidates Found"
+          pt-br: "Candidatos de Categoria Encontrados"
+        description:
+          en: "Hierarchical category candidates grouped per ro-crate file, then per ontology category, then per chunk. Exact=1.0, fuzzy=min(len)/max(len) substring ratio, unmatched=0 with synthetic bucket."
+          pt-br: "Candidatos de categoria hierarquicos agrupados por arquivo do ro-crate, depois por categoria da ontologia, depois por chunk. Exato=1.0, fuzzy=min/comprimento/max(comprimento) por substring, nao-match=0 em bucket sintetico."
+        type: final

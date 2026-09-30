@@ -1,311 +1,260 @@
-"""Centralized ANSI SGR terminal colour/style helpers.
-
-Single source of truth for every terminal escape sequence used across the
-OntoBDC codebase.  Duplicating these codes scattered through adapter
-files is a source of subtle palette drift (the same ``GRAY`` being two
-different SGR values in two different files) and of duplicated regex
-compilations for the *same* ANSI-escape cleaner pattern.
-
-Naming convention
------------------
-Constants are intentionally UPPER_CASE without any leading underscore so
-they can be re-exported or aliased freely from different layers
-(``cli`` / ``shared`` / ``view``).  Callers that want a private-looking
-symbol should alias on import::
-
-    from ontobdc.shared.adapter.terminal_color import (
-        GRAY as _GRAY,
-        RESET as _RESET,
-    )
-
-Rule #18 compliance
--------------------
-Module-level helper *functions* are kept to the absolute minimum
-(``rgb_fg`` / ``rgb_bg``) because they are pure, side-effect-free,
-deterministic formatters with zero mutable state — the exact shape the
-rule tolerates inside a dedicated single-purpose utility module.
-Everything else (4-bit colours, SGR styles, regex pattern) is a plain
-module constant.
-"""
-from __future__ import annotations
-
 import re
-from typing import Dict, Optional, Tuple
-
-# ---------------------------------------------------------------------------
-# 4-bit foreground colours (SGR 30–37 + 90–97 for "bright" variants).
-# Values are kept identical to the historical hardcoded constants in
-# ``cli/adapter/logger.py`` so the rendered palette does not change.
-# ---------------------------------------------------------------------------
-
-# SGR 0 — Reset / Normal  (also resets background/style attributes)
-RESET: str = "\033[0m"
-
-# SGR 30 / bright 90-family — the canonical palette used by InLineLogger.
-BLACK:     str = "\033[30m"
-RED:       str = "\033[31m"
-GREEN:     str = "\033[32m"
-YELLOW:    str = "\033[33m"
-BLUE:      str = "\033[34m"
-MAGENTA:   str = "\033[35m"
-CYAN:      str = "\033[36m"
-WHITE:     str = "\033[37m"
-
-# Bright variants  (SGR 90-family — "high intensity" palette).
-# GRAY in particular is the exact SGR code used for the ``[HH:MM:SS]``
-# timestamp on the inline logger ("Bright Black").
-BRIGHT_BLACK:  str = "\033[90m"
-BRIGHT_RED:    str = "\033[91m"
-BRIGHT_GREEN:  str = "\033[92m"
-BRIGHT_YELLOW: str = "\033[93m"
-BRIGHT_BLUE:   str = "\033[94m"
-BRIGHT_MAGENTA: str = "\033[95m"
-BRIGHT_CYAN:   str = "\033[96m"
-BRIGHT_WHITE:  str = "\033[97m"
-
-# Convenience alias — everywhere else in the project this specific shade
-# is always spelled ``GRAY`` (matching the historical ``_GRAY`` variable
-# name from ``cli/adapter/logger.py``).
-GRAY: str = BRIGHT_BLACK
-
-# ---------------------------------------------------------------------------
-# SGR styles (non-colour attributes).
-# ---------------------------------------------------------------------------
-BOLD:             str = "\033[1m"   # SGR 1 — bold / increased intensity
-DIM:              str = "\033[2m"   # SGR 2 — dim / faint / decreased intensity
-NORMAL_INTENSITY: str = "\033[22m"  # SGR 22 — cancels BOLD+DIM
-ITALIC:           str = "\033[3m"   # SGR 3 — italic (if terminal supports)
-UNDERLINE:        str = "\033[4m"   # SGR 4 — single underline
-NO_UNDERLINE:     str = "\033[24m"  # SGR 24 — cancels UNDERLINE
-
-# ---------------------------------------------------------------------------
-# Non-SGR CSI sequences: cursor movement and line-level erasure.
-# These are pure ANSI control primitives (not colours) but live here so
-# every escape string flows through one adapter.
-# ---------------------------------------------------------------------------
-
-CSI: str = "\033["                              # Control Sequence Introducer
-
-CURSOR_UP: str = f"{CSI}{{}}A"                  # Format with number of lines
-CURSOR_UP_1: str = f"{CSI}1A"                   # Common case: move 1 line up
-ERASE_LINE: str = f"{CSI}2K"                    # SGR 2K — erase entire line
-CARRIAGE_RETURN: str = "\r"
-
-# ---------------------------------------------------------------------------
-# 24-bit "true colour" foreground / background helpers (SGR 38;2 / 48;2).
-# ---------------------------------------------------------------------------
-
-_VALID_RGB_RANGE: str = (
-    "RGB channel {name}={value!r} is out of the 0..255 inclusive range."
-)
+from typing import ClassVar, Dict, Optional, Pattern, Tuple
 
 
-def _validate_rgb(red: int, green: int, blue: int) -> Tuple[int, int, int]:
-    """Raise ``ValueError`` if any channel is outside ``0 <= c <= 255``.
-
-    Internal helper (leading underscore) because the two public
-    one-liners below are the intended API surface.
+class TerminalColor:
     """
-    if not (
-        isinstance(red, int)
-        and isinstance(green, int)
-        and isinstance(blue, int)
-    ):
-        raise TypeError(
-            "RGB channels must be Python integers in the 0..255 range; "
-            f"got (red={red!r}, green={green!r}, blue={blue!r})."
-        )
-    for name, value in (("red", red), ("green", green), ("blue", blue)):
-        if not (0 <= value <= 255):
-            raise ValueError(_VALID_RGB_RANGE.format(name=name, value=value))
-    return red, green, blue
+    Single source of truth for the ANSI SGR sequences used in the terminal.
 
-
-def rgb_fg(red: int, green: int, blue: int) -> str:
-    """Return a 24-bit SGR foreground (text colour) escape sequence.
-
-    >>> rgb_fg(0, 180, 216)
-    '\\x1b[38;2;0;180;216m'
+    The values are the historical ones from the CLI logger, so the rendered
+    palette stays unchanged.
     """
-    r, g, b = _validate_rgb(red, green, blue)
-    return f"\033[38;2;{r};{g};{b}m"
+    RESET: ClassVar[str] = "\033[0m"
 
+    BLACK: ClassVar[str] = "\033[30m"
+    RED: ClassVar[str] = "\033[31m"
+    GREEN: ClassVar[str] = "\033[32m"
+    YELLOW: ClassVar[str] = "\033[33m"
+    BLUE: ClassVar[str] = "\033[34m"
+    MAGENTA: ClassVar[str] = "\033[35m"
+    CYAN: ClassVar[str] = "\033[36m"
+    WHITE: ClassVar[str] = "\033[37m"
 
-def rgb_bg(red: int, green: int, blue: int) -> str:
-    """Return a 24-bit SGR background escape sequence.
+    BRIGHT_BLACK: ClassVar[str] = "\033[90m"
+    BRIGHT_RED: ClassVar[str] = "\033[91m"
+    BRIGHT_GREEN: ClassVar[str] = "\033[92m"
+    BRIGHT_YELLOW: ClassVar[str] = "\033[93m"
+    BRIGHT_BLUE: ClassVar[str] = "\033[94m"
+    BRIGHT_MAGENTA: ClassVar[str] = "\033[95m"
+    BRIGHT_CYAN: ClassVar[str] = "\033[96m"
+    BRIGHT_WHITE: ClassVar[str] = "\033[97m"
 
-    >>> rgb_bg(25, 70, 109)
-    '\\x1b[48;2;25;70;109m'
-    """
-    r, g, b = _validate_rgb(red, green, blue)
-    return f"\033[48;2;{r};{g};{b}m"
+    GRAY: ClassVar[str] = BRIGHT_BLACK
 
+    BOLD: ClassVar[str] = "\033[1m"
+    DIM: ClassVar[str] = "\033[2m"
+    NORMAL_INTENSITY: ClassVar[str] = "\033[22m"
+    ITALIC: ClassVar[str] = "\033[3m"
+    UNDERLINE: ClassVar[str] = "\033[4m"
+    NO_UNDERLINE: ClassVar[str] = "\033[24m"
 
-def rgb_fg_bold(red: int, green: int, blue: int) -> str:
-    """Return a 24-bit SGR foreground escape with BOLD (SGR 1) enabled.
+    CSI: ClassVar[str] = "\033["
 
-    >>> rgb_fg_bold(0, 180, 216)
-    '\\x1b[1;38;2;0;180;216m'
-    """
-    r, g, b = _validate_rgb(red, green, blue)
-    return f"\033[1;38;2;{r};{g};{b}m"
+    ANSI_ESCAPE_REGEX: ClassVar[Pattern[str]] = re.compile(r"\x1b\[[0-9;]*m")
 
-
-def cursor_up(lines: int) -> str:
-    """Return a CSI CUU sequence that moves the cursor up ``lines`` rows.
-
-    The cursor stops at the top margin (row 1) instead of wrapping.
-    """
-    if not isinstance(lines, int):
-        raise TypeError(f"lines must be int; got {type(lines).__name__}")
-    if lines <= 0:
-        return ""
-    return f"{CSI}{lines}A"
-
-
-def erase_line() -> str:
-    """Return the CSI EL sequence that erases the entire current line (SGR 2K)."""
-    return ERASE_LINE
-
-
-# ---------------------------------------------------------------------------
-# Severity (RFC 5424 log level + SUCCESS) visual policy.
-#
-# The rendering contract is:
-#   (1) Label is always ALL-CAPS  (matches user expectation: "INFO ERROR WARN").
-#   (2) Label has 1 SPACE left padding + 1 SPACE right padding (breath).
-#   (3) Background is the event colour; foreground is readable high-contrast
-#       white or black (W3C AA contrast target).
-#   (4) An optional one-codepoint glyph is emitted before the label when
-#       the caller has Unicode support (default).  Set ``glyph=False`` on
-#       ``severity_badge()`` to emit a text-only badge.
-# ---------------------------------------------------------------------------
-
-
-_SEVERITY_STYLES: Dict[str, Dict[str, object]] = {
-    "EMERGENCY": {
-        "bg": (127, 0, 0),        # deep maroon (more restrained than pure red)
-        "fg": (255, 255, 255),    # white foreground — maximum contrast
-        "glyph": "🛑",
-        "default_aliases": ("EMERG",),
-    },
-    "ALERT": {
-        "bg": (220, 38, 38),      # bright red
-        "fg": (255, 255, 255),
-        "glyph": "🔔",
-        "default_aliases": (),
-    },
-    "CRITICAL": {
-        "bg": (185, 28, 28),      # darker red
-        "fg": (255, 255, 255),
-        "glyph": "💥",
-        "default_aliases": ("CRIT",),
-    },
-    "ERROR": {
-        "bg": (153, 27, 27),      # deep red
-        "fg": (255, 255, 255),
-        "glyph": "✖",
-        "default_aliases": ("ERR",),
-    },
-    "WARNING": {
-        "bg": (202, 138, 4),      # warm amber (WCAG-friendly vs. harsh yellow)
-        "fg": (26, 18, 2),        # near-black foreground for readability
-        "glyph": "⚠",
-        "default_aliases": ("WARN",),
-    },
-    "NOTICE": {
-        "bg": (21, 94, 117),       # cyan-800 (deep teal cyan, darker than INFO)
-        "fg": (255, 255, 255),
-        "glyph": "ℹ",
-        "default_aliases": ("NOTE",),
-    },
-    "SUCCESS": {
-        "bg": (22, 163, 74),      # green-600
-        "fg": (255, 255, 255),
-        "glyph": "✔",
-        "default_aliases": ("OK",),
-    },
-    "INFO": {
-        "bg": (14, 116, 144),      # cyan-700 (vivid teal cyan, lighter than NOTICE)
-        "fg": (255, 255, 255),
-        "glyph": "·",
-        "default_aliases": ("INFORMATIONAL",),
-    },
-    "DEBUG": {
-        "bg": (64, 64, 64),       # neutral slate-700 grey
-        "fg": (226, 232, 240),    # very light grey foreground
-        "glyph": "·",
-        "default_aliases": ("DBG", "TRACE"),
-    },
-    "RUN": {
-        "bg": (117, 117, 117),    # matches the terminal renderer's "neutral" theme
-        "fg": (255, 255, 255),
-        "glyph": "🤖",
-        "default_aliases": (),
-    },
-}
-
-
-def _resolve_severity(level: object) -> Optional[str]:
-    """Return the canonical ALL-CAPS severity key for ``level`` or ``None``.
-
-    Accepts: ``LogLevelPort`` enums (reads ``.value``), plain strings
-    (``"error"``, ``"WARN"``, …), or any object that can be stringified.
-    Unknown values fall back to ``None`` so callers can default the badge
-    off instead of inventing an unbranded colour.
-    """
-    raw: str = ""
-    if level is None:
-        return None
-    if hasattr(level, "value"):
-        raw = str(getattr(level, "value"))
-    else:
-        raw = str(level)
-    key: str = raw.strip().upper()
-    if key in _SEVERITY_STYLES:
-        return key
-    for canonical, style in _SEVERITY_STYLES.items():
-        aliases = style.get("default_aliases") or ()
-        if key in aliases:
-            return canonical
-    return None
-
-
-def severity_badge(
-    level: object,
-    *,
-    glyph: bool = True,
-    fallback: Optional[str] = None,
-) -> str:
-    """Render ``level`` as a padded, background-coloured badge string.
-
-    The badge layout is always ``<BG><FG><BOLD> <GLYPH><LABEL> <RESET>`` —
-    exactly one space of breathing room on each side (user requirement).
-    Empty string is returned for unknown levels unless a ``fallback``
-    severity name (e.g. ``"INFO"``) is supplied.
-    """
-    severity: Optional[str] = _resolve_severity(level)
-    if severity is None:
-        severity = _resolve_severity(fallback)
-    if severity is None:
-        return ""
-    style: Dict[str, object] = _SEVERITY_STYLES[severity]
-    bg_rgb: Tuple[int, int, int] = tuple(style["bg"])  # type: ignore[assignment]
-    fg_rgb: Tuple[int, int, int] = tuple(style["fg"])  # type: ignore[assignment]
-    glyph_ch: str = (str(style.get("glyph", "")) + " ") if glyph else ""
-    label: str = severity.upper()
-    return (
-        f"{rgb_bg(*bg_rgb)}{rgb_fg(*fg_rgb)}{BOLD}"
-        f" {glyph_ch}{label} "
-        f"{RESET}"
+    _CHANNEL_RANGE: ClassVar[str] = (
+        "RGB channel {name}={value!r} is out of the 0..255 inclusive range."
     )
 
+    @classmethod
+    def rgb_fg(cls, red: int, green: int, blue: int) -> str:
+        """24-bit SGR foreground (text colour) escape sequence."""
+        channels: Tuple[int, int, int] = cls._validated(red, green, blue)
 
-# ---------------------------------------------------------------------------
-# Compiled regex for stripping ANSI CSI sequences (same pattern previously
-# duplicated in ``view/component/logo/python.py`` and
-# ``view/adapter/terminal/surface_renderer.py``).  Compiling once here and
-# reusing saves the per-module re-compile cost and guarantees identical
-# matching semantics everywhere.
-# ---------------------------------------------------------------------------
-ANSI_ESCAPE_REGEX: re.Pattern[str] = re.compile(r"\x1b\[[0-9;]*m")
+        return "\033[38;2;{};{};{}m".format(*channels)
+
+    @classmethod
+    def rgb_bg(cls, red: int, green: int, blue: int) -> str:
+        """24-bit SGR background escape sequence."""
+        channels: Tuple[int, int, int] = cls._validated(red, green, blue)
+
+        return "\033[48;2;{};{};{}m".format(*channels)
+
+    @classmethod
+    def rgb_fg_bold(cls, red: int, green: int, blue: int) -> str:
+        """24-bit SGR foreground escape with bold enabled."""
+        channels: Tuple[int, int, int] = cls._validated(red, green, blue)
+
+        return "\033[1;38;2;{};{};{}m".format(*channels)
+
+    @classmethod
+    def _validated(cls, red: int, green: int, blue: int) -> Tuple[int, int, int]:
+        channels: Tuple[Tuple[str, int], ...] = (
+            ("red", red),
+            ("green", green),
+            ("blue", blue),
+        )
+        if not all(isinstance(value, int) for _name, value in channels):
+            raise TypeError(
+                "RGB channels must be Python integers in the 0..255 range; "
+                f"got (red={red!r}, green={green!r}, blue={blue!r})."
+            )
+        for name, value in channels:
+            if not 0 <= value <= 255:
+                raise ValueError(cls._CHANNEL_RANGE.format(name=name, value=value))
+
+        return red, green, blue
+
+
+class CheckOutcomeBadge:
+    """
+    Renders the outcome of a check as a padded, background-coloured badge.
+
+    Same layout as :class:`SeverityBadge` — background, knocked-out
+    foreground, one space of breathing room on each side — but a check has
+    only two outcomes and neither of them is a severity: it held, or it
+    did not.
+    """
+
+    PASSED_LABEL: ClassVar[str] = "OK"
+    FAILED_LABEL: ClassVar[str] = "ERROR"
+
+    _PASSED_BACKGROUND: ClassVar[Tuple[int, int, int]] = (22, 163, 74)
+    _FAILED_BACKGROUND: ClassVar[Tuple[int, int, int]] = (153, 27, 27)
+    _FOREGROUND: ClassVar[Tuple[int, int, int]] = (255, 255, 255)
+
+    @classmethod
+    def render(cls, passed: bool) -> str:
+        """
+        Return the badge for a check that held, or for one that did not.
+
+        The badge is followed by as many plain spaces as it is narrower
+        than the widest one, so a listing of both outcomes lines its
+        labels up in one column while each block keeps its own width.
+        """
+        background: Tuple[int, int, int] = (
+            cls._PASSED_BACKGROUND if passed else cls._FAILED_BACKGROUND
+        )
+        label: str = cls.PASSED_LABEL if passed else cls.FAILED_LABEL
+        alignment: str = " " * (cls.width() - len(label) - 2)
+
+        return (
+            f"{TerminalColor.rgb_bg(*background)}"
+            f"{TerminalColor.rgb_fg(*cls._FOREGROUND)}{TerminalColor.BOLD}"
+            f" {label} "
+            f"{TerminalColor.RESET}{alignment}"
+        )
+
+    @classmethod
+    def width(cls) -> int:
+        """
+        Return how many columns the widest badge occupies.
+        """
+        return max(len(cls.PASSED_LABEL), len(cls.FAILED_LABEL)) + 2
+
+
+class SeverityBadge:
+    """
+    Renders a severity level as a padded, background-coloured badge.
+
+    The layout is always ``<BG><FG><BOLD> <GLYPH><LABEL> <RESET>``, with
+    exactly one space of breathing room on each side.
+    """
+    _STYLES: ClassVar[Dict[str, Dict[str, object]]] = {
+        "EMERGENCY": {
+            "bg": (127, 0, 0),        # deep maroon (more restrained than pure red)
+            "fg": (255, 255, 255),    # white foreground — maximum contrast
+            "glyph": "🛑",
+            "default_aliases": ("EMERG",),
+        },
+        "ALERT": {
+            "bg": (220, 38, 38),      # bright red
+            "fg": (255, 255, 255),
+            "glyph": "🔔",
+            "default_aliases": (),
+        },
+        "CRITICAL": {
+            "bg": (185, 28, 28),      # darker red
+            "fg": (255, 255, 255),
+            "glyph": "💥",
+            "default_aliases": ("CRIT",),
+        },
+        "ERROR": {
+            "bg": (153, 27, 27),      # deep red
+            "fg": (255, 255, 255),
+            "glyph": "✖",
+            "default_aliases": ("ERR",),
+        },
+        "WARNING": {
+            "bg": (202, 138, 4),      # warm amber (WCAG-friendly vs. harsh yellow)
+            "fg": (26, 18, 2),        # near-black foreground for readability
+            "glyph": "⚠",
+            "default_aliases": ("WARN",),
+        },
+        "NOTICE": {
+            "bg": (21, 94, 117),       # cyan-800 (deep teal cyan, darker than INFO)
+            "fg": (255, 255, 255),
+            "glyph": "ℹ",
+            "default_aliases": ("NOTE",),
+        },
+        "SUCCESS": {
+            "bg": (22, 163, 74),      # green-600
+            "fg": (255, 255, 255),
+            "glyph": "✔",
+            "default_aliases": ("OK",),
+        },
+        "INFO": {
+            "bg": (14, 116, 144),      # cyan-700 (vivid teal cyan, lighter than NOTICE)
+            "fg": (255, 255, 255),
+            "glyph": "·",
+            "default_aliases": ("INFORMATIONAL",),
+        },
+        "DEBUG": {
+            "bg": (64, 64, 64),       # neutral slate-700 grey
+            "fg": (226, 232, 240),    # very light grey foreground
+            "glyph": "·",
+            "default_aliases": ("DBG", "TRACE"),
+        },
+        "RUN": {
+            "bg": (117, 117, 117),    # matches the terminal renderer's "neutral" theme
+            "fg": (255, 255, 255),
+            "glyph": "🤖",
+            "default_aliases": (),
+        },
+    }
+
+    @classmethod
+    def render(
+        cls,
+        level: object,
+        *,
+        glyph: bool = True,
+        fallback: Optional[str] = None,
+    ) -> str:
+        """Render ``level`` as a padded, background-coloured badge string.
+
+        The badge layout is always ``<BG><FG><TerminalColor.BOLD> <GLYPH><LABEL> <TerminalColor.RESET>`` —
+        exactly one space of breathing room on each side (user requirement).
+        Empty string is returned for unknown levels unless a ``fallback``
+        severity name (e.g. ``"INFO"``) is supplied.
+        """
+        severity: Optional[str] = cls._resolve(level)
+        if severity is None:
+            severity = cls._resolve(fallback)
+        if severity is None:
+            return ""
+        style: Dict[str, object] = cls._STYLES[severity]
+        bg_rgb: Tuple[int, int, int] = tuple(style["bg"])  # type: ignore[assignment]
+        fg_rgb: Tuple[int, int, int] = tuple(style["fg"])  # type: ignore[assignment]
+        glyph_ch: str = (str(style.get("glyph", "")) + " ") if glyph else ""
+        label: str = severity.upper()
+        return (
+            f"{TerminalColor.rgb_bg(*bg_rgb)}{TerminalColor.rgb_fg(*fg_rgb)}{TerminalColor.BOLD}"
+            f" {glyph_ch}{label} "
+            f"{TerminalColor.RESET}"
+        )
+
+    @classmethod
+    def _resolve(cls, level: object) -> Optional[str]:
+        """Return the canonical ALL-CAPS severity key for ``level`` or ``None``.
+
+        Accepts: ``LogLevelPort`` enums (reads ``.value``), plain strings
+        (``"error"``, ``"WARN"``, …), or any object that can be stringified.
+        Unknown values fall back to ``None`` so callers can default the badge
+        off instead of inventing an unbranded colour.
+        """
+        raw: str = ""
+        if level is None:
+            return None
+        if hasattr(level, "value"):
+            raw = str(getattr(level, "value"))
+        else:
+            raw = str(level)
+        key: str = raw.strip().upper()
+        if key in cls._STYLES:
+            return key
+        for canonical, style in cls._STYLES.items():
+            aliases = style.get("default_aliases") or ()
+            if key in aliases:
+                return canonical
+        return None

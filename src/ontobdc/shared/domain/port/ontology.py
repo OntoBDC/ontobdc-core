@@ -1,9 +1,9 @@
-
-from pathlib import Path
-from rdflib import Literal
-from typing import Optional
-from rdflib.graph import Graph
 from abc import ABC, abstractmethod
+from typing import Optional
+from pathlib import Path
+
+from rdflib import Literal
+from rdflib.graph import Graph
 from rdflib.namespace import Namespace
 
 

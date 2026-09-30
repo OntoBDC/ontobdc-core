@@ -1,11 +1,13 @@
-
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
-from rdflib.namespace import DCTERMS, PROV, RDF
-from typing import Any, Dict, List, Optional, Tuple
+
 from rdflib import Graph, Literal, Namespace, URIRef
+from rdflib.namespace import DCTERMS, PROV, RDF
+
 from ontobdc.storage.domain.port.graph import StorageGraphModelPort
+
 
 OBDC: Namespace = Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#")
 CT: Namespace = Namespace("http://standards.iso.org/iso/21597/-1/ed-1/en/Container#")

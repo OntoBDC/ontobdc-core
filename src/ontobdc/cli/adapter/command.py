@@ -1,17 +1,20 @@
 from typing import Dict, List, Optional, Type
-from ontobdc.cli.adapter.context import CliContextAdapter
-from ontobdc.cli.domain.model.command import CliCommandMetadata
-from ontobdc.cli.domain.port.command import CliCommandPort
-from ontobdc.cli.domain.port.logger import LogRepositoryPort
-from ontobdc.cli.domain.port.health import CliCommandHealthPort
-from ontobdc.cli.domain.request.command import CliCommandRequest
-from ontobdc.shared.adapter.loader import CommandLoader
-from ontobdc.shared.domain.port.loader import CommandLoaderPort
-from ontobdc.cli.domain.exception.command import CliCommandArgumentException
-from ontobdc.shared.domain.exception.config import ProjectRootDirectoryNotSetError
-from ontobdc.cli.adapter.health import CliBootstrapHealthAdapter, NoHealthCheckAdapter
 
-__all__ = ["CliCommandMetadata", "CliCommandRunAdapter"]
+from ontobdc.cli.adapter.health import (
+    CliBootstrapHealthAdapter,
+    NoHealthCheckAdapter,
+)
+from ontobdc.cli.adapter.context import IsolatedCliContextAdapter
+from ontobdc.shared.adapter.loader import CommandLoader
+from ontobdc.cli.domain.port.health import CliCommandHealthPort
+from ontobdc.cli.domain.port.logger import LogRepositoryPort
+from ontobdc.cli.domain.port.command import CliCommandPort
+from ontobdc.shared.domain.port.loader import CommandLoaderPort
+from ontobdc.cli.domain.request.command import CliCommandRequest
+from ontobdc.cli.domain.exception.command import CliCommandArgumentException
+from ontobdc.shared.domain.exception.config import (
+    ProjectRootDirectoryNotSetError,
+)
 
 
 class CliCommandRunAdapter:
@@ -64,7 +67,10 @@ class CliCommandRunAdapter:
             is_valid = cls.check(args, logger, 0)
 
         if not is_valid:
-            raise CliCommandArgumentException(f"Invalid command arguments: {args}")
+            raise CliCommandArgumentException(
+                f"Invalid command arguments: {args}",
+                command_args=args,
+            )
 
         candidate_list: Dict[str, Type[CliCommandPort]] = {}
 
@@ -90,10 +96,16 @@ class CliCommandRunAdapter:
             logger.log_error(f"Invalid command arguments: {args} - {e}")
 
         if len(candidate_list) == 0:
-            raise CliCommandArgumentException(f"Invalid command arguments: {args}")
+            raise CliCommandArgumentException(
+                f"Invalid command arguments: {args}",
+                command_args=args,
+            )
 
         if len(candidate_list) > 1:
-            raise CliCommandArgumentException(f"Invalid command arguments: {args} - Multiple commands match {args}")
+            raise CliCommandArgumentException(
+                f"Invalid command arguments: {args} - Multiple commands match {args}",
+                command_args=args,
+            )
 
         command_class: Type[CliCommandPort] = next(iter(candidate_list.values()))
         try:
@@ -101,11 +113,14 @@ class CliCommandRunAdapter:
                 logical_component=command_class.METADATA.logical_component,
                 component_action=command_class.METADATA.id,
                 command_args=clean_args,
-                context=CliContextAdapter(clean_args),
+                context=IsolatedCliContextAdapter(clean_args),
             )
             command: CliCommandPort = command_class(request)
             if not defer_check and not command.check():
-                raise CliCommandArgumentException(f"Invalid command arguments: {args}")
+                raise CliCommandArgumentException(
+                    f"Invalid command arguments: {args}",
+                    command_args=args,
+                )
 
             return command
         except ProjectRootDirectoryNotSetError:

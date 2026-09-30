@@ -1,7 +1,6 @@
-
-from pathlib import Path
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
+from pathlib import Path
 
 from ontobdc.shared.domain.model.language import LanguageResource
 
@@ -95,6 +94,15 @@ class ConfigDataPort(ABC):
     def context_data(self) -> Dict[str, Any]:
         """
         Get context data.
+        """
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def is_a3_installed() -> bool:
+        """
+        Return True when the optional ``ontobdc-a3`` natural-language
+        reasoning package is importable in the current environment.
         """
         ...
 

@@ -1,16 +1,22 @@
-
 import os
-from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Optional
-from ontobdc.shared.adapter.util import to_camel_case
-from rdflib import Graph, Literal, Namespace, URIRef, RDF
+from pathlib import Path
+
+from rdflib import Graph, Literal, Namespace, RDF, URIRef
+
+from ontobdc.shared.adapter.util import to_camel_case, to_pascal_case
+from ontobdc.shared.adapter.config import (
+    ConfigDataAdapter,
+    UnsetProjectRootConfigDataAdapter,
+)
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.domain.port.config import ConfigDataPort
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
-from ontobdc.shared.domain.exception.config import ProjectRootDirectoryNotSetError
-from ontobdc.shared.adapter.config import ConfigDataAdapter, UnsetProjectRootConfigDataAdapter
+from ontobdc.shared.domain.exception.config import (
+    ProjectRootDirectoryNotSetError,
+)
 
 BASE_URI: Namespace = Namespace("urn:ontobdc:context/")
+OBDC: Namespace = Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#")
 
 
 class CliContextAdapter(CliContextPort):
@@ -33,6 +39,8 @@ class CliContextAdapter(CliContextPort):
         "force",
         "non_interactive",
         "capability_id",
+        "target_capability",
+        "container_title",
         "raw_args",
     })
 
@@ -278,8 +286,7 @@ class CliContextAdapter(CliContextPort):
             prop_uri = OBDC[to_camel_case(transient_key)]
             self._graph.remove((self._context_individual, prop_uri, None))
 
-        if self._context_file is not None:
-            self._graph.serialize(destination=self._context_file, format="turtle")
+        self._save()
 
     def _save(self) -> None:
         """
@@ -311,7 +318,14 @@ class CliContextAdapter(CliContextPort):
 
         return UnsetProjectRootConfigDataAdapter()
 
-config_adapter = CliContextAdapter._make_config_data_adapter()
-ontology_adapter = OntologyConfigAdapter(config_adapter)
 
-OBDC: Namespace = ontology_adapter.get_ontology_namespace_by_prefix("obdc")
+class IsolatedCliContextAdapter(CliContextAdapter):
+    """
+    CLI context bound to the same ``context.ttl`` as :class:`CliContextAdapter`,
+    but confined to the current execution: it still reads whatever state is
+    already on disk, yet none of its parameter changes are ever written back,
+    so no single CLI run can mutate the project's shared context file.
+    """
+
+    def _save(self) -> None:
+        return

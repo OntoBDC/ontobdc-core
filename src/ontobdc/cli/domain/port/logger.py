@@ -1,7 +1,6 @@
-
-from enum import Enum
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from enum import Enum
+from typing import Optional
 
 
 class LogLevelPort(str, Enum):

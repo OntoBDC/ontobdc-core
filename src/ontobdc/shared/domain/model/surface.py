@@ -4,16 +4,9 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+
 Alignment = Literal["start", "center", "end"]
 RegionRole = Literal["OperationRegion", "ContentRegion", "PinnedRegion", "PresentationRegion"]
-
-
-class SurfaceDefinitionError(ValueError):
-    """A Surface RDF graph is missing, contradictory, or otherwise unusable.
-
-    Raised instead of silently producing a partial/incorrect Surface — see
-    the CLAUDE.md intervention brief's "fail loudly" requirement.
-    """
 
 
 class ComponentPlacementDefinition(BaseModel):

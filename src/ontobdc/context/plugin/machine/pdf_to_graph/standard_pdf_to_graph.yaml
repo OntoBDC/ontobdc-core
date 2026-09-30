@@ -1,0 +1,45 @@
+statechart:
+  name: PdfToGraph
+  description: "Statechart for transforming PDF documents into knowledge graph inputs."
+
+  root state:
+    name: pdf_to_graph
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the PDF-to-graph pipeline has started."
+          pt-br: "Estado inicial antes do pipeline PDF-para-grafo começar."
+        transitions:
+          - target: text_readiness_checked
+            guard: handler.can_transit_to(to_state = PdfToGraphProcessStatePort.TEXT_READINESS_CHECKED)
+            action: handler.perform_state_transition(to_state = PdfToGraphProcessStatePort.TEXT_READINESS_CHECKED)
+            contract:
+              - after: handler.validate_state_transition(from_state = PdfToGraphProcessStatePort.UNDEFINED, to_state = PdfToGraphProcessStatePort.TEXT_READINESS_CHECKED)
+
+      - name: text_readiness_checked
+        label:
+          en: "PDF Text Readiness Verified"
+          pt-br: "Legibilidade de Texto do PDF Verificada"
+        description:
+          en: "The PDF was verified to contain enough extractable plain text for knowledge graph authoring."
+          pt-br: "O PDF foi verificado e contém texto plano extraível suficiente para autoria de grafo de conhecimento."
+        transitions:
+          - target: pdf_blocks_extracted
+            guard: handler.can_transit_to(to_state = PdfToGraphProcessStatePort.PDF_BLOCKS_EXTRACTED)
+            action: handler.perform_state_transition(to_state = PdfToGraphProcessStatePort.PDF_BLOCKS_EXTRACTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = PdfToGraphProcessStatePort.TEXT_READINESS_CHECKED, to_state = PdfToGraphProcessStatePort.PDF_BLOCKS_EXTRACTED)
+
+      - name: pdf_blocks_extracted
+        type: final
+        label:
+          en: "PDF Text Blocks Extracted"
+          pt-br: "Blocos de Texto do PDF Extraídos"
+        description:
+          en: "Positioned text blocks were extracted from every page of the PDF using PyMuPDF."
+          pt-br: "Blocos de texto posicionados foram extraídos de cada página do PDF com PyMuPDF."

@@ -1,10 +1,8 @@
-
-from typing import TYPE_CHECKING, List
 from abc import ABC, abstractmethod
-from ontobdc.cli.domain.response.command import CommandResponse
+from typing import List
 
-if TYPE_CHECKING:
-    from ontobdc.cli.domain.model.command import CliCommandMetadata
+from ontobdc.cli.domain.model.command import CliCommandMetadata
+from ontobdc.cli.domain.response.command import CommandResponse
 
 
 class CliCommandPort(ABC):

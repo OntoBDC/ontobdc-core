@@ -1,9 +1,10 @@
-
 from typing import List
-from ontobdc.cli.domain.model.command import CliCommandMetadata
-from ontobdc.cli.domain.response.command import CommandResponse
-from ontobdc.cli.domain.request.command import CliCommandRequest
+from importlib.metadata import version as get_version
+
 from ontobdc.cli.domain.port.command import CliCommandPort
+from ontobdc.cli.domain.model.command import CliCommandMetadata
+from ontobdc.cli.domain.request.command import CliCommandRequest
+from ontobdc.cli.domain.response.command import CommandResponse
 
 
 class CliVersionCommand(CliCommandPort):
@@ -19,9 +20,13 @@ class CliVersionCommand(CliCommandPort):
             {
                 "accepts": [
                     "--version",
+                    "version",
                     "-v",
                 ],
-                "description": "Display the package version.",
+                "description": (
+                    "Print the version string reported by the active "
+                    "ontobdc Python package installation."
+                ),
             },
         ],
     )
@@ -34,12 +39,8 @@ class CliVersionCommand(CliCommandPort):
         """
         return len(args) == 1 and args[0] in ['--version', '-v']
 
-    def __init__(self, request: CliCommandRequest):
+    def __init__(self, request: CliCommandRequest) -> None:
         self._request: CliCommandRequest = request
-        self._print_log: callable = None
-
-    def set_print_log(self, print_log: callable):
-        self._print_log = print_log
 
     def check(self) -> bool:
         """
@@ -52,12 +53,11 @@ class CliVersionCommand(CliCommandPort):
         """
         Execute the command to get and return the package version.
         """
-        version = "unknown"
-        
+        version: str = "unknown"
+
         try:
-            from importlib.metadata import version as get_version
             version = get_version("ontobdc")
-        except (ImportError, Exception):
+        except Exception:
             pass
 
         return CommandResponse(

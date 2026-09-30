@@ -1,0 +1,45 @@
+statechart:
+  name: OpenFile
+  description: "Inspect one file, then discover and execute its opening strategy."
+
+  root state:
+    name: open_file
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the selected file has been inspected."
+          pt-br: "Estado inicial antes da inspeção do arquivo selecionado."
+        transitions:
+          - target: file_metadata_extracted
+            guard: handler.can_transit_to(to_state = OpenFileProcessStatePort.FILE_METADATA_EXTRACTED)
+            action: handler.perform_state_transition(to_state = OpenFileProcessStatePort.FILE_METADATA_EXTRACTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = OpenFileProcessStatePort.UNDEFINED, to_state = OpenFileProcessStatePort.FILE_METADATA_EXTRACTED)
+
+      - name: file_metadata_extracted
+        label:
+          en: "File Metadata Extracted"
+          pt-br: "Metadados do Arquivo Extraídos"
+        description:
+          en: "The file path was confirmed and cheap filesystem metadata, including MIME type and size, was extracted."
+          pt-br: "O caminho do arquivo foi confirmado e metadados simples do sistema de arquivos, incluindo MIME type e tamanho, foram extraídos."
+        transitions:
+          - target: file_opening_strategy_found
+            guard: handler.can_transit_to(to_state = OpenFileProcessStatePort.FILE_OPENING_STRATEGY_FOUND)
+            action: handler.perform_state_transition(to_state = OpenFileProcessStatePort.FILE_OPENING_STRATEGY_FOUND)
+            contract:
+              - after: handler.validate_state_transition(from_state = OpenFileProcessStatePort.FILE_METADATA_EXTRACTED, to_state = OpenFileProcessStatePort.FILE_OPENING_STRATEGY_FOUND)
+
+      - name: file_opening_strategy_found
+        type: final
+        label:
+          en: "File Opening Strategy Found"
+          pt-br: "Estratégia de Abertura do Arquivo Encontrada"
+        description:
+          en: "The open-file responsibility chain was started and the applicable opening strategies were executed."
+          pt-br: "A chain de abertura de arquivo foi iniciada e as estratégias aplicáveis foram executadas."

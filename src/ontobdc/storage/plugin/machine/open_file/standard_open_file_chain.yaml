@@ -1,0 +1,29 @@
+statechart:
+  name: OpenFileStrategyChain
+  description: >-
+    Fallback chain run by FILE_OPENING_STRATEGY_FOUND when the context maps no
+    capability to the file's MIME type. The complete topology is declared
+    here: the root is parallel and each region is one responsibility, named
+    by the ID of the OpenFileChainSupport capability it runs. The worker only
+    interprets this file; it never adds, removes or renames states or regions.
+
+    ontobdc currently ships no capability implementing OpenFileChainSupport,
+    so the chain declares no responsibility region. A responsibility is
+    declared as one region of this shape:
+
+      - name: <responsibility>
+        initial: <responsibility>_pending
+        states:
+          - name: <responsibility>_pending
+            transitions:
+              - target: <responsibility>_completed
+                guard: worker.can_handle('<capability id>')
+                action: worker.execute_responsibility('<capability id>')
+              - target: <responsibility>_completed
+                guard: not worker.can_handle('<capability id>')
+          - name: <responsibility>_completed
+            type: final
+
+  root state:
+    name: open_file_strategy_chain
+    parallel states: []

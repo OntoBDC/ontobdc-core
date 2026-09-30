@@ -15,6 +15,9 @@ from ontobdc.cli.domain.response.command import CommandResponse
 class DevProxyCommand(CliCommandPort):
     """Locate and execute the external ontobdc-dev package."""
 
+    TEST_REPO_ENV_VAR: str = "ONTOBDC_DEV_TEST_REPO"
+    TEST_REPO_VALUE: str = "ontobdc"
+
     METADATA: CliCommandMetadata = CliCommandMetadata(
         id="dev",
         logical_component="dev",
@@ -22,8 +25,13 @@ class DevProxyCommand(CliCommandPort):
         arguments=[
             {
                 "accepts": ["dev"],
-                "description": "Delegate dev commands to the ontobdc-dev CLI.",
-                "usage": "ontobdc dev <command> [flags/parameters]",
+                "description": (
+                    "Forward every subsequent argument to the ontobdc-dev "
+                    "workspace CLI. ontobdc-dev is resolved either from the "
+                    "active Python environment or from a nearby checkout; "
+                    "when it is absent the command reports that instead of "
+                    "running anything."
+                ),
             },
         ],
     )
@@ -54,6 +62,7 @@ class DevProxyCommand(CliCommandPort):
             forwarded_args = ["--help"]
 
         environment: Dict[str, str] = dict(os.environ)
+        environment[self.TEST_REPO_ENV_VAR] = self.TEST_REPO_VALUE
         python_path_entries: List[str] = self._python_path_entries(
             environment
         )

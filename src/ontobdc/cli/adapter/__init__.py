@@ -1,1 +1,0 @@
-# OntoBDC CLI adapter package

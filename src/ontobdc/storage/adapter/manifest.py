@@ -1,12 +1,12 @@
-import hashlib
-import json
-import mimetypes
 import os
 import re
-from dataclasses import dataclass
-from functools import lru_cache
+import json
+from typing import Any, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple
+import hashlib
 from pathlib import Path
-from typing import Any, ClassVar, Dict, FrozenSet, List, Optional, Set
+from functools import lru_cache
+import mimetypes
+from dataclasses import dataclass
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
@@ -79,9 +79,11 @@ class FrictionlessFormatRegistry:
 
     @classmethod
     @lru_cache(maxsize=None)
-    def supports(cls, file_format: str) -> bool:
+    def supports(cls, file_format: Optional[str]) -> bool:
         """Return True iff frictionless has a registered parser for ``file_format``."""
-        normalized: str = str(file_format or "").strip().lower()
+        if file_format is None:
+            raise ValueError("FrictionlessFormatRegistry.supports requires a non-None file_format.")
+        normalized: str = str(file_format).strip().lower()
         if not normalized:
             return False
         try:
@@ -134,6 +136,9 @@ class ContainerDataPackageSynchronizer:
     _DATASET_LINKSET_DIR_NAME: ClassVar[str] = "linkset"
     _DATASET_DATAPACKAGE_FILE_NAME: ClassVar[str] = "datapackage.json"
     _CONTAINER_DATAPACKAGE_FILE_NAME: ClassVar[str] = "datapackage.json"
+
+    _SAFE_RELATIVE_PATH_LENGTH_LIMIT: ClassVar[int] = 512
+    _MACOS_MAXPATH: ClassVar[int] = 1024
 
     @classmethod
     def is_file_blocked_from_publication(cls, file_name: str) -> bool:
@@ -276,12 +281,29 @@ class ContainerDataPackageSynchronizer:
                 container_path=resolved_container_path,
             )
             if managed_path is None:
-                external_resources.append(dict(resource_descriptor))
+                raw_path_value: Any = resource_descriptor.get("path")
+                is_external_url: bool = False
+                if isinstance(raw_path_value, str):
+                    stripped_path: str = raw_path_value.strip()
+                    if stripped_path:
+                        external_parsed = urlparse(stripped_path)
+                        external_scheme: str = external_parsed.scheme.lower()
+                        if external_scheme and external_scheme not in {"", "file"}:
+                            is_external_url = True
+                if is_external_url:
+                    external_resources.append(dict(resource_descriptor))
                 continue
 
-            resource_format: str = str(
-                resource_descriptor.get("format", "")
-            ).strip().lower()
+            if "format" not in resource_descriptor:
+                raise ValueError(
+                    "ManifestDescriptorBuilder: resource_descriptor is missing required 'format' key."
+                )
+            resource_format_raw: Any = resource_descriptor["format"]
+            if resource_format_raw is None:
+                raise ValueError(
+                    "ManifestDescriptorBuilder: resource_descriptor 'format' value is None."
+                )
+            resource_format: str = str(resource_format_raw).strip().lower()
             if not FrictionlessFormatRegistry.supports(resource_format):
                 removed_resource_count += 1
                 continue
@@ -331,8 +353,9 @@ class ContainerDataPackageSynchronizer:
         )
 
     def _load_descriptor(self, datapackage_path: Path) -> Dict[str, Any]:
-        if not datapackage_path.is_file():
-            return {}
+        """Load a descriptor, initializing resources only for a new package."""
+        if not datapackage_path.exists():
+            return {"resources": []}
 
         try:
             loaded: Any = json.loads(
@@ -354,9 +377,11 @@ class ContainerDataPackageSynchronizer:
         self,
         descriptor: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
-        raw_resources: Any = descriptor.get("resources", [])
+        if "resources" not in descriptor:
+            raise ValueError("datapackage.json is missing the required 'resources' top-level key.")
+        raw_resources: Any = descriptor["resources"]
         if raw_resources is None:
-            return []
+            raise ValueError("datapackage.json 'resources' top-level key is None.")
         if not isinstance(raw_resources, list):
             raise ValueError("datapackage.json 'resources' must be a list.")
 
@@ -365,6 +390,261 @@ class ContainerDataPackageSynchronizer:
             for resource in raw_resources
             if isinstance(resource, dict)
         ]
+
+    @staticmethod
+    def _basename_from_any_path(raw_path: Any) -> str:
+        """Extract the trailing file name from an arbitrary path-like string
+        without ever joining the raw value to any directory.
+
+        Paths stored in previously-corrupted ``datapackage.json`` descriptors
+        can exceed the OS ``MAXPATH`` length (``Errno 63 ENAMETOOLONG`` on
+        macOS) and will raise from ``Path(...)`` construction or the ``/``
+        join operator if the raw bytes are ever fed through ``pathlib``.
+        Stripping the basename via plain string ``rfind`` keeps the
+        canonicalizer entirely in string space until the real on-disk file
+        is located.
+        """
+        raw_string: Optional[str] = raw_path if isinstance(raw_path, str) else None
+        if raw_string is None:
+            try:
+                raw_string = str(raw_path)
+            except (TypeError, ValueError):
+                return ""
+        stripped: str = raw_string.strip()
+        if not stripped:
+            return ""
+        normalized: str = stripped.replace("\\", "/").rstrip("/")
+        slash_at: int = normalized.rfind("/")
+        if slash_at == -1:
+            return normalized
+        if slash_at == len(normalized) - 1:
+            return ""
+        return normalized[slash_at + 1 :]
+
+    @staticmethod
+    def _detect_repeated_prefix_drift(raw_path: str) -> Optional[str]:
+        """When a descriptor path was poisoned by the previous ``os.path.relpath``
+        concatenation bug the same directory prefix repeats many times before
+        the *real* suffix starts (e.g. ``DEV/DXF/DEV/DXF/…/actual/parts.json``).
+        Try to detect the shortest repeating leading segment and strip all
+        occurrences so we can guess the true in-container relative suffix.
+        """
+        if not isinstance(raw_path, str) or not raw_path.strip():
+            return None
+        normalized: str = raw_path.strip().replace("\\", "/").strip("/")
+        if not normalized:
+            return None
+        segments: List[str] = [seg for seg in normalized.split("/") if seg]
+        total: int = len(segments)
+        if total < 4:
+            return None
+
+        prefix_len: int
+        for prefix_len in range(1, (total // 2) + 1):
+            if total % prefix_len != 0:
+                continue
+            pattern: Tuple[str, ...] = tuple(segments[:prefix_len])
+            repeats: int = total // prefix_len
+            if tuple(segments) == pattern * repeats:
+                return "/".join(segments[:prefix_len])
+        return None
+
+    @staticmethod
+    def _locate_unique_file_by_name(
+        container_path: Path,
+        file_name: str,
+    ) -> Optional[Path]:
+        if not file_name or not container_path.is_dir():
+            return None
+        matches: List[Path] = sorted(
+            p for p in container_path.rglob(file_name) if p.is_file()
+        )
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
+    @classmethod
+    def _resolve_short_relative_string(
+        cls,
+        *,
+        short_relative_string: str,
+        anchor_path: Path,
+        resolved_container: Path,
+    ) -> Optional[str]:
+        """Safely join a *provenly-short* suffix to an anchor path and
+        canonicalize it relative to the container directory.
+
+        The caller guarantees ``len(short_relative_string)`` is below
+        :attr:`_SAFE_RELATIVE_PATH_LENGTH_LIMIT` so the ``/`` join cannot
+        trigger ``ENAMETOOLONG`` during construction.
+        """
+        if not isinstance(short_relative_string, str) or not short_relative_string.strip():
+            return None
+        if len(short_relative_string) > cls._SAFE_RELATIVE_PATH_LENGTH_LIMIT:
+            return None
+        try:
+            relative_tail: Path = Path(short_relative_string)
+            candidate: Path = (anchor_path / relative_tail).resolve()
+        except (OSError, ValueError, RuntimeError):
+            return None
+        if not candidate.is_file():
+            return None
+        try:
+            return candidate.relative_to(resolved_container).as_posix()
+        except (ValueError, OSError):
+            return None
+
+    @staticmethod
+    def _canonicalize_relative_path(
+        raw_relative_path: str,
+        *,
+        container_path: Path,
+        anchor_path: Optional[Path] = None,
+    ) -> Optional[str]:
+        """Convert a possibly corrupted resource path into a canonical POSIX
+        relative path rooted at *container_path*.
+
+        The strategy avoids any ``pathlib`` construction or directory join
+        with the raw input string, because corrupt ``datapackage.json``
+        entries produced by earlier synchronizers could exceed the OS
+        ``MAXPATH`` limit and raise ``ENAMETOOLONG`` directly from the
+        ``Path`` constructor or the ``/`` operator.  Canonicalization
+        therefore proceeds entirely in string space until the real on-disk
+        file has been identified by its trailing name (and only then uses
+        ``Path.relative_to`` on the *actual* resolved filesystem path).
+        """
+        if not isinstance(raw_relative_path, str) or not raw_relative_path.strip():
+            return None
+
+        resolved_container: Path = container_path.expanduser().resolve()
+        if not resolved_container.is_dir():
+            return None
+
+        parsed = urlparse(raw_relative_path)
+        if parsed.scheme and parsed.scheme.lower() != "file":
+            return None
+        path_value: str = raw_relative_path
+        if parsed.scheme.lower() == "file":
+            path_value = url2pathname(unquote(parsed.path))
+
+        file_name: str = ContainerDataPackageSynchronizer._basename_from_any_path(
+            path_value
+        )
+        if not file_name:
+            return None
+
+        direct_anchor: Path = (
+            anchor_path.expanduser().resolve()
+            if anchor_path is not None
+            else resolved_container
+        )
+
+        # --- Stage 1: join ONLY the trailing file_name (always short, no
+        # risk of ENAMETOOLONG) directly to the anchor and the container root.
+        try:
+            direct_target: Path = (direct_anchor / file_name).resolve()
+        except (OSError, ValueError, RuntimeError):
+            direct_target = None
+        if direct_target is not None and direct_target.is_file():
+            try:
+                return direct_target.relative_to(resolved_container).as_posix()
+            except (OSError, ValueError):
+                pass
+        try:
+            container_direct: Path = (resolved_container / file_name).resolve()
+        except (OSError, ValueError, RuntimeError):
+            container_direct = None
+        if container_direct is not None and container_direct.is_file():
+            try:
+                return container_direct.relative_to(resolved_container).as_posix()
+            except (OSError, ValueError):
+                pass
+
+        drift_prefix: Optional[str] = (
+            ContainerDataPackageSynchronizer._detect_repeated_prefix_drift(
+                path_value
+            )
+        )
+        suffix_hint: str = path_value
+        if drift_prefix:
+            normalized_suffix: str = path_value.strip().replace("\\", "/").strip("/")
+            suffix_segments: List[str] = [
+                seg for seg in normalized_suffix.split("/") if seg
+            ][len(drift_prefix.split("/")) :]
+            suffix_hint = "/".join(suffix_segments) if suffix_segments else file_name
+        suffix_basename: str = (
+            ContainerDataPackageSynchronizer._basename_from_any_path(suffix_hint)
+            or file_name
+        )
+
+        # --- Stage 2: try to join anchor + (suffix_hint tail or drift
+        # suffix).  ONLY DO SO when the relative string is proven short
+        # (below the safe length limit).  Otherwise skip straight to rglob.
+        limit: int = ContainerDataPackageSynchronizer._SAFE_RELATIVE_PATH_LENGTH_LIMIT
+        if suffix_hint and suffix_hint != path_value and "/" in suffix_hint:
+            if len(suffix_hint) <= limit:
+                result: Optional[str] = (
+                    ContainerDataPackageSynchronizer._resolve_short_relative_string(
+                        short_relative_string=suffix_hint,
+                        anchor_path=direct_anchor,
+                        resolved_container=resolved_container,
+                    )
+                )
+                if result is not None:
+                    return result
+                result = ContainerDataPackageSynchronizer._resolve_short_relative_string(
+                    short_relative_string=suffix_hint,
+                    anchor_path=resolved_container,
+                    resolved_container=resolved_container,
+                )
+                if result is not None:
+                    return result
+
+        # --- Stage 3: Locate by plain trailing name.  If suffix basename
+        # found nothing fall back to the original (non-drift) file_name.
+        located: Optional[Path] = (
+            ContainerDataPackageSynchronizer._locate_unique_file_by_name(
+                resolved_container,
+                suffix_basename,
+            )
+        )
+        if located is None and suffix_basename != file_name:
+            located = ContainerDataPackageSynchronizer._locate_unique_file_by_name(
+                resolved_container,
+                file_name,
+            )
+        # --- Stage 4 (last resort): the poisoned path for a dataset
+        # linkset/datapackage.json commonly has a real, on-disk
+        # linkset/datapackage.json somewhere in the container.  Search for
+        # the exact shape ``<something>/linkset/datapackage.json`` explicitly.
+        if located is None and file_name == "datapackage.json":
+            hint_segments: List[str] = [
+                seg
+                for seg in (suffix_hint or path_value).strip().replace("\\", "/").split("/")
+                if seg
+            ]
+            try:
+                linkset_idx: int = hint_segments.index("linkset")
+            except ValueError:
+                linkset_idx = -1
+            if linkset_idx >= 0:
+                tail_from_linkset: List[str] = hint_segments[linkset_idx:]
+                if tail_from_linkset:
+                    linkset_tail: str = "/".join(tail_from_linkset)
+                    if len(linkset_tail) <= limit:
+                        result = ContainerDataPackageSynchronizer._resolve_short_relative_string(
+                            short_relative_string=linkset_tail,
+                            anchor_path=resolved_container,
+                            resolved_container=resolved_container,
+                        )
+                        if result is not None:
+                            return result
+        if located is None:
+            return None
+        try:
+            return located.resolve().relative_to(resolved_container).as_posix()
+        except (OSError, ValueError):
+            return None
 
     def _managed_container_path(
         self,
@@ -378,21 +658,52 @@ class ContainerDataPackageSynchronizer:
             return None
 
         normalized_path: str = path_value.strip()
-        path_candidate: Path = Path(normalized_path).expanduser()
         parsed = urlparse(normalized_path)
 
-        if path_candidate.is_absolute():
-            candidate_path: Path = path_candidate.resolve()
-        elif parsed.scheme.lower() == "file":
-            candidate_path = Path(
-                url2pathname(unquote(parsed.path))
-            ).expanduser().resolve()
-        elif parsed.scheme:
+        if parsed.scheme and parsed.scheme.lower() != "file":
             return None
+
+        if parsed.scheme.lower() == "file":
+            try:
+                decoded: str = url2pathname(unquote(parsed.path))
+                file_scheme_path: Path = Path(decoded).expanduser().resolve()
+                try:
+                    return file_scheme_path.relative_to(container_path).as_posix()
+                except ValueError:
+                    return None
+            except (OSError, ValueError, RuntimeError):
+                return None
+
+        leading: str = normalized_path.lstrip()
+        is_absolute: bool = False
+        if leading:
+            first_char: str = leading[0]
+            if first_char in ("/", "\\"):
+                is_absolute = True
+            elif len(leading) >= 2 and leading[1] == ":" and first_char.isalpha():
+                is_absolute = True
+
+        candidate_path: Path
+        if is_absolute:
+            try:
+                candidate_path = Path(normalized_path).expanduser().resolve()
+            except (OSError, ValueError, RuntimeError):
+                return None
         else:
-            candidate_path = (
-                datapackage_path.parent / path_candidate
-            ).resolve()
+            canonical_relative: Optional[str] = self._canonicalize_relative_path(
+                normalized_path,
+                container_path=container_path,
+                anchor_path=datapackage_path.parent,
+            )
+            if canonical_relative is None:
+                return None
+            resolved_container: Path = container_path.expanduser().resolve()
+            try:
+                candidate_path = (
+                    resolved_container / Path(canonical_relative)
+                ).resolve()
+            except (OSError, ValueError, RuntimeError):
+                return None
 
         try:
             return candidate_path.relative_to(container_path).as_posix()
@@ -407,15 +718,76 @@ class ContainerDataPackageSynchronizer:
         datapackage_path: Path,
         existing_descriptor: Optional[Dict[str, Any]],
     ) -> Dict[str, Any]:
-        file_path: Path = container_path / relative_path
-        descriptor: Dict[str, Any] = dict(existing_descriptor or {})
-        descriptor_path: str = Path(
-            os.path.relpath(file_path, start=datapackage_path.parent)
-        ).as_posix()
+        resolved_container: Path = container_path.expanduser().resolve()
+        canonical_relative: Optional[str] = None
+        if (
+            isinstance(relative_path, str)
+            and relative_path.strip()
+            and len(relative_path) <= self._SAFE_RELATIVE_PATH_LENGTH_LIMIT
+        ):
+            try:
+                raw_candidate: Path = (
+                    resolved_container / Path(relative_path.strip())
+                )
+            except (OSError, ValueError, RuntimeError):
+                raw_candidate = None
+            if raw_candidate is not None:
+                try:
+                    if raw_candidate.is_file():
+                        canonical_relative = (
+                            raw_candidate.resolve()
+                            .relative_to(resolved_container)
+                            .as_posix()
+                        )
+                except (OSError, ValueError, RuntimeError):
+                    canonical_relative = None
 
-        descriptor["name"] = str(
-            descriptor.get("name") or self._resource_name(relative_path)
-        ).strip()
+        if canonical_relative is None:
+            canonical_relative = self._canonicalize_relative_path(
+                relative_path,
+                container_path=container_path,
+                anchor_path=container_path,
+            )
+        if canonical_relative is None:
+            raise ValueError(
+                "Cannot build a local descriptor for a resource path that "
+                f"does not resolve inside the container: {relative_path!r}"
+            )
+        file_path: Path = (resolved_container / Path(canonical_relative)).resolve()
+        descriptor: Dict[str, Any] = dict(existing_descriptor or {})
+        datapackage_dir: Path = datapackage_path.parent.expanduser().resolve()
+        try:
+            descriptor_relpath_raw: str = os.path.relpath(
+                str(file_path),
+                str(datapackage_dir),
+            )
+        except (OSError, ValueError) as exc:
+            raise ValueError(
+                f"Resource file {file_path} could not be located relative "
+                f"to the datapackage directory {datapackage_dir}."
+            ) from exc
+        descriptor_path: str = Path(descriptor_relpath_raw).as_posix()
+        if not descriptor_path or descriptor_path == ".":
+            raise ValueError(
+                f"Resource file {file_path} produced an empty relative "
+                f"path against datapackage directory {datapackage_dir}."
+            )
+
+        inherited_name: Any = descriptor.get("name")
+        sanitize_inherited: bool = False
+        if isinstance(inherited_name, str):
+            if len(inherited_name) > 200:
+                sanitize_inherited = True
+            else:
+                normalized_inherited: str = inherited_name.strip()
+                if not normalized_inherited:
+                    sanitize_inherited = True
+        else:
+            sanitize_inherited = True
+        if sanitize_inherited:
+            descriptor["name"] = self._resource_name(canonical_relative)
+        else:
+            descriptor["name"] = str(inherited_name).strip()
         descriptor["path"] = descriptor_path
         descriptor["bytes"] = (
             (StoragePathStatHelper.safe_stat(file_path) or _MISSING_STAT_RESULT).st_size
@@ -466,4 +838,3 @@ class ContainerDataPackageSynchronizer:
         )
         temporary_path.write_text(serialized + "\n", encoding="utf-8")
         temporary_path.replace(datapackage_path)
-
