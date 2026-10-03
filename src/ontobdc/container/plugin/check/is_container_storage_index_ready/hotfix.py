@@ -4,18 +4,12 @@ from typing import Dict, List, Optional
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF, XSD
 
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.shared.domain.vocabulary import CT, OBDC
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
+from ontobdc.storage.domain.model.graph import StorageGraphModel
 from ontobdc.container.plugin.check.is_container_metadata_ready.check import (
     main as check_container_metadata_ready,
 )
-
-_ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
-    config_adapter=UnsetProjectRootConfigDataAdapter(),
-)
-CT = _ontology_adapter.get_ontology_namespace_by_prefix("ct")
-OBDC = _ontology_adapter.get_ontology_namespace_by_prefix("obdc")
 
 
 def _resolve_path(path_value: Optional[str]) -> Optional[Path]:
@@ -133,6 +127,10 @@ def main(
 
     if container_graph is None or storage_graph is None:
         return 1
+
+    # Read for the root's current place (it may have been moved since the
+    # index was written), before the container's entry is added to it.
+    StorageGraphModel(storage_graph, root_path=resolved_root_path).rebase_to_root()
 
     container_subject: Optional[URIRef] = _resolve_single_container_subject(container_graph)
     if container_subject is None:

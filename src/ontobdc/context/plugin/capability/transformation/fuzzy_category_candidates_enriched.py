@@ -7,13 +7,12 @@ from ontobdc.context.plugin.machine.file_meaning_suggestion.state import (
     FileMeaningSuggestionProcessState,
 )
 from ontobdc.shared.adapter.capability import TransactionCapability
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
 from ontobdc.shared.adapter.etl import (
     EtlDirectoryContract,
     EtlEventContextKeys,
     EtlEventPayloadKeys,
 )
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.shared.adapter.ontology import BrasidataCenterOntologyLibrary
 from ontobdc.shared.adapter.parameter import RequiredParameter
 from ontobdc.shared.adapter.worker import StateWorkerAdapter
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
@@ -136,7 +135,7 @@ class _FuzzySubstringScorer:
             if not flat_labels:
                 continue
             term_type_raw: Any = term.get("term_type")
-            ontology_prefix_raw: Any = term.get("ontology_prefix")
+            ontology_raw: Any = term.get("ontology")
             best_for_term: Optional[Dict[str, Any]] = None
             best_score_for_term: float = 0.0
             label_text: str
@@ -184,9 +183,9 @@ class _FuzzySubstringScorer:
                 {
                     "category_iri": iri_raw.strip(),
                     "category_label": label_display,
-                    "ontology_prefix": (
-                        ontology_prefix_raw
-                        if isinstance(ontology_prefix_raw, str)
+                    "ontology": (
+                        ontology_raw
+                        if isinstance(ontology_raw, str)
                         else ""
                     ),
                     "term_type": (
@@ -201,7 +200,7 @@ class _FuzzySubstringScorer:
         scored.sort(
             key=lambda item: (
                 -float(item["score"]),
-                str(item.get("ontology_prefix", "")),
+                str(item.get("ontology", "")),
                 str(item.get("category_label", "")),
             )
         )
@@ -437,7 +436,7 @@ class FuzzyCategoryCandidatesEnrichedCapability(TransactionCapability):
             if isinstance(lem_exact, str) and lem_exact.strip():
                 exact_lemmas.add(lem_exact.strip())
 
-        adapter = OntologyConfigAdapter(UnsetProjectRootConfigDataAdapter())
+        adapter = BrasidataCenterOntologyLibrary()
         extractor = _OntologyTermExtractor(adapter)
         universe_terms: List[Dict[str, Any]] = extractor.extract_all_terms()
 

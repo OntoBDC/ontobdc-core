@@ -6,23 +6,15 @@ from rdflib import Graph, URIRef
 from rdflib.namespace import DCTERMS, RDF
 
 from ontobdc.storage.adapter.file import StorageFileLocator
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
 from ontobdc.cli.domain.port.context import (
     CliContextPort,
     CliContextStrategyPort,
 )
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.shared.domain.vocabulary import OBDC
 from ontobdc.storage.adapter.repository import LoadedStorageGraph
 from ontobdc.shared.domain.port.parameter import ParameterPort
 from ontobdc.shared.domain.model.parameter import ParameterMetadata
 from ontobdc.storage.domain.port.repository import StorageContainerRepositoryPort
-
-# UnsetProjectRootConfigDataAdapter (not ConfigDataAdapter) so this module
-# can be imported for parameter *discovery* (ParameterLoader.get_all())
-# before any project root exists yet. The ontology namespace lookup itself
-# doesn't need a real project root.
-_ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(UnsetProjectRootConfigDataAdapter())
-OBDC = _ontology_adapter.get_ontology_namespace_by_prefix("obdc")
 
 
 class ContainerIdStrategy(

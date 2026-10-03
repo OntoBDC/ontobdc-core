@@ -4,16 +4,10 @@ from typing import List, Optional
 from rdflib import Graph, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF
 
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.shared.domain.vocabulary import CT, OBDC
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 from ontobdc.storage.adapter.identifier import ContainerIdentifier
 
-_ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
-    config_adapter=UnsetProjectRootConfigDataAdapter(),
-)
-CT = _ontology_adapter.get_ontology_namespace_by_prefix("ct")
-OBDC = _ontology_adapter.get_ontology_namespace_by_prefix("obdc")
 
 def _resolve_container_path(container_path: Optional[str]) -> Optional[Path]:
     if not isinstance(container_path, str) or not container_path.strip():

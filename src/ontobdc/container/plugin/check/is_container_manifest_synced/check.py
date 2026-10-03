@@ -1,11 +1,11 @@
 import json
-import mimetypes
 import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 from urllib.parse import unquote
 
+from ontobdc.storage.adapter.media_type import MediaTypeResolver
 from ontobdc.storage.adapter.manifest import ContainerDataPackageSynchronizer
 from ontobdc.storage.adapter.bootstrap import (
     StorageBootstrap,
@@ -94,7 +94,7 @@ def _expected_file_properties(file_path: Path) -> Optional[Dict[str, Any]]:
         "dateModified": _iso_utc(stat_result.st_mtime),
     }
 
-    media_type, _ = mimetypes.guess_type(file_path.name)
+    media_type: Optional[str] = MediaTypeResolver.of(file_path.name)
     if media_type:
         properties["encodingFormat"] = media_type
 

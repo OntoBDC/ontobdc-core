@@ -1,14 +1,13 @@
 import os
-from typing import Any, ClassVar, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from pathlib import Path
-from urllib.parse import unquote, urlparse
 
-from rdflib import Graph, Literal, Namespace, URIRef
+from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF
 
 from ontobdc.storage.adapter.file import StorageFileLocator
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.shared.domain.vocabulary import CT, OBDC
+from ontobdc.storage.adapter.bootstrap import StorageLayoutConstants
 from ontobdc.storage.domain.port.graph import (
     StorageGraphModelPort,
     StorageGraphRepositoryPort,
@@ -17,37 +16,6 @@ from ontobdc.storage.domain.model.graph import StorageGraphModel
 from ontobdc.storage.domain.port.repository import StorageContainerRepositoryPort
 from ontobdc.shared.adapter.facade import DataContainerFacade
 from ontobdc.shared.domain.model.facade import FacadeField, ResourceFacade
-
-
-class StorageNamespaces:
-    """
-    Ontology namespaces used by the storage graph, resolved on demand.
-
-    The namespaces come from the ontology configuration, which reads the
-    filesystem. Resolving them lazily keeps importing this module free of
-    side effects.
-    """
-    MARKER_DIR_NAME: ClassVar[str] = ".__ontobdc__"
-
-    _namespaces: ClassVar[Dict[str, Namespace]] = {}
-
-    @classmethod
-    def ct(cls) -> Namespace:
-        return cls._namespace_for("ct")
-
-    @classmethod
-    def obdc(cls) -> Namespace:
-        return cls._namespace_for("obdc")
-
-    @classmethod
-    def _namespace_for(cls, prefix: str) -> Namespace:
-        if prefix not in cls._namespaces:
-            adapter: OntologyConfigAdapter = OntologyConfigAdapter(
-                UnsetProjectRootConfigDataAdapter(),
-            )
-            cls._namespaces[prefix] = adapter.get_ontology_namespace_by_prefix(prefix)
-
-        return cls._namespaces[prefix]
 
 
 class StorageContainerRepository(StorageContainerRepositoryPort):
@@ -78,7 +46,7 @@ class StorageContainerRepository(StorageContainerRepositoryPort):
 
     @property
     def description(self) -> str:
-        return self._graph_value(StorageNamespaces.ct().description)
+        return self._graph_value(CT.description)
 
     def directory_exists(self) -> bool:
         return self._container_path is not None and self._container_path.is_dir()
@@ -204,20 +172,13 @@ class StorageGraphFileRepository(StorageGraphRepositoryPort):
             return None
         return normalized
 
-    @staticmethod
-    def resolve_location_path(location: str) -> Path:
-        parsed = urlparse(location)
-        if parsed.scheme and parsed.scheme != "file":
-            raise ValueError(
-                f"Unsupported container location scheme: {parsed.scheme}"
-            )
-
-        raw_path = unquote(parsed.path if parsed.scheme else location)
-        if os.name == "nt" and raw_path.startswith("/") and len(raw_path) > 2:
-            if raw_path[2] == ":":
-                raw_path = raw_path[1:]
-
-        return Path(raw_path).expanduser().resolve()
+    @property
+    def root_path(self) -> Path:
+        """
+        The storage root this index file belongs to: the parent of its
+        ``.__ontobdc__`` directory, wherever that is now.
+        """
+        return self._file_path.expanduser().resolve().parent.parent
 
     @property
     def file_path(self) -> Path:
@@ -229,7 +190,10 @@ class StorageGraphFileRepository(StorageGraphRepositoryPort):
 
         graph: Graph = Graph()
         graph.parse(str(self._file_path), format="turtle")
-        return StorageGraphModel(graph)
+        # Read for where the root is now, before anything is added to it.
+        storage_graph: StorageGraphModel = StorageGraphModel(graph, root_path=self.root_path)
+        storage_graph.rebase_to_root()
+        return storage_graph
 
     def save(self, storage_graph: StorageGraphModel) -> None:
         self._file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -253,7 +217,7 @@ class LoadedStorageGraph:
     @property
     def containers(self) -> Iterable[Tuple[URIRef, str, str]]:
         containers: List[Tuple[URIRef, str, str]] = []
-        for subject, _, _ in self.graph.triples((None, RDF.type, StorageNamespaces.obdc().DataContainer)):
+        for subject, _, _ in self.graph.triples((None, RDF.type, OBDC.DataContainer)):
             if not isinstance(subject, URIRef):
                 continue
 
@@ -276,8 +240,8 @@ class LoadedStorageGraph:
             if not location:
                 continue
 
-            container_path: Path = StorageGraphFileRepository.resolve_location_path(location)
-            container_config_dir: Path = container_path / StorageNamespaces.MARKER_DIR_NAME
+            container_path: Path = self._storage_graph.resolve_location(location)
+            container_config_dir: Path = container_path / StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME
             container_storage_file: Path = (
                 container_config_dir / "container.ttl"
             )

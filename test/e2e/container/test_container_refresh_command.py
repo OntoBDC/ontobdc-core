@@ -1,8 +1,11 @@
 import json
-from typing import Any, Dict, List, Tuple
+import mimetypes
 from pathlib import Path
+from typing import Any, Dict, List, Tuple, Optional
 
 import pytest
+from rdflib import Graph, URIRef
+from rdflib.namespace import RDF
 
 from test.e2e.cli_process_runner import CliInvocationResult, OntobdcCliProcessRunner
 from test.e2e.container_workspace import ContainerE2eWorkspace
@@ -131,3 +134,126 @@ class TestOntobdcContainerRefreshCommand:
 
         assert result.exit_code == 1, result.stdout
         assert result.json["title"] == "Run Exception"
+
+
+class TestOntobdcContainerRefreshMediaTypes:
+    """
+    A refresh records each file with the media type the AECO ontology
+    declares for its extension; other extensions take the type built into
+    Python, never the one the machine's ``mime.types`` happens to list.
+    """
+
+    def test_refresh_records_the_media_types_the_ontology_declares(
+        self, tmp_path: Path
+    ) -> None:
+        workspace: ContainerE2eWorkspace = ContainerE2eWorkspace.create(tmp_path)
+        (workspace.container / "model.ifc").write_text("ISO-10303-21;\n", encoding="utf-8")
+        (workspace.container / "plan.dxf").write_text("0\nEOF\n", encoding="utf-8")
+        (workspace.container / "notes.pdf").write_bytes(b"%PDF-1.4\n")
+        (workspace.container / "data.unknownext").write_text("?", encoding="utf-8")
+        (workspace.container / "measurements.csv").write_text("value\n42\n", encoding="utf-8")
+        yaml_media_type: Optional[str] = mimetypes.MimeTypes().guess_type("settings.yaml")[0]
+        (workspace.container / "settings.yaml").write_text("a: 1\n", encoding="utf-8")
+
+        result: CliInvocationResult = workspace.runner().run("container", "--refresh")
+
+        assert result.exit_code == 0, result.stdout + result.stderr
+        crate: Dict[str, Any] = json.loads(
+            (workspace.container / ".__ontobdc__" / "ro-crate-metadata.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        formats: Dict[str, Any] = {
+            node["@id"]: node.get("encodingFormat")
+            for node in crate["@graph"]
+            if node.get("@type") == "File"
+        }
+        assert formats == {
+            "model.ifc": "application/x-step",
+            "plan.dxf": "image/vnd.dxf",
+            "notes.pdf": "application/pdf",
+            "data.unknownext": None,
+            "measurements.csv": "text/csv",
+            "settings.yaml": yaml_media_type,
+        }
+        descriptor: Dict[str, Any] = json.loads(
+            (workspace.container / ".__ontobdc__" / "datapackage.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        media_types: Dict[str, Any] = {
+            resource["path"]: resource.get("mediatype")
+            for resource in descriptor["resources"]
+        }
+        # The data package lists only the formats frictionless can read.
+        assert media_types == {
+            "../measurements.csv": "text/csv",
+            "../settings.yaml": yaml_media_type,
+        }
+
+
+class TestOntobdcContainerRefreshDatasetHealth:
+    """
+    A refresh leaves every dataset of the container healthy, repairing what
+    it can; a dataset it cannot make healthy fails the refresh, naming the
+    dataset and the checks it still fails.
+    """
+
+    FACADE: str = "http://ontobdc.org/ontology/domain/facade.ttl#"
+
+    def _workspace_with_dataset(self, tmp_path: Path) -> Tuple[ContainerE2eWorkspace, Path]:
+        workspace: ContainerE2eWorkspace = ContainerE2eWorkspace.create(tmp_path)
+        created: CliInvocationResult = workspace.runner().run(
+            "container", "--create-dataset", "Medições"
+        )
+        assert created.exit_code == 0, created.stdout + created.stderr
+        return workspace, workspace.container / "medicoes"
+
+    @staticmethod
+    def _datasets_event(workspace: ContainerE2eWorkspace) -> Path:
+        return (
+            workspace.container
+            / ".__ontobdc__/etl/container/refresh/container/__container_datasets_healthy__.json"
+        )
+
+    def test_refresh_repairs_a_dataset_and_records_it_healthy(self, tmp_path: Path) -> None:
+        workspace, dataset = self._workspace_with_dataset(tmp_path)
+        facade: Path = dataset / "payload" / "linkset" / "dataset_facade.ttl"
+        facade.unlink(missing_ok=True)
+
+        result: CliInvocationResult = workspace.runner().run("container", "--refresh")
+
+        assert result.exit_code == 0, result.stdout + result.stderr
+        event: Dict[str, Any] = json.loads(self._datasets_event(workspace).read_text("utf-8"))
+        datasets: List[Dict[str, Any]] = event["result"]["datasets"]
+        assert [(Path(entry["dataset_path"]).resolve(), entry["healthy"]) for entry in datasets] == [
+            (dataset.resolve(), True)
+        ]
+        assert set(datasets[0]["evaluation"].values()) == {0}
+        facade_graph: Graph = Graph()
+        facade_graph.parse(facade, format="turtle")
+        assert any(facade_graph.subjects(RDF.type, URIRef(f"{self.FACADE}DataEntityFacade")))
+
+    def test_refresh_fails_naming_the_dataset_and_the_check_it_still_fails(
+        self, tmp_path: Path
+    ) -> None:
+        workspace, dataset = self._workspace_with_dataset(tmp_path)
+        facade: Path = dataset / "payload" / "linkset" / "dataset_facade.ttl"
+        facade.parent.mkdir(parents=True, exist_ok=True)
+        # A facade with no field: the hotfix keeps an existing facade, and the
+        # shapes require at least one field.
+        facade.write_text(
+            f"<urn:facade> a <{self.FACADE}DataEntityFacade> ; "
+            f"<{self.FACADE}isFacadeOf> <urn:entity> .\n",
+            encoding="utf-8",
+        )
+        self._datasets_event(workspace).unlink(missing_ok=True)
+
+        result: CliInvocationResult = workspace.runner().run("container", "--refresh")
+
+        assert result.exit_code != 0, result.stdout
+        # The CLI wraps the error text at a fixed width.
+        error: str = result.json["content"]["error"].replace("\n", "")
+        assert "Unhealthy datasets after repair" in error
+        assert f"{dataset.resolve()} fails dataset_facade_valid" in error
+        assert not self._datasets_event(workspace).exists()

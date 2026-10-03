@@ -7,7 +7,7 @@ name = "ontobdc"
 authors = [
     { name = "Elias Magalhães", email = "elias@brasidata.com" }
 ]
-version = "0.22.1"
+version = "0.22.2"
 description = "OntoBDC (Ontology-Based Datasets & Containers)"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -28,7 +28,9 @@ dependencies = [
     "pyshacl",
     "textual",
     "Jinja2",
-    "brasidatacenter",
+    "rocrate",
+    "stanza",
+    "brasidatacenter>=0.10.0",
 ]
 
 [project.optional-dependencies]

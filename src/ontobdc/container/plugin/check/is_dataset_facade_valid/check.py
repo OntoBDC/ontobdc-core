@@ -11,15 +11,13 @@ from pyshacl.errors import (
 from rdflib import Graph, Namespace
 from rdflib.namespace import RDF
 
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.shared.adapter.ontology import BrasidataCenterOntologyLibrary
 
-_ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
-    config_adapter=UnsetProjectRootConfigDataAdapter(),
-)
 FACADE: Namespace = Namespace(
     "http://ontobdc.org/ontology/domain/facade.ttl#"
 )
+
+FACADE_SHAPES_IRI: str = "http://datacenter.app.br/ontology/tool/ontobdc/tbox/facade.ttl"
 
 FACADE_FILE_NAME: str = "dataset_facade.ttl"
 LINKSET_DIRECTORY_NAME: str = "linkset"
@@ -43,14 +41,15 @@ def _load_graph(file_path: Path) -> Optional[Graph]:
     return graph
 
 
-def _load_shapes_graph() -> Optional[Graph]:
-    try:
-        return _ontology_adapter.get_ontology_content(
-            prefix="obdc_view",
-            type="facade",
-        )
-    except (FileNotFoundError, OSError, ValueError):
-        return None
+def _load_shapes_graph() -> Graph:
+    """
+    The SHACL shapes every dataset facade must conform to.
+
+    Raises:
+        FileNotFoundError: the installed ontologies have none at
+            ``FACADE_SHAPES_IRI``; no dataset can be judged without them.
+    """
+    return BrasidataCenterOntologyLibrary().graph(FACADE_SHAPES_IRI)
 
 
 def _declares_facade(facade_graph: Graph) -> bool:
@@ -115,11 +114,7 @@ def main(
     if not _declares_facade(facade_graph):
         return 1
 
-    shapes_graph: Optional[Graph] = _load_shapes_graph()
-    if shapes_graph is None:
-        return 1
-
-    return 0 if _conforms_to_shapes(facade_graph, shapes_graph) else 1
+    return 0 if _conforms_to_shapes(facade_graph, _load_shapes_graph()) else 1
 
 
 if __name__ == "__main__":

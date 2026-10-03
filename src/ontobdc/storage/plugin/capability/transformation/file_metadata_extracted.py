@@ -16,7 +16,7 @@ from ontobdc.storage.adapter.bootstrap import (
     StorageBootstrap,
     StoragePathStatHelper,
 )
-from ontobdc.storage.adapter.file_mime import FileMimeDetector
+from ontobdc.storage.adapter.media_type import MediaTypeResolver
 from ontobdc.storage.adapter.typification import FileTypificationEvaluator
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.storage.plugin.capability.transformation import (
@@ -156,7 +156,7 @@ class FileMetadataExtractedCapability(TransactionCapability):
 
             mime: Optional[str]
             encoding: Optional[str]
-            mime, encoding = FileMimeDetector.of(source_path)
+            mime, encoding = MediaTypeResolver.guess(source_path)
 
             files.append({
                 SOURCE_PATH_RESULT_KEY: source_path,

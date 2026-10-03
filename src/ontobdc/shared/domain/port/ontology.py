@@ -1,43 +1,58 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import List
 from pathlib import Path
 
-from rdflib import Literal
 from rdflib.graph import Graph
-from rdflib.namespace import Namespace
 
 
-class OntologyConfigPort(ABC):
+class OntologyLibraryPort(ABC):
     """
-    Port interface representing access to the application's ontology configuration, namespaces, and content.
+    The ontologies available to the application, each addressed by its IRI.
+
+    An ontology is named by the IRI it is published at, never by a short
+    prefix or a local table: whoever needs an ontology states which one, and
+    an ontology that is not available is an error naming that IRI.
     """
-    @abstractmethod
-    def get_ontology_namespace_by_prefix(self, prefix: str) -> Optional[Namespace]:
-        """
-        Get ontology namespace by prefix.
-        """
-        pass
 
     @abstractmethod
-    def get_ontology_path(self, prefix: str, type: str = "ns") -> str:
+    def path(self, iri: str) -> Path:
         """
-        Get the path to the ontology file based on prefix and type.
+        The file of the ontology published at ``iri`` (or of the ontology
+        that declares the term ``iri``, ``...#Term``).
+
+        Raises:
+            FileNotFoundError: no ontology is available at ``iri``.
         """
-        pass
+        ...
 
     @abstractmethod
-    def get_ontology_content(self, prefix: str, type: str = "ns") -> Graph:
+    def graph(self, iri: str) -> Graph:
         """
-        Get the parsed RDF graph of the ontology.
+        The parsed ontology published at ``iri``.
+
+        Raises:
+            FileNotFoundError: no ontology is available at ``iri``.
         """
-        pass
+        ...
 
     @abstractmethod
-    def as_literal(self, value: str) -> Optional[Literal]:
+    def graph_with_imports(self, iri: str) -> Graph:
         """
-        Convert a string value to an RDF Literal.
+        The ontology published at ``iri`` merged with every ontology it
+        imports (``owl:imports``), transitively.
+
+        Raises:
+            FileNotFoundError: the ontology, or one it imports, is not
+                available.
         """
-        pass
+        ...
+
+    @abstractmethod
+    def iris(self) -> List[str]:
+        """
+        The IRI of every available ontology.
+        """
+        ...
 
 
 class OntologyRepositoryPort(ABC):

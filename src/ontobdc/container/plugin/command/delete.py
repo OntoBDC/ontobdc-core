@@ -4,9 +4,8 @@ from rdflib import URIRef
 from rdflib.namespace import DCTERMS, RDF
 
 from ontobdc.storage.adapter.file import StorageFileLocator
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
 from ontobdc.cli.domain.port.command import CliCommandPort
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.shared.domain.vocabulary import OBDC
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.storage.adapter.identifier import ContainerIdentifier
@@ -18,14 +17,6 @@ from ontobdc.cli.domain.response.command import (
     CommandResponse,
     ExceptionCommandResponse,
 )
-
-# UnsetProjectRootConfigDataAdapter (not ConfigDataAdapter) so this module
-# can be imported for command *discovery* (CommandLoader.get_all(), e.g. to
-# build `ontobdc container --help`/`ontobdc --help`) before any project root
-# exists yet. The ontology namespace lookup itself doesn't need a real
-# project root; only run()'s actual delete does.
-_ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(UnsetProjectRootConfigDataAdapter())
-OBDC = _ontology_adapter.get_ontology_namespace_by_prefix("obdc")
 
 
 class ContainerDeleteCommand(CliCommandPort):

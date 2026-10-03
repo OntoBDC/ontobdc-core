@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import ClassVar, List, Optional
+from typing import ClassVar, List
 
 from rdflib import Graph, Literal, Namespace, URIRef
 from rdflib.namespace import RDF
 
-from ontobdc.shared.adapter.ontology import OntologyResourceLocator
+from ontobdc.shared.adapter.ontology import BrasidataCenterOntologyLibrary
 from ontobdc.shared.domain.model.facade import FacadeField, ResourceFacade
 
 
@@ -143,24 +143,19 @@ class DataContainerFacade:
     The public projection of the storage container.
     """
 
-    ONTOLOGY_PREFIX: ClassVar[str] = "obdc_resource"
-    ONTOLOGY_TYPE: ClassVar[str] = "data_container_facade"
+    ONTOLOGY_IRI: ClassVar[str] = (
+        "http://datacenter.app.br/ontology/tool/ontobdc/resource/data_container_facade.ttl"
+    )
 
     @classmethod
     def read(cls) -> ResourceFacade:
         """
         Return the container facade the installed ontology declares.
-        """
-        facade_path: Optional[Path] = (
-            OntologyResourceLocator.brasidatacenter_resource_path(
-                cls.ONTOLOGY_PREFIX,
-                cls.ONTOLOGY_TYPE,
-            )
-        )
-        if facade_path is None:
-            raise FileNotFoundError(
-                "The installed ontology ships no container facade: "
-                "brasidatacenter is missing or predates it."
-            )
 
-        return ResourceFacadeReader(facade_path).read()
+        Raises:
+            FileNotFoundError: the installed ontologies have none at
+                ``ONTOLOGY_IRI``.
+        """
+        return ResourceFacadeReader(
+            BrasidataCenterOntologyLibrary().path(cls.ONTOLOGY_IRI)
+        ).read()

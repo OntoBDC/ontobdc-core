@@ -5,8 +5,7 @@ from typing import Any, ClassVar, Dict, Optional
 from rdflib import Graph, Namespace
 from rdflib.namespace import SDO
 
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.shared.adapter.ontology import BrasidataCenterOntologyLibrary
 from ontobdc.storage.domain.port.typification import FileTypificationStrategyPort
 
 
@@ -15,9 +14,8 @@ class ExtensionFileTypificationStrategy(FileTypificationStrategyPort):
     Types a file by its extension.
 
     The extension-to-type knowledge lives in the OntoBDC typification
-    ontology (``tbox/typification.ttl`` + ``abox/typification.ttl``,
-    resolved from the ``brasidatacenter`` ontology tree through
-    ``OntologyConfigAdapter``), not in a Python literal: which format
+    ontologies (``TBOX_IRI`` and ``ABOX_IRI``, read from the installed
+    ``brasidatacenter`` package), not in a Python literal: which format
     types as what is domain knowledge the ontology owns, and this
     strategy only asks it, the same way a capability asks a
     ``ParamResolverStrategyPort`` instead of hardcoding how to resolve
@@ -26,12 +24,13 @@ class ExtensionFileTypificationStrategy(FileTypificationStrategyPort):
 
     URI: ClassVar[str] = "org.ontobdc.context.plugin.typification.extension"
 
-    TBOX_PREFIX: ClassVar[str] = "obdc_tbox_typ"
-    ABOX_PREFIX: ClassVar[str] = "obdc_abox_typ"
-    ONTOLOGY_TYPE: ClassVar[str] = "typification"
-    TYPIFICATION_NAMESPACE: ClassVar[Namespace] = Namespace(
-        "http://datacenter.app.br/ontology/tool/ontobdc/tbox/typification.ttl#"
+    TBOX_IRI: ClassVar[str] = (
+        "http://datacenter.app.br/ontology/tool/ontobdc/tbox/typification.ttl"
     )
+    ABOX_IRI: ClassVar[str] = (
+        "http://datacenter.app.br/ontology/tool/ontobdc/abox/typification.ttl"
+    )
+    TYPIFICATION_NAMESPACE: ClassVar[Namespace] = Namespace(TBOX_IRI + "#")
 
     UNKNOWN_TYPE: ClassVar[str] = "unknown"
     UNKNOWN_SCORE: ClassVar[int] = 0
@@ -73,18 +72,8 @@ class ExtensionFileTypificationStrategy(FileTypificationStrategyPort):
         ``brasidatacenter`` tree it lives in changes, never between two
         files evaluated in the same run.
         """
-        graph: Graph = Graph()
-        ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
-            config_adapter=UnsetProjectRootConfigDataAdapter(),
-        )
-        graph.parse(
-            ontology_adapter.get_ontology_path(cls.TBOX_PREFIX, cls.ONTOLOGY_TYPE),
-            format="turtle",
-        )
-        graph.parse(
-            ontology_adapter.get_ontology_path(cls.ABOX_PREFIX, cls.ONTOLOGY_TYPE),
-            format="turtle",
-        )
+        library: BrasidataCenterOntologyLibrary = BrasidataCenterOntologyLibrary()
+        graph: Graph = library.graph(cls.TBOX_IRI) + library.graph(cls.ABOX_IRI)
 
         type_by_extension: Dict[str, str] = {}
         format_individual: Any

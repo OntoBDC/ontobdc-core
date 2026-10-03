@@ -1,8 +1,16 @@
 from typing import Optional
+from pathlib import Path
+
+import pytest
+from rdflib import Graph, Namespace, URIRef
+from rdflib.namespace import PROV, RDF
 
 from test.check.container.container_workspace import ContainerCheckWorkspace
 from ontobdc.container.plugin.check.is_container_metadata_ready import hotfix as metadata_hotfix
 from ontobdc.container.plugin.check.is_container_storage_index_ready import check, hotfix
+from ontobdc.storage.domain.exception.location import InconsistentStorageIndexError
+
+OBDC: Namespace = Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#")
 
 
 class TestIsContainerStorageIndexReady:
@@ -73,3 +81,50 @@ class TestIsContainerStorageIndexReady:
 
         self.workspace.replace_container_identifier("urn:uuid:not-a-valid-identifier")
         assert check.main(self.workspace.container, self.workspace.root) == 1
+
+    def _write_index_recorded_at(self, old_root: Path, *container_locations: Path) -> None:
+        """Write a storage index as if the root had been recorded at ``old_root``."""
+        storage: Graph = Graph()
+        storage_subject: URIRef = URIRef("urn:ontobdc:storage/local")
+        storage.add((storage_subject, RDF.type, OBDC.DataStorage))
+        storage.add((storage_subject, PROV.atLocation, URIRef(old_root.as_uri())))
+        for index, location in enumerate(container_locations, start=1):
+            subject: URIRef = URIRef(f"urn:uuid:00000000-0000-4000-8000-{index:012d}")
+            storage.add((subject, RDF.type, OBDC.DataContainer))
+            storage.add((subject, PROV.atLocation, URIRef(location.as_uri())))
+        self.workspace.root_storage_file.parent.mkdir(parents=True, exist_ok=True)
+        storage.serialize(destination=str(self.workspace.root_storage_file), format="turtle")
+
+    def test_hotfix_writes_the_index_for_the_root_current_place(self) -> None:
+        """
+        An index recorded somewhere else (the root was moved, or created in
+        another file system) is rewritten for where the root is now: its own
+        location and every location recorded under it.
+        """
+        assert metadata_hotfix.main(self.workspace.container, self.workspace.root) == 0
+        old_root: Path = Path("/elsewhere/old-root")
+        self._write_index_recorded_at(old_root, old_root / "sibling")
+        storage_subject: URIRef = URIRef("urn:ontobdc:storage/local")
+        sibling: URIRef = URIRef("urn:uuid:00000000-0000-4000-8000-000000000001")
+
+        assert hotfix.main(self.workspace.container, self.workspace.root) == 0
+
+        written: Graph = Graph()
+        written.parse(str(self.workspace.root_storage_file), format="turtle")
+        assert list(written.objects(storage_subject, PROV.atLocation)) == [
+            URIRef(self.workspace.root_path.as_uri())
+        ]
+        assert list(written.objects(sibling, PROV.atLocation)) == [
+            URIRef((self.workspace.root_path / "sibling").as_uri())
+        ]
+        assert check.main(self.workspace.container, self.workspace.root) == 0
+
+    def test_hotfix_refuses_an_index_with_a_location_outside_its_root(self) -> None:
+        """Every container lives under its root: an index saying otherwise is inconsistent."""
+        assert metadata_hotfix.main(self.workspace.container, self.workspace.root) == 0
+        self._write_index_recorded_at(Path("/elsewhere/old-root"), Path("/mnt/attached/container"))
+        recorded: bytes = self.workspace.root_storage_file.read_bytes()
+
+        with pytest.raises(InconsistentStorageIndexError):
+            hotfix.main(self.workspace.container, self.workspace.root)
+        assert self.workspace.root_storage_file.read_bytes() == recorded

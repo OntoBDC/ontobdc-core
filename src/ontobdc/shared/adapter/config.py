@@ -80,13 +80,6 @@ class ConfigDataAdapter(ConfigDataPort):
         return Path(self._config_file)
 
     @property
-    def ontology_cache(self) -> Path:
-        """
-        Gets the absolute path to the ontology cache directory.
-        """
-        return Path(self._config_dir) / "ontology"
-
-    @property
     def available_languages(self) -> List[LanguageResource]:
         """
         Get available languages.
@@ -325,13 +318,6 @@ class UnsetProjectRootConfigDataAdapter(ConfigDataAdapter):
     def config_file(self) -> Path:
         """
         Gets the absolute path to the config.yaml file.
-        """
-        self._raise_project_root_not_set()
-
-    @property
-    def ontology_cache(self) -> Path:
-        """
-        Gets the absolute path to the ontology cache directory.
         """
         self._raise_project_root_not_set()
 

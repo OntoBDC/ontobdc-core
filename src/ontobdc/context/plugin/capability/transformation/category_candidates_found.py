@@ -7,13 +7,12 @@ from ontobdc.context.plugin.machine.file_meaning_suggestion.state import (
     FileMeaningSuggestionProcessState,
 )
 from ontobdc.shared.adapter.capability import TransactionCapability
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
 from ontobdc.shared.adapter.etl import (
     EtlDirectoryContract,
     EtlEventContextKeys,
     EtlEventPayloadKeys,
 )
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.shared.adapter.ontology import BrasidataCenterOntologyLibrary
 from ontobdc.shared.adapter.parameter import RequiredParameter
 from ontobdc.shared.adapter.worker import StateWorkerAdapter
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
@@ -38,7 +37,7 @@ class _ChunkMatchResult:
         score: float,
         category_iri: Optional[str],
         category_label: Optional[str],
-        ontology_prefix: Optional[str],
+        ontology: Optional[str],
         term_type: Optional[str],
         matched_term_label: Optional[str],
     ) -> None:
@@ -46,7 +45,7 @@ class _ChunkMatchResult:
         self.score: float = score
         self.category_iri: Optional[str] = category_iri
         self.category_label: Optional[str] = category_label
-        self.ontology_prefix: Optional[str] = ontology_prefix
+        self.ontology: Optional[str] = ontology
         self.term_type: Optional[str] = term_type
         self.matched_term_label: Optional[str] = matched_term_label
 
@@ -178,7 +177,7 @@ class _ExactFirstMatcher:
                 )
             seen_exact_iris.add(iri.strip())
             label_raw: Any = em.get("label")
-            prefix_raw: Any = em.get("ontology_prefix")
+            ontology_raw: Any = em.get("ontology")
             tt_raw: Any = em.get("term_type")
             results.append(_ChunkMatchResult(
                 match_type="exact",
@@ -189,8 +188,8 @@ class _ExactFirstMatcher:
                     if isinstance(label_raw, str) and label_raw.strip()
                     else iri.strip()
                 ),
-                ontology_prefix=(
-                    prefix_raw if isinstance(prefix_raw, str) else ""
+                ontology=(
+                    ontology_raw if isinstance(ontology_raw, str) else ""
                 ),
                 term_type=(
                     tt_raw if isinstance(tt_raw, str) else ""
@@ -205,7 +204,7 @@ class _ExactFirstMatcher:
             results.sort(
                 key=lambda r: (
                     -r.score,
-                    str(r.ontology_prefix or ""),
+                    str(r.ontology or ""),
                     str(r.category_label or ""),
                 )
             )
@@ -226,7 +225,7 @@ class _ExactFirstMatcher:
             if not flat:
                 continue
             term_type_raw: Any = term.get("term_type")
-            ontology_prefix_raw: Any = term.get("ontology_prefix")
+            ontology_raw: Any = term.get("ontology")
             best_label_text: Optional[str] = None
             best_score: float = 0.0
             for (label_text, label_lang) in flat:
@@ -258,9 +257,9 @@ class _ExactFirstMatcher:
                 score=best_score,
                 category_iri=iri_raw.strip(),
                 category_label=best_label_text,
-                ontology_prefix=(
-                    ontology_prefix_raw
-                    if isinstance(ontology_prefix_raw, str)
+                ontology=(
+                    ontology_raw
+                    if isinstance(ontology_raw, str)
                     else ""
                 ),
                 term_type=(
@@ -272,7 +271,7 @@ class _ExactFirstMatcher:
             fuzzy_candidates.sort(
                 key=lambda r: (
                     -r.score,
-                    str(r.ontology_prefix or ""),
+                    str(r.ontology or ""),
                     str(r.category_label or ""),
                 )
             )
@@ -283,7 +282,7 @@ class _ExactFirstMatcher:
                 score=0.0,
                 category_iri=None,
                 category_label=None,
-                ontology_prefix=None,
+                ontology=None,
                 term_type=None,
                 matched_term_label=None,
             ),
@@ -594,7 +593,7 @@ class CategoryCandidatesFoundCapability(TransactionCapability):
                 )
                 exact_by_lemma_lang[key] = mt_list
 
-        adapter = OntologyConfigAdapter(UnsetProjectRootConfigDataAdapter())
+        adapter = BrasidataCenterOntologyLibrary()
         extractor = _OntologyTermExtractor(adapter)
         universe_terms: List[Dict[str, Any]] = extractor.extract_all_terms()
 
@@ -731,7 +730,7 @@ class CategoryCandidatesFoundCapability(TransactionCapability):
                         bucket: Tuple[str, str, str, str] = (
                             matched.category_iri,
                             matched.category_label or "",
-                            matched.ontology_prefix or "",
+                            matched.ontology or "",
                             matched.term_type or "",
                         )
                     else:
@@ -774,7 +773,7 @@ class CategoryCandidatesFoundCapability(TransactionCapability):
                 (
                     c_iri,
                     c_label,
-                    c_prefix,
+                    c_ontology,
                     c_ttype,
                 ) = bucket_key
                 chunk_list: List[Dict[str, Any]] = buckets_for_file[bucket_key]
@@ -789,7 +788,7 @@ class CategoryCandidatesFoundCapability(TransactionCapability):
                     cat_entry: Dict[str, Any] = {
                         "category_iri": self.UNMATCHED_CATEGORY_IRI,
                         "category_label": "Unmatched chunks",
-                        "ontology_prefix": "",
+                        "ontology": "",
                         "term_type": "",
                         "chunks": chunk_list,
                     }
@@ -797,7 +796,7 @@ class CategoryCandidatesFoundCapability(TransactionCapability):
                     cat_entry = {
                         "category_iri": c_iri,
                         "category_label": c_label,
-                        "ontology_prefix": c_prefix,
+                        "ontology": c_ontology,
                         "term_type": c_ttype,
                         "chunks": chunk_list,
                     }

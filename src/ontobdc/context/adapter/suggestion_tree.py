@@ -31,7 +31,7 @@ class SuggestionCategoryEntry:
     category_iri: str
     header: str
     label: str
-    prefix: str
+    ontology: str
     term_type: str
     files: Tuple[SuggestionFileEntry, ...]
 
@@ -78,7 +78,7 @@ class SuggestionTreeBuilder:
     more useful:
 
     * Root: Context (Contexto in pt-br)
-    * Child: one entry per ONTOLOGY CATEGORY / TERM (best label, prefix,
+    * Child: one entry per ONTOLOGY CATEGORY / TERM (best label, ontology,
       term type). Sorted by number of files descending, then label.
     * Leaf under each category: the FILES where that category matched,
       each annotated with its best score for that category, painted via
@@ -168,7 +168,7 @@ class SuggestionTreeBuilder:
                     continue
                 iri: str = iri_raw.strip()
                 label_raw: Any = category_entry.get("category_label")
-                prefix_raw: Any = category_entry.get("ontology_prefix")
+                ontology_raw: Any = category_entry.get("ontology")
                 ttype_raw: Any = category_entry.get("term_type")
                 chunks_raw: Any = category_entry.get("chunks")
                 if not isinstance(chunks_raw, list) or not chunks_raw:
@@ -182,18 +182,18 @@ class SuggestionTreeBuilder:
                     else:
                         readable_label = iri.split("#")[-1] if "#" in iri else iri.split("/")[-1]
                     header_parts: List[str] = [readable_label]
-                    if isinstance(prefix_raw, str) and prefix_raw.strip():
-                        header_parts.append(prefix_raw.strip())
+                    if isinstance(ontology_raw, str) and ontology_raw.strip():
+                        header_parts.append(ontology_raw.strip())
                     if isinstance(ttype_raw, str) and ttype_raw.strip():
                         short: str = ttype_raw.split("#")[-1] if "#" in ttype_raw else ttype_raw.split("/")[-1]
                         header_parts.append(short)
                     bucket = {
                         "iri": iri,
                         "label": readable_label,
-                        "prefix": (
-                            prefix_raw.strip()
-                            if isinstance(prefix_raw, str)
-                            and prefix_raw.strip()
+                        "ontology": (
+                            ontology_raw.strip()
+                            if isinstance(ontology_raw, str)
+                            and ontology_raw.strip()
                             else ""
                         ),
                         "term_type": (
@@ -392,7 +392,7 @@ class SuggestionTreeBuilder:
                     continue
                 iri: str = iri_raw.strip()
                 label_raw: Any = category_entry.get("category_label")
-                prefix_raw: Any = category_entry.get("ontology_prefix")
+                ontology_raw: Any = category_entry.get("ontology")
                 ttype_raw: Any = category_entry.get("term_type")
                 chunks_raw: Any = category_entry.get("chunks")
                 if not isinstance(chunks_raw, list) or not chunks_raw:
@@ -410,8 +410,8 @@ class SuggestionTreeBuilder:
                             else iri.split("/")[-1]
                         )
                     header_parts: List[str] = [readable_label]
-                    if isinstance(prefix_raw, str) and prefix_raw.strip():
-                        header_parts.append(prefix_raw.strip())
+                    if isinstance(ontology_raw, str) and ontology_raw.strip():
+                        header_parts.append(ontology_raw.strip())
                     if isinstance(ttype_raw, str) and ttype_raw.strip():
                         short: str = (
                             ttype_raw.split("#")[-1]
@@ -422,10 +422,10 @@ class SuggestionTreeBuilder:
                     bucket = {
                         "iri": iri,
                         "label": readable_label,
-                        "prefix": (
-                            prefix_raw.strip()
-                            if isinstance(prefix_raw, str)
-                            and prefix_raw.strip()
+                        "ontology": (
+                            ontology_raw.strip()
+                            if isinstance(ontology_raw, str)
+                            and ontology_raw.strip()
                             else ""
                         ),
                         "term_type": (
@@ -499,7 +499,7 @@ class SuggestionTreeBuilder:
                         category_iri=str(bucket.get("iri", "")),
                         header=str(bucket.get("header", "")),
                         label=str(bucket.get("label", "")),
-                        prefix=str(bucket.get("prefix", "")),
+                        ontology=str(bucket.get("ontology", "")),
                         term_type=str(bucket.get("term_type", "")),
                         files=tuple(file_entries_result),
                     )

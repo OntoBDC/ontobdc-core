@@ -18,7 +18,7 @@ from ontobdc.storage.adapter.bootstrap import (
     StorageBootstrap,
     StoragePathStatHelper,
 )
-from ontobdc.storage.adapter.file_mime import FileMimeDetector
+from ontobdc.storage.adapter.media_type import MediaTypeResolver
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.storage.adapter.open_file_metadata import OpenFileMetadataEvent
 from ontobdc.storage.plugin.machine.open_file.port import OpenFileChainSupport
@@ -142,7 +142,7 @@ class SingleFileMetadataExtractedCapability(TransactionCapability):
 
         mime_type: Optional[str]
         mime_encoding: Optional[str]
-        mime_type, mime_encoding = FileMimeDetector.of(resolved_path.name)
+        mime_type, mime_encoding = MediaTypeResolver.guess(resolved_path.name)
         metadata: Dict[str, Any] = self._metadata_of(
             source_path=source_path,
             resolved_path=resolved_path,

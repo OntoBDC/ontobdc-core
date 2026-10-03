@@ -1,36 +1,15 @@
-from typing import Any, Dict
-from pathlib import Path
+from typing import Any, Dict, List
 
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.parameter import RequiredParameter
-from ontobdc.storage.adapter.manifest import ContainerDataPackageSynchronizer
 from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.container.plugin.check.is_dataset_healthy.check import (
     evaluate as evaluate_dataset_healthy,
 )
-from ontobdc.container.plugin.check.is_dataset_facade_valid.hotfix import (
-    main as hotfix_dataset_facade_valid,
+from ontobdc.container.plugin.check.is_dataset_healthy.hotfix import (
+    main as hotfix_dataset_healthy,
 )
-from ontobdc.container.plugin.check.is_dataset_structure_valid.hotfix import (
-    main as hotfix_dataset_structure_valid,
-)
-from ontobdc.container.plugin.check.is_dataset_surfaceable_synced.hotfix import (
-    main as hotfix_dataset_surfaceable_synced,
-)
-from ontobdc.container.plugin.check.is_dataset_metadata_ready.check import (
-    main as check_dataset_metadata_ready,
-)
-from ontobdc.container.plugin.check.is_dataset_metadata_ready.hotfix import (
-    main as hotfix_dataset_metadata_ready,
-)
-from ontobdc.container.plugin.check.is_dataset_container_index_ready.check import (
-    main as check_dataset_container_index_ready,
-)
-from ontobdc.container.plugin.check.is_dataset_container_index_ready.hotfix import (
-    main as hotfix_dataset_container_index_ready,
-)
-
 
 class DatasetHealthyCapability(TransactionCapability):
     """Repair and validate the prerequisites of an existing dataset.
@@ -38,8 +17,9 @@ class DatasetHealthyCapability(TransactionCapability):
     Mirrors ContainerHealthyCapability at dataset scope: directory structure,
     metadata, the parent container index, dataset facade, surfaceable marker,
     and Data Package are repaired in dependency order and then validated.
-    An existing invalid facade is preserved and reported as unhealthy rather
-    than overwritten.
+    An existing invalid facade is preserved, not overwritten, so it leaves
+    the dataset unhealthy; a dataset still unhealthy after the repair is an
+    error naming the checks it fails.
     """
 
     METADATA = CapabilityMetadata(
@@ -83,109 +63,21 @@ class DatasetHealthyCapability(TransactionCapability):
         )
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-
         dataset_path: str = RequiredParameter.of(context, "dataset_path")
         root_path: str = str(context.root_path).strip()
 
-        hotfix_dataset_structure_valid(
-            dataset_path=dataset_path,
-            root_path=root_path,
-        )
-
-        metadata_ready_result: Dict[str, Any] = self._ensure_dataset_metadata_ready(
-            dataset_path=dataset_path,
-            root_path=root_path,
-        )
-        container_index_result: Dict[str, Any] = (
-            self._ensure_dataset_container_index_ready(
-                dataset_path=dataset_path,
-                root_path=root_path,
-            )
-        )
-
-        hotfix_dataset_facade_valid(
-            dataset_path=dataset_path,
-            root_path=root_path,
-        )
-        hotfix_dataset_surfaceable_synced(
-            dataset_path=dataset_path,
-            root_path=root_path,
-        )
-        ContainerDataPackageSynchronizer().sync(
-            Path(dataset_path).expanduser().resolve()
-        )
-
+        hotfix_dataset_healthy(dataset_path=dataset_path, root_path=root_path)
         checks: Dict[str, int] = evaluate_dataset_healthy(dataset_path, root_path)
-        healthy: bool = all(result == 0 for result in checks.values())
+        failing: List[str] = sorted(name for name, result in checks.items() if result != 0)
+        if failing:
+            raise ValueError(
+                f"Dataset {dataset_path} is unhealthy after repair; it fails "
+                + ", ".join(failing)
+                + "."
+            )
 
         return {
             "dataset_path": dataset_path,
-            "healthy": healthy,
+            "healthy": True,
             "checks": checks,
-            "reused_steps": {
-                "dataset_metadata_ready": metadata_ready_result,
-                "dataset_container_index_ready": container_index_result,
-            },
-        }
-
-    @staticmethod
-    def _ensure_dataset_metadata_ready(
-        *,
-        dataset_path: str,
-        root_path: str,
-    ) -> Dict[str, Any]:
-        if check_dataset_metadata_ready(
-            dataset_path=dataset_path,
-            root_path=root_path,
-        ) != 0:
-            if hotfix_dataset_metadata_ready(
-                dataset_path=dataset_path,
-                root_path=root_path,
-            ) != 0:
-                raise ValueError(
-                    "Failed to hotfix dataset metadata while repairing dataset health."
-                )
-
-        if check_dataset_metadata_ready(
-            dataset_path=dataset_path,
-            root_path=root_path,
-        ) != 0:
-            raise ValueError(
-                "Dataset metadata is still invalid after the health hotfix."
-            )
-        return {
-            "path": dataset_path,
-            "healthy": True,
-        }
-
-    @staticmethod
-    def _ensure_dataset_container_index_ready(
-        *,
-        dataset_path: str,
-        root_path: str,
-    ) -> Dict[str, Any]:
-        if check_dataset_container_index_ready(
-            dataset_path=dataset_path,
-            root_path=root_path,
-        ) != 0:
-            if hotfix_dataset_container_index_ready(
-                dataset_path=dataset_path,
-                root_path=root_path,
-            ) != 0:
-                raise ValueError(
-                    "Failed to hotfix dataset container index entry while "
-                    "repairing dataset health."
-                )
-
-        if check_dataset_container_index_ready(
-            dataset_path=dataset_path,
-            root_path=root_path,
-        ) != 0:
-            raise ValueError(
-                "Dataset container index entry is still invalid after the "
-                "health hotfix."
-            )
-        return {
-            "path": dataset_path,
-            "healthy": True,
         }

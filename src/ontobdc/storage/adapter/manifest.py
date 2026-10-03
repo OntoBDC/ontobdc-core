@@ -5,13 +5,13 @@ from typing import Any, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple
 import hashlib
 from pathlib import Path
 from functools import lru_cache
-import mimetypes
 from dataclasses import dataclass
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
 from frictionless import Resource, System, system as frictionless_system
 
+from ontobdc.storage.adapter.media_type import MediaTypeResolver
 from ontobdc.storage.adapter.bootstrap import (
     StorageLayoutConstants,
     StoragePathStatHelper,
@@ -799,7 +799,7 @@ class ContainerDataPackageSynchronizer:
         else:
             descriptor.pop("format", None)
 
-        media_type, _ = mimetypes.guess_type(file_path.name)
+        media_type: Optional[str] = MediaTypeResolver.of(file_path.name)
         if media_type:
             descriptor["mediatype"] = media_type
         else:

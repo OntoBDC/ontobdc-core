@@ -1,11 +1,11 @@
 from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
 from dataclasses import dataclass
-from urllib.parse import unquote, urlparse
-from urllib.request import url2pathname
 
 from rdflib import Graph, Literal, Namespace, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF
 
+from ontobdc.storage.domain.model.location import StorageLocation
 from ontobdc.storage.domain.port.graph import StorageGraphModelPort
 
 
@@ -30,8 +30,11 @@ class StorageContainerView:
 
 
 class StorageGraphModel(StorageGraphModelPort):
-    def __init__(self, graph: Graph):
+    def __init__(self, graph: Graph, root_path: Path):
         self._graph: Graph = graph
+        # Where the storage root is now (its marker's parent); recorded
+        # locations under the root are read relative to it.
+        self._root_path: Path = root_path
 
     @property
     def graph(self) -> Graph:
@@ -55,6 +58,47 @@ class StorageGraphModel(StorageGraphModelPort):
             )
             containers.append(container_view.to_dict())
         return containers
+
+    def recorded_root(self) -> Optional[Path]:
+        """
+        The location the storage root recorded for itself, if any.
+        """
+        for subject in self._graph.subjects(RDF.type, OBDC.DataStorage):
+            for location in self._graph.objects(subject, PROV.atLocation):
+                value: str = str(location).strip()
+                if value:
+                    return StorageLocation.to_path(value)
+        return None
+
+    def resolve_location(self, location: str) -> Path:
+        """
+        Where a location recorded in this index is now.
+        """
+        return StorageLocation.rebase(
+            StorageLocation.to_path(location),
+            self.recorded_root(),
+            self._root_path,
+        )
+
+    def rebase_to_root(self) -> None:
+        """
+        Rewrite the recorded locations for the root's current place: the
+        root's own location and every container location recorded under it.
+        Called when the index is read, before anything is added to it, so the
+        locations it holds always agree with each other.
+        """
+        recorded_root: Optional[Path] = self.recorded_root()
+        for subject in list(self._graph.subjects(RDF.type, OBDC.DataStorage)):
+            self._graph.remove((subject, PROV.atLocation, None))
+            self._graph.add((subject, PROV.atLocation, URIRef(self._root_path.as_uri())))
+
+        for subject in self.iter_container_subjects():
+            for location in list(self._graph.objects(subject, PROV.atLocation)):
+                recorded: Path = StorageLocation.to_path(str(location).strip())
+                current: Path = StorageLocation.rebase(recorded, recorded_root, self._root_path)
+                if current != recorded:
+                    self._graph.remove((subject, PROV.atLocation, location))
+                    self._graph.add((subject, PROV.atLocation, URIRef(current.as_uri())))
 
     def subject_predicate_objects(self, subject: URIRef) -> List[Tuple[Any, Any]]:
         predicate_objects: List[Tuple[Any, Any]] = []
@@ -86,7 +130,6 @@ class StorageGraphModel(StorageGraphModelPort):
         for obj in self._graph.objects(subject, PROV.atLocation):
             value: str = str(obj).strip()
             if value.startswith("file://"):
-                parsed = urlparse(value)
-                return url2pathname(unquote(parsed.path))
+                return str(self.resolve_location(value))
             return value
         return None

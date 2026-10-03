@@ -6,12 +6,8 @@ from urllib.request import url2pathname
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF
 
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
-from ontobdc.storage.adapter.bootstrap import (
-    StorageBootstrap,
-    StorageNamespaceBootstrap,
-)
+from ontobdc.shared.domain.vocabulary import OBDC
+from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 
 
 class DatasetTitleRepository:
@@ -22,11 +18,6 @@ class DatasetTitleRepository:
     the slug; the title the user typed is the name the domain recognises, so
     it replaces the generated one as soon as the metadata exists.
     """
-
-    _ONTOLOGY_ADAPTER: ClassVar[OntologyConfigAdapter] = OntologyConfigAdapter(
-        config_adapter=UnsetProjectRootConfigDataAdapter(),
-    )
-    _OBDC: ClassVar[Any] = _ONTOLOGY_ADAPTER.get_ontology_namespace_by_prefix("obdc")
 
     def __init__(self, dataset_path: Path) -> None:
         self._dataset_path: Path = dataset_path
@@ -62,7 +53,7 @@ class DatasetTitleRepository:
     def _dataset_subject(self, graph: Graph) -> URIRef:
         subjects: List[URIRef] = [
             subject
-            for subject in graph.subjects(RDF.type, self._OBDC.EntityDataset)
+            for subject in graph.subjects(RDF.type, OBDC.EntityDataset)
             if isinstance(subject, URIRef)
         ]
         if len(subjects) != 1:
@@ -103,7 +94,7 @@ class RegisteredDatasets:
 
         container_subjects: List[URIRef] = [
             subject
-            for subject in graph.subjects(RDF.type, cls._obdc().DataContainer)
+            for subject in graph.subjects(RDF.type, OBDC.DataContainer)
             if isinstance(subject, URIRef)
         ]
         if len(container_subjects) != 1:
@@ -139,23 +130,12 @@ class RegisteredDatasets:
         """
         Return the entity datasets the container points at.
         """
-        obdc: Any = cls._obdc()
-
         return [
             subject
-            for subject in graph.objects(container_subject, obdc.hasEntityDataset)
+            for subject in graph.objects(container_subject, OBDC.hasEntityDataset)
             if isinstance(subject, URIRef)
-            and (subject, RDF.type, obdc.EntityDataset) in graph
+            and (subject, RDF.type, OBDC.EntityDataset) in graph
         ]
-
-    @staticmethod
-    def _obdc() -> Any:
-        """
-        Return the OntoBDC namespace, bootstrapping it on first reach.
-        """
-        StorageNamespaceBootstrap.initialize()
-
-        return StorageNamespaceBootstrap.OBDC
 
     @staticmethod
     def _safe_basename(raw: Any) -> str:

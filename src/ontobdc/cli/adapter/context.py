@@ -114,19 +114,14 @@ class CliContextAdapter(CliContextPort):
     @property
     def root_path(self) -> str:
         """
-        Returns the root path of the repository.
+        Returns the root path of the repository: where its
+        ``.__ontobdc__/config.yaml`` marker was found, not the absolute path
+        recorded in that config, which goes stale once the root is moved.
         """
         try:
-            cfg = self._config_adapter.all or {}
+            return str(self._config_adapter.root_dir)
         except ProjectRootDirectoryNotSetError:
             return os.getcwd()
-        directory = cfg.get("directory") or {}
-        root = directory.get("root") or {}
-        absolute_path = root.get("absolute_path")
-        if absolute_path:
-            return absolute_path
-
-        return os.getcwd()
 
     def get_individual(self, class_key: str) -> URIRef:
         """

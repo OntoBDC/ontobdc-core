@@ -67,14 +67,6 @@ class ConfigDataPort(ABC):
 
     @property
     @abstractmethod
-    def ontology_cache(self) -> Path:
-        """
-        Gets the absolute path to the ontology cache directory.
-        """
-        ...
-
-    @property
-    @abstractmethod
     def available_languages(self) -> List[LanguageResource]:
         """
         Get available languages.

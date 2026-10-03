@@ -4,11 +4,10 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 from rdflib import Graph, Literal, URIRef
-from rdflib.namespace import DCTERMS, OWL, RDF, XSD, Namespace
+from rdflib.namespace import DCTERMS, OWL, PROV, RDF, XSD, Namespace
 
 from ontobdc.cli.domain.port.context import CliContextPort
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.shared.domain.vocabulary import CT, OBDC
 from ontobdc.shared.domain.exception.config import (
     ProjectRootDirectoryNotSetError,
 )
@@ -35,35 +34,12 @@ class StorageLayoutConstants:
 
 
 class StorageNamespaceBootstrap:
-    """Initialize and expose the storage-level ontology namespaces.
+    """The namespaces the storage graphs are written with."""
 
-    Mirrors the initialization pattern used by the repository and
-    attachment-graph adapters: the ``OntologyConfigAdapter`` is built
-    once (with the project-root-unset default) and cached on the class so
-    the namespace lookups run exactly once per Python process.
-    """
-
-    _ontology_adapter: ClassVar["OntologyConfigAdapter | None"] = None
-
-    OBDC: Namespace
-    CT: Namespace
-    PROV: Namespace
-    BASE_CONTEXT_URI: Namespace = Namespace("urn:ontobdc:context/")
-
-    @classmethod
-    def _adapter(cls) -> OntologyConfigAdapter:
-        if cls._ontology_adapter is None:
-            cls._ontology_adapter = OntologyConfigAdapter(
-                config_adapter=UnsetProjectRootConfigDataAdapter(),
-            )
-        return cls._ontology_adapter
-
-    @classmethod
-    def initialize(cls) -> None:
-        adapter: OntologyConfigAdapter = cls._adapter()
-        cls.OBDC = adapter.get_ontology_namespace_by_prefix("obdc")
-        cls.CT = adapter.get_ontology_namespace_by_prefix("ct")
-        cls.PROV = adapter.get_ontology_namespace_by_prefix("prov")
+    OBDC: ClassVar[Namespace] = OBDC
+    CT: ClassVar[Namespace] = CT
+    PROV: ClassVar[Namespace] = PROV
+    BASE_CONTEXT_URI: ClassVar[Namespace] = Namespace("urn:ontobdc:context/")
 
 
 class StoragePathStatHelper:

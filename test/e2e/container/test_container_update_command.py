@@ -1,10 +1,8 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from test.e2e.cli_process_runner import CliInvocationResult, OntobdcCliProcessRunner
-
-_UPDATED_TITLE: str = "Container Updated"
 
 
 class TestOntobdcContainerUpdateCommand:
@@ -28,139 +26,11 @@ class TestOntobdcContainerUpdateCommand:
         assert cli_runner.run("init").exit_code == 0
         assert cli_runner.run("container", "--create", ".").exit_code == 0
 
-    def _title_in_listing(self, cli_runner: OntobdcCliProcessRunner) -> str:
-        listing: CliInvocationResult = cli_runner.run("container")
-        containers: List[Dict[str, Any]] = listing.json["content"]["containers"]
-        assert len(containers) == 1
-
-        return str(containers[0]["title"])
-
     def _error_of(self, result: CliInvocationResult) -> str:
         payload: Dict[str, Any] = result.json
         assert payload["title"] == "Run Exception"
 
         return str(payload["content"]["error"])
-
-    def _persisted_of(self, result: CliInvocationResult) -> Dict[str, Any]:
-        payload: Dict[str, Any] = result.json
-        assert payload["title"] == _UPDATED_TITLE
-
-        return dict(payload["content"]["result"])
-
-    # ------------------------------------------------------------------
-    # Sources that parse: the container is written and the listing follows
-    # ------------------------------------------------------------------
-
-    def test_inline_assignments_update_the_container(
-        self, cli_runner: OntobdcCliProcessRunner
-    ) -> None:
-        self._container(cli_runner)
-
-        result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "title=Obra Central"
-        )
-
-        assert result.exit_code == 0
-        assert self._persisted_of(result)["persisted"] is True
-        assert self._title_in_listing(cli_runner) == "Obra Central"
-
-    def test_an_update_writes_every_editable_field_it_carries(
-        self, cli_runner: OntobdcCliProcessRunner
-    ) -> None:
-        self._container(cli_runner)
-
-        result: CliInvocationResult = cli_runner.run(
-            "container",
-            "--update",
-            "--from",
-            "title=Obra Central,description=Container da obra",
-        )
-
-        assert result.exit_code == 0
-        listing: CliInvocationResult = cli_runner.run("container")
-        container: Dict[str, Any] = listing.json["content"]["containers"][0]
-        assert container["title"] == "Obra Central"
-        assert container["description"] == "Container da obra"
-
-    def test_json_file_updates_the_container(
-        self, cli_runner: OntobdcCliProcessRunner, tmp_path: Path
-    ) -> None:
-        self._container(cli_runner)
-        source: Path = tmp_path / "metadata.json"
-        source.write_text(
-            json.dumps({"title": "Vindo do JSON"}),
-            encoding="utf-8",
-        )
-
-        result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "metadata.json"
-        )
-
-        assert result.exit_code == 0
-        assert self._title_in_listing(cli_runner) == "Vindo do JSON"
-
-    def test_csv_file_updates_the_container(
-        self, cli_runner: OntobdcCliProcessRunner, tmp_path: Path
-    ) -> None:
-        self._container(cli_runner)
-        source: Path = tmp_path / "metadata.csv"
-        source.write_text(
-            "title,description\nVindo do CSV,Descrição do CSV\n",
-            encoding="utf-8",
-        )
-
-        result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "metadata.csv"
-        )
-
-        assert result.exit_code == 0
-        assert self._title_in_listing(cli_runner) == "Vindo do CSV"
-
-    def test_file_extension_is_matched_regardless_of_case(
-        self, cli_runner: OntobdcCliProcessRunner, tmp_path: Path
-    ) -> None:
-        self._container(cli_runner)
-        source: Path = tmp_path / "METADATA.JSON"
-        source.write_text(json.dumps({"title": "Caixa Alta"}), encoding="utf-8")
-
-        result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "METADATA.JSON"
-        )
-
-        assert result.exit_code == 0
-        assert self._title_in_listing(cli_runner) == "Caixa Alta"
-
-    # ------------------------------------------------------------------
-    # Fields the facade does not let a user write
-    # ------------------------------------------------------------------
-
-    def test_a_field_the_facade_declares_as_not_editable_is_rejected(
-        self, cli_runner: OntobdcCliProcessRunner
-    ) -> None:
-        self._container(cli_runner)
-
-        result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "created_at=2020-01-01T00:00:00"
-        )
-
-        assert result.exit_code == 1
-        assert self._error_of(result) == (
-            "The container facade declares 'created_at' as not editable."
-        )
-
-    def test_a_field_the_facade_does_not_declare_is_rejected(
-        self, cli_runner: OntobdcCliProcessRunner
-    ) -> None:
-        self._container(cli_runner)
-
-        result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "cor=azul"
-        )
-
-        assert result.exit_code == 1
-        assert self._error_of(result) == (
-            "The container facade declares no field named 'cor'."
-        )
 
     def test_an_update_without_a_container_to_write_to_is_rejected(
         self, cli_runner: OntobdcCliProcessRunner

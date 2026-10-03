@@ -2,19 +2,16 @@ from pathlib import Path
 from shutil import copyfile
 from typing import Optional
 
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
+from ontobdc.shared.adapter.ontology import BrasidataCenterOntologyLibrary
 from ontobdc.container.plugin.check.is_dataset_facade_valid.check import (
     FACADE_FILE_NAME,
+    FACADE_SHAPES_IRI,
     LINKSET_DIRECTORY_NAME,
     PAYLOAD_DIRECTORY_NAME,
     _resolve_path,
     main as check_dataset_facade_valid,
 )
 
-_ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
-    config_adapter=UnsetProjectRootConfigDataAdapter(),
-)
 
 
 def main(
@@ -38,16 +35,11 @@ def main(
             root_path=root_path,
         )
 
+    source_path: Path = BrasidataCenterOntologyLibrary().path(FACADE_SHAPES_IRI)
     try:
-        source_path: Path = Path(
-            _ontology_adapter.get_ontology_path(
-                prefix="obdc_view",
-                type="facade",
-            )
-        )
         facade_path.parent.mkdir(parents=True, exist_ok=True)
         copyfile(source_path, facade_path)
-    except (FileNotFoundError, OSError, ValueError):
+    except OSError:
         return 1
 
     return check_dataset_facade_valid(

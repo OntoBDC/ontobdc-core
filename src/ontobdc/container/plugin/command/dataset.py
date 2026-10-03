@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, ClassVar, List, Optional, Tuple
+from typing import Any, ClassVar, List, Optional
 
 from ontobdc.shared.adapter.slug import TitleSlug
 from ontobdc.cli.domain.port.command import CliCommandPort
@@ -41,10 +41,11 @@ class ContainerCreateDatasetCommand(CliCommandPort):
                 "description": (
                     "Select the container that will hold the new "
                     "dataset, by storage identifier or filesystem path. "
-                    "The dataset is created as a subfolder of the "
-                    "container with its own metadata, title and index "
-                    "entry; its title is given alongside "
-                    "--create-dataset."
+                    "Optional: when omitted, the container is resolved "
+                    "from the current working directory. The dataset is "
+                    "created as a subfolder of the container with its "
+                    "own metadata, title and index entry; its title is "
+                    "given alongside --create-dataset."
                 ),
             },
         ],
@@ -71,13 +72,11 @@ class ContainerCreateDatasetCommand(CliCommandPort):
         Check if the command is valid.
         Returns True if the command is valid, False otherwise.
         """
-        values: Optional[Tuple[str, str]] = self._values(
+        dataset_title: Optional[str] = self._values(
             self._request.command_args
         )
-        if values is None:
+        if dataset_title is None:
             return False
-
-        dataset_title: str = values[1]
 
         dataset_slug: str = TitleSlug.of(dataset_title)
         if not dataset_slug:
@@ -93,27 +92,28 @@ class ContainerCreateDatasetCommand(CliCommandPort):
         return True
 
     @staticmethod
-    def _values(scoped_args: List[str]) -> Optional[Tuple[str, str]]:
+    def _values(scoped_args: List[str]) -> Optional[str]:
         """
-        Return the (container, dataset title) pair these scoped args name,
-        with --container and --create-dataset in either order, or None when
-        they do not name one.
+        Return the dataset title these scoped args name, or None when they
+        do not name one.
 
-        Both flags are required here -- there is no current-directory
-        fallback for which container to create the dataset in -- but which
-        one a user writes first is not part of the command's meaning.
+        --create-dataset is required; --container is optional and, when
+        absent, the container parameter strategy resolves the container
+        from the current working directory instead -- the same fallback
+        --update relies on. Which flag a user writes first is not part of
+        the command's meaning.
         """
         remaining: List[str] = list(scoped_args)
-        container_value: Optional[str] = ContainerCreateDatasetCommand._extract(
+        ContainerCreateDatasetCommand._extract(
             remaining, ContainerCreateDatasetCommand.CONTAINER_FLAG
         )
         dataset_value: Optional[str] = ContainerCreateDatasetCommand._extract(
             remaining, ContainerCreateDatasetCommand.DATASET_FLAG
         )
-        if container_value is None or dataset_value is None or remaining:
+        if dataset_value is None or remaining:
             return None
 
-        return container_value, dataset_value
+        return dataset_value
 
     @staticmethod
     def _extract(remaining: List[str], flag: str) -> Optional[str]:

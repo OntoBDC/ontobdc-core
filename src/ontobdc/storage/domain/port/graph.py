@@ -20,6 +20,14 @@ class StorageGraphModelPort(ABC):
         ...
 
     @abstractmethod
+    def resolve_location(self, location: str) -> Path:
+        ...
+
+    @abstractmethod
+    def rebase_to_root(self) -> None:
+        ...
+
+    @abstractmethod
     def subject_predicate_objects(self, subject: URIRef) -> List[Tuple[Any, Any]]:
         ...
 

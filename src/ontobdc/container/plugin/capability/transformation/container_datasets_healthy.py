@@ -20,7 +20,6 @@ import tempfile
 
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.parameter import RequiredParameter
-from ontobdc.storage.adapter.manifest import ContainerDataPackageSynchronizer
 from ontobdc.container.adapter.dataset import RegisteredDatasets
 from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
@@ -28,37 +27,17 @@ from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.container.plugin.check.is_dataset_healthy.check import (
     evaluate as evaluate_dataset_healthy,
 )
+from ontobdc.container.plugin.check.is_dataset_healthy.hotfix import (
+    main as hotfix_dataset_healthy,
+)
 from ontobdc.container.plugin.machine.container_refresh.state import ContainerRefreshProcessState
-from ontobdc.container.plugin.check.is_dataset_facade_valid.hotfix import (
-    main as hotfix_dataset_facade_valid,
-)
-from ontobdc.container.plugin.check.is_dataset_metadata_ready.check import (
-    main as check_dataset_metadata_ready,
-)
-from ontobdc.container.plugin.check.is_dataset_metadata_ready.hotfix import (
-    main as hotfix_dataset_metadata_ready,
-)
-from ontobdc.container.plugin.check.is_dataset_structure_valid.hotfix import (
-    main as hotfix_dataset_structure_valid,
-)
-from ontobdc.container.plugin.check.is_dataset_surfaceable_synced.hotfix import (
-    main as hotfix_dataset_surfaceable_synced,
-)
-from ontobdc.container.plugin.check.is_dataset_container_index_ready.check import (
-    main as check_dataset_container_index_ready,
-)
-from ontobdc.container.plugin.check.is_dataset_container_index_ready.hotfix import (
-    main as hotfix_dataset_container_index_ready,
-)
-
 
 class ContainerDatasetsHealthyCapability(TransactionCapability):
     """Repair and validate every dataset registered in the container.
 
-    Best-effort, not a hard gate: an individual dataset that stays unhealthy
-    must not block `ontobdc container --refresh` for the whole container.
-    This state is considered done once the pass has run, not once every
-    dataset is perfectly healthy. Per-dataset results are reported.
+    A hard gate: every dataset is checked, repaired where it fails, and
+    checked again. A dataset that is still unhealthy fails the refresh with
+    the checks it fails, and the state is not reached.
     """
 
     ETL_DIRECTORY_NAME: str = "etl"
@@ -78,7 +57,7 @@ class ContainerDatasetsHealthyCapability(TransactionCapability):
         name="Container Datasets Healthy",
         description=(
             "Repair and validate every dataset registered in the "
-            "container, reporting per-dataset health."
+            "container, failing when one stays unhealthy."
         ),
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["storage", "container", "dataset", "update", "health"],
@@ -86,8 +65,7 @@ class ContainerDatasetsHealthyCapability(TransactionCapability):
         log_message={
             "info": {
                 "en": (
-                    "Registered datasets were repaired and validated, and per-dataset "
-                    "health results were produced."
+                    "Registered datasets were repaired and validated."
                 ),
             },
             "debug_entry": {
@@ -150,17 +128,29 @@ class ContainerDatasetsHealthyCapability(TransactionCapability):
             else:
                 context.set_parameter_value("dataset_path", previous_dataset_path)
 
-        unhealthy: List[str] = [
-            str(result["dataset_path"])
-            for result in results
-            if not result["healthy"]
+        unhealthy: List[Dict[str, Any]] = [
+            result for result in results if not result["healthy"]
         ]
+        if unhealthy:
+            raise ValueError(
+                "Unhealthy datasets after repair: "
+                + "; ".join(
+                    f"{result['dataset_path']} fails "
+                    + ", ".join(
+                        sorted(
+                            name
+                            for name, value in result["evaluation"].items()
+                            if value != 0
+                        )
+                    )
+                    for result in unhealthy
+                )
+            )
+
         self._write_event(
             container_path,
             payload={
                 "dataset_count": len(results),
-                "healthy_dataset_count": len(results) - len(unhealthy),
-                "unhealthy_dataset_count": len(unhealthy),
                 "datasets": results,
             },
         )
@@ -171,8 +161,6 @@ class ContainerDatasetsHealthyCapability(TransactionCapability):
             ),
             "container_path": str(container_path),
             "dataset_count": len(results),
-            "healthy_dataset_count": len(results) - len(unhealthy),
-            "unhealthy_datasets": unhealthy,
             "datasets": results,
         }
 
@@ -222,75 +210,16 @@ class ContainerDatasetsHealthyCapability(TransactionCapability):
         dataset_path: str,
         root_path: str,
     ) -> Dict[str, Any]:
-        """Repair and validate a single dataset.
-
-        Mirrors the DatasetHealthyCapability behaviour without importing or
-        instantiating the sibling class: structure → metadata → container
-        index → facade → surfaceable sync → Data Package sync → evaluate.
-        """
-        hotfix_dataset_structure_valid(
+        """Check a single dataset, repair it when it fails, and evaluate it."""
+        healthy: bool = hotfix_dataset_healthy(
             dataset_path=dataset_path,
             root_path=root_path,
-        )
-
-        metadata_ready: bool = False
-        container_index_ready: bool = False
-
-        try:
-            if check_dataset_metadata_ready(
-                dataset_path=dataset_path,
-                root_path=root_path,
-            ) != 0:
-                hotfix_dataset_metadata_ready(
-                    dataset_path=dataset_path,
-                    root_path=root_path,
-                )
-            metadata_ready = (
-                check_dataset_metadata_ready(
-                    dataset_path=dataset_path,
-                    root_path=root_path,
-                )
-                == 0
-            )
-        finally:
-            try:
-                if check_dataset_container_index_ready(
-                    dataset_path=dataset_path,
-                    root_path=root_path,
-                ) != 0:
-                    hotfix_dataset_container_index_ready(
-                        dataset_path=dataset_path,
-                        root_path=root_path,
-                    )
-                container_index_ready = (
-                    check_dataset_container_index_ready(
-                        dataset_path=dataset_path,
-                        root_path=root_path,
-                    )
-                    == 0
-                )
-            finally:
-                hotfix_dataset_facade_valid(
-                    dataset_path=dataset_path,
-                    root_path=root_path,
-                )
-                hotfix_dataset_surfaceable_synced(
-                    dataset_path=dataset_path,
-                    root_path=root_path,
-                )
-                ContainerDataPackageSynchronizer().sync(
-                    Path(dataset_path).expanduser().resolve()
-                )
-
-        evaluation: Dict[str, Any] = evaluate_dataset_healthy(
-            dataset_path=dataset_path,
-            root_path=root_path,
-        )
-        healthy: bool = all(value == 0 for value in evaluation.values())
+        ) == 0
         return {
             "dataset_path": dataset_path,
-            "metadata_ready": metadata_ready,
-            "container_index_ready": container_index_ready,
-            "evaluation": evaluation,
+            "evaluation": evaluate_dataset_healthy(
+                dataset_path=dataset_path,
+                root_path=root_path,
+            ),
             "healthy": healthy,
         }

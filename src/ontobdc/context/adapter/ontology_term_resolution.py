@@ -5,47 +5,13 @@ from rdflib import Graph
 from rdflib.term import Node, URIRef, Literal
 from rdflib.namespace import OWL, RDF, RDFS, SKOS
 
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
-from ontobdc.shared.adapter.ontology import (
-    OntologyConfigAdapter,
-    OntologyResourceLocator,
-)
+from ontobdc.shared.adapter.ontology import BrasidataCenterOntologyLibrary
+from ontobdc.shared.domain.port.ontology import OntologyLibraryPort
 
 
 class OntologyDictionaryTermExtractor:
-    """Extract labelled RDF terms from the configured ontology universe."""
+    """Extract labelled RDF terms from every available ontology."""
 
-    ONTOLOGY_PREFIXES: ClassVar[Tuple[str, ...]] = tuple(
-        sorted(
-            set(
-                list(OntologyResourceLocator._PREFIX_TO_RESOURCE_PARTS.keys())
-                + [
-                    "ibim",
-                    "ibim_view",
-                    "ibim_presentation",
-                    "ibim_tile",
-                    "obdc_tile",
-                    "obdc_file",
-                    "ifco",
-                    "ct",
-                    "dcat",
-                    "schema",
-                    "prov",
-                ]
-            )
-        )
-    )
-    ONTOLOGY_TYPES: ClassVar[Tuple[str, ...]] = (
-        "ns",
-        "view",
-        "code",
-        "file",
-        "tbox",
-        "abox",
-        "default_surface_layout",
-        "type",
-        "kind",
-    )
     TERM_TYPES: ClassVar[Tuple[Tuple[str, Node], ...]] = (
         ("owl:Class", OWL.Class),
         ("rdf:Property", RDF.Property),
@@ -58,53 +24,33 @@ class OntologyDictionaryTermExtractor:
     )
     UNTAGGED_LANGUAGE: ClassVar[str] = ""
 
-    def __init__(self, ontology_adapter: OntologyConfigAdapter) -> None:
-        self._ontology_adapter: OntologyConfigAdapter = ontology_adapter
+    def __init__(self, ontology_library: OntologyLibraryPort) -> None:
+        self._ontology_library: OntologyLibraryPort = ontology_library
 
     def extract_all_terms(self) -> List[Dict[str, Any]]:
         """
         Return every labelled term, once per IRI.
-
-        Each prefix is probed for each known ontology file type; a missing
-        combination is part of the probe and is skipped, while any other
-        failure to read an existing ontology propagates.
         """
         terms: List[Dict[str, Any]] = []
         seen_iris: Set[str] = set()
-        prefix: str
-        for prefix in self.ONTOLOGY_PREFIXES:
-            type_name: str
-            for type_name in self.ONTOLOGY_TYPES:
-                graph: Optional[Graph] = self._load_graph(prefix, type_name)
-                if graph is None:
+        ontology_iri: str
+        for ontology_iri in self._ontology_library.iris():
+            term: Dict[str, Any]
+            for term in self._extract_terms_from_graph(
+                graph=self._ontology_library.graph(ontology_iri),
+                ontology_iri=ontology_iri,
+            ):
+                if term["iri"] in seen_iris:
                     continue
-                term: Dict[str, Any]
-                for term in self._extract_terms_from_graph(
-                    graph=graph,
-                    ontology_prefix=prefix,
-                    ontology_type=type_name,
-                ):
-                    if term["iri"] in seen_iris:
-                        continue
-                    seen_iris.add(term["iri"])
-                    terms.append(term)
+                seen_iris.add(term["iri"])
+                terms.append(term)
         return terms
-
-    def _load_graph(self, prefix: str, type_name: str) -> Optional[Graph]:
-        try:
-            return self._ontology_adapter.get_ontology_content(
-                prefix=prefix,
-                type=type_name,
-            )
-        except FileNotFoundError:
-            return None
 
     def _extract_terms_from_graph(
         self,
         *,
         graph: Graph,
-        ontology_prefix: str,
-        ontology_type: str,
+        ontology_iri: str,
     ) -> List[Dict[str, Any]]:
         terms: List[Dict[str, Any]] = []
         term_type: str
@@ -121,8 +67,7 @@ class OntologyDictionaryTermExtractor:
                     {
                         "iri": str(subject),
                         "labels": labels,
-                        "ontology_prefix": ontology_prefix,
-                        "ontology_type": ontology_type,
+                        "ontology": ontology_iri,
                         "term_type": term_type,
                     }
                 )
@@ -170,9 +115,7 @@ class OntologyTermResolver:
     @classmethod
     def from_configuration(cls) -> "OntologyTermResolver":
         return cls(
-            OntologyDictionaryTermExtractor(
-                OntologyConfigAdapter(UnsetProjectRootConfigDataAdapter())
-            )
+            OntologyDictionaryTermExtractor(BrasidataCenterOntologyLibrary())
         )
 
     def resolve(self, *, lemma: str, language: str) -> Dict[str, Any]:
@@ -229,14 +172,13 @@ class OntologyTermResolver:
                         "iri": term["iri"],
                         "label": label_text,
                         "label_language": label_language,
-                        "ontology_prefix": term["ontology_prefix"],
-                        "ontology_type": term["ontology_type"],
+                        "ontology": term["ontology"],
                         "term_type": term["term_type"],
                     }
                 )
                 break
         exact_matches.sort(
-            key=lambda item: (item["ontology_prefix"], item["iri"])
+            key=lambda item: (item["ontology"], item["iri"])
         )
         return exact_matches
 
@@ -272,14 +214,13 @@ class OntologyTermResolver:
                     "iri": term["iri"],
                     "label": best_label[1],
                     "label_language": best_label[0],
-                    "ontology_prefix": term["ontology_prefix"],
-                    "ontology_type": term["ontology_type"],
+                    "ontology": term["ontology"],
                     "term_type": term["term_type"],
                     "score": best_score,
                 }
             )
         candidates.sort(
-            key=lambda item: (-item["score"], item["ontology_prefix"], item["iri"])
+            key=lambda item: (-item["score"], item["ontology"], item["iri"])
         )
         return candidates[: cls.TOP_N]
 

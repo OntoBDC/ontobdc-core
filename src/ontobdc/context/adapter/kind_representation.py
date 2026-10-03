@@ -6,11 +6,7 @@ from rdflib import BNode, Graph, URIRef, Namespace
 from rdflib.term import Node
 from rdflib.namespace import OWL, RDF, RDFS
 
-from ontobdc.shared.adapter.config import UnsetProjectRootConfigDataAdapter
-from ontobdc.shared.adapter.ontology import OntologyConfigAdapter
-from ontobdc.context.adapter.ontology_term_resolution import (
-    OntologyDictionaryTermExtractor,
-)
+from ontobdc.shared.adapter.ontology import BrasidataCenterOntologyLibrary
 
 
 class OntologyKindRepresentationResolver:
@@ -24,40 +20,26 @@ class OntologyKindRepresentationResolver:
     bindings declared via DUL Description (``aeco:IfcElementBinding``) are
     also resolved through the inverse pair
     ``aeco:hasIfcElementBinding`` / ``aeco:bindsIfcElementFor``. Both are
-    looked up across the ``ns``, ``kind`` and ``kind_representation``
-    ontologies of every configured prefix.
+    looked up across the AECO catalog and every ontology it imports.
     """
 
-    ONTOLOGY_TYPES: ClassVar[Tuple[str, ...]] = ("ns", "kind", "kind_representation")
+    CATALOG_IRI: ClassVar[str] = "http://datacenter.app.br/ontology/domain/aeco/catalog.ttl"
+    #: The prefix the catalog binds to the AECO core schema.
+    AECO_PREFIX: ClassVar[str] = "aeco"
     CRM: ClassVar[Namespace] = Namespace("http://www.cidoc-crm.org/cidoc-crm/")
     DUL: ClassVar[Namespace] = Namespace(
         "http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#"
     )
-    AECO: ClassVar[Namespace] = Namespace(
-        "http://datacenter.app.br/ontology/domain/aeco/ns.ttl#"
-    )
 
     def __init__(self, graph: Graph) -> None:
         self._graph: Graph = graph
+        self.AECO: Namespace = BrasidataCenterOntologyLibrary.bound_namespace(
+            graph, self.AECO_PREFIX
+        )
 
     @classmethod
     def from_configuration(cls) -> "OntologyKindRepresentationResolver":
-        ontology_adapter: OntologyConfigAdapter = OntologyConfigAdapter(
-            UnsetProjectRootConfigDataAdapter()
-        )
-        graph: Graph = Graph()
-        prefix: str
-        for prefix in OntologyDictionaryTermExtractor.ONTOLOGY_PREFIXES:
-            type_name: str
-            for type_name in cls.ONTOLOGY_TYPES:
-                try:
-                    graph += ontology_adapter.get_ontology_content(
-                        prefix=prefix,
-                        type=type_name,
-                    )
-                except FileNotFoundError:
-                    continue
-        return cls(graph)
+        return cls(BrasidataCenterOntologyLibrary().graph_with_imports(cls.CATALOG_IRI))
 
     def representations_of(self, kind: str) -> List[Dict[str, Any]]:
         """Return each representation of ``kind`` with its JSON-LD definition."""
