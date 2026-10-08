@@ -1,0 +1,87 @@
+statechart:
+  name: StandardEntityWrite
+  description: "Statechart for writing entities into the data source of a dataset."
+
+  root state:
+    name: standard_entity_write
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the container has a dataset of the entity."
+          pt-br: "Estado inicial antes de o container ter um dataset da entidade."
+        transitions:
+          - target: dataset_found
+            guard: handler.can_transit_to(to_state = EntityWriteProcessStatePort.DATASET_FOUND)
+            action: handler.perform_state_transition(to_state = EntityWriteProcessStatePort.DATASET_FOUND)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityWriteProcessStatePort.UNDEFINED, to_state = EntityWriteProcessStatePort.DATASET_FOUND)
+
+      - name: dataset_found
+        label:
+          en: "Dataset Found"
+          pt-br: "Dataset Encontrado"
+        description:
+          en: "The container has a dataset that holds the entity."
+          pt-br: "O container tem um dataset que contem a entidade."
+        transitions:
+          - target: data_source_available
+            guard: handler.can_transit_to(to_state = EntityWriteProcessStatePort.DATA_SOURCE_AVAILABLE)
+            action: handler.perform_state_transition(to_state = EntityWriteProcessStatePort.DATA_SOURCE_AVAILABLE)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityWriteProcessStatePort.DATASET_FOUND, to_state = EntityWriteProcessStatePort.DATA_SOURCE_AVAILABLE)
+
+      - name: data_source_available
+        label:
+          en: "Data Source Available"
+          pt-br: "Fonte de Dados Disponivel"
+        description:
+          en: "The dataset has the data source of the entity."
+          pt-br: "O dataset tem a fonte de dados da entidade."
+        transitions:
+          - target: data_source_columns_synced
+            guard: handler.can_transit_to(to_state = EntityWriteProcessStatePort.DATA_SOURCE_COLUMNS_SYNCED)
+            action: handler.perform_state_transition(to_state = EntityWriteProcessStatePort.DATA_SOURCE_COLUMNS_SYNCED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityWriteProcessStatePort.DATA_SOURCE_AVAILABLE, to_state = EntityWriteProcessStatePort.DATA_SOURCE_COLUMNS_SYNCED)
+
+      - name: data_source_columns_synced
+        label:
+          en: "Data Source Columns Synced"
+          pt-br: "Colunas da Fonte de Dados Sincronizadas"
+        description:
+          en: "The data source has a column for every field of the entity facade."
+          pt-br: "A fonte de dados tem uma coluna para cada campo da facade da entidade."
+        transitions:
+          - target: data_source_filled
+            guard: handler.can_transit_to(to_state = EntityWriteProcessStatePort.DATA_SOURCE_FILLED)
+            action: handler.perform_state_transition(to_state = EntityWriteProcessStatePort.DATA_SOURCE_FILLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityWriteProcessStatePort.DATA_SOURCE_COLUMNS_SYNCED, to_state = EntityWriteProcessStatePort.DATA_SOURCE_FILLED)
+
+      - name: data_source_filled
+        label:
+          en: "Data Source Filled"
+          pt-br: "Fonte de Dados Preenchida"
+        description:
+          en: "The data source holds the rows of the entities."
+          pt-br: "A fonte de dados contem as linhas das entidades."
+        transitions:
+          - target: entity_documents_linked
+            guard: handler.can_transit_to(to_state = EntityWriteProcessStatePort.ENTITY_DOCUMENTS_LINKED)
+            action: handler.perform_state_transition(to_state = EntityWriteProcessStatePort.ENTITY_DOCUMENTS_LINKED)
+            contract:
+              - after: handler.validate_state_transition(from_state = EntityWriteProcessStatePort.DATA_SOURCE_FILLED, to_state = EntityWriteProcessStatePort.ENTITY_DOCUMENTS_LINKED)
+
+      - name: entity_documents_linked
+        label:
+          en: "Entity Documents Linked"
+          pt-br: "Documentos da Entidade Ligados"
+        description:
+          en: "The dataset linkset ties the data source to the documents the entities were made on."
+          pt-br: "O linkset do dataset liga a fonte de dados aos documentos sobre os quais as entidades foram feitas."
+        type: final

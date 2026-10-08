@@ -1,0 +1,70 @@
+statechart:
+  name: StandardDatasetCreate
+  description: "Statechart for OntoBDC storage dataset creation."
+
+  root state:
+    name: standard_dataset_create
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the target dataset directory exists."
+          pt-br: "Estado inicial antes da existencia do diretorio alvo do dataset."
+        transitions:
+          - target: invalid_path
+            guard: handler.can_transit_to(to_state = DatasetCreateProcessStatePort.INVALID_PATH)
+          - target: directory_ready
+            guard: handler.can_transit_to(to_state = DatasetCreateProcessStatePort.DIRECTORY_READY)
+            action: handler.perform_state_transition(to_state = DatasetCreateProcessStatePort.DIRECTORY_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = DatasetCreateProcessStatePort.UNDEFINED, to_state = DatasetCreateProcessStatePort.DIRECTORY_READY)
+
+      - name: invalid_path
+        label:
+          en: "Invalid Path"
+          pt-br: "Caminho Invalido"
+        description:
+          en: "The target path points to an existing file and cannot be used as a dataset directory."
+          pt-br: "O caminho alvo aponta para um arquivo existente e nao pode ser usado como diretorio de dataset."
+        type: final
+
+      - name: directory_ready
+        label:
+          en: "Directory Ready"
+          pt-br: "Diretorio Pronto"
+        description:
+          en: "The target dataset directory exists and is ready for the next creation steps."
+          pt-br: "O diretorio alvo do dataset existe e esta pronto para as proximas etapas da criacao."
+        transitions:
+          - target: dataset_metadata_ready
+            guard: handler.can_transit_to(to_state = DatasetCreateProcessStatePort.DATASET_METADATA_READY)
+            action: handler.perform_state_transition(to_state = DatasetCreateProcessStatePort.DATASET_METADATA_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = DatasetCreateProcessStatePort.DIRECTORY_READY, to_state = DatasetCreateProcessStatePort.DATASET_METADATA_READY)
+
+      - name: dataset_metadata_ready
+        label:
+          en: "Dataset Metadata Ready"
+          pt-br: "Metadados do Dataset Prontos"
+        description:
+          en: "The dataset metadata file exists and contains a valid dataset description."
+          pt-br: "O arquivo de metadados do dataset existe e contem uma descricao valida do dataset."
+        transitions:
+          - target: dataset_container_index_ready
+            guard: handler.can_transit_to(to_state = DatasetCreateProcessStatePort.DATASET_CONTAINER_INDEX_READY)
+            action: handler.perform_state_transition(to_state = DatasetCreateProcessStatePort.DATASET_CONTAINER_INDEX_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = DatasetCreateProcessStatePort.DATASET_METADATA_READY, to_state = DatasetCreateProcessStatePort.DATASET_CONTAINER_INDEX_READY)
+
+      - name: dataset_container_index_ready
+        label:
+          en: "Dataset Container Index Ready"
+          pt-br: "Indice do Dataset no Container Pronto"
+        description:
+          en: "The container metadata file contains the dataset entry and remains synchronized with the dataset metadata file."
+          pt-br: "O container.ttl contem a entrada do dataset e esta sincronizado com o dataset.ttl."
+        type: final

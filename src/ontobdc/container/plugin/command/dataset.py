@@ -4,15 +4,11 @@ from typing import Any, ClassVar, List, Optional
 from ontobdc.shared.adapter.slug import TitleSlug
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
-from ontobdc.container.adapter.dataset import DatasetTitleRepository
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import CommandResponse
 from ontobdc.cli.domain.exception.command import CliCommandArgumentException
-from ontobdc.container.plugin.check.is_dataset_metadata_ready.hotfix import (
-    main as create_dataset_metadata,
-)
-from ontobdc.container.plugin.check.is_dataset_container_index_ready.hotfix import (
-    main as index_dataset_in_container,
+from ontobdc.container.plugin.machine.dataset_create.machine import (
+    DatasetCreateStateTransitionHandler,
 )
 
 
@@ -47,6 +43,7 @@ class ContainerCreateDatasetCommand(CliCommandPort):
                     "own metadata, title and index entry; its title is "
                     "given alongside --create-dataset."
                 ),
+                "type": "str",
             },
         ],
     )
@@ -144,7 +141,6 @@ class ContainerCreateDatasetCommand(CliCommandPort):
         container_path: Path = Path(
             self._required_parameter("container_path")
         ).expanduser().resolve()
-        root_path: str = self._request.context.root_path
         dataset_path: Path = container_path / dataset_slug
 
         if dataset_path.exists():
@@ -152,25 +148,8 @@ class ContainerCreateDatasetCommand(CliCommandPort):
                 f"The container already holds a dataset at {dataset_path}."
             )
 
-        if create_dataset_metadata(
-            dataset_path=str(dataset_path),
-            root_path=root_path,
-        ) != 0:
-            raise RuntimeError(
-                f"Failed to write the metadata of the dataset at {dataset_path}."
-            )
-
-        DatasetTitleRepository(dataset_path).write_title(dataset_title)
-
-        if index_dataset_in_container(
-            dataset_path=str(dataset_path),
-            root_path=root_path,
-        ) != 0:
-            raise RuntimeError(
-                f"Failed to index the dataset at {dataset_path} in its container."
-            )
-
         self._request.context.set_parameter_value("dataset_path", str(dataset_path))
+        DatasetCreateStateTransitionHandler(self._request.context).execute()
 
         return CommandResponse(
             title="Dataset Created",

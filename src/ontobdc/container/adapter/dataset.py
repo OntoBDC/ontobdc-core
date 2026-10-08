@@ -199,7 +199,17 @@ class RegisteredDatasets:
             decoded: str = url2pathname(unquote(parsed.path))
             if len(decoded) <= limit:
                 try:
-                    return Path(decoded).expanduser().resolve()
+                    stated: Path = Path(decoded).expanduser().resolve()
+                    if stated.exists():
+                        return stated
+                    # The container was moved (or is mounted somewhere else)
+                    # since the dataset's location was written: a dataset is
+                    # a directory of its container, so it is read from where
+                    # the container is now.
+                    relocated: Path = resolved_container / cls._safe_basename(decoded)
+                    if relocated.is_dir():
+                        return relocated.resolve()
+                    return stated
                 except (OSError, ValueError, RuntimeError):
                     pass
             basename: str = cls._safe_basename(decoded)

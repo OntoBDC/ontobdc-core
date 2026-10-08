@@ -55,7 +55,8 @@ class ContainerCreateStateTransitionHandlerPort(ABC):
         ...
 
 
-class DatasetCreateProcessStatePort(str, Enum):
-    """
-    Base enum contract for storage dataset creation states.
-    """
+# The dataset creation port moved to the dataset_create machine; the name stays
+# importable from here.
+from ontobdc.container.plugin.machine.dataset_create.port import (  # noqa: E402,F401
+    DatasetCreateProcessStatePort,
+)

@@ -6,8 +6,6 @@ from pathlib import Path
 
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
-from ontobdc.shared.adapter.loader import ResolverLoader
-from ontobdc.shared.adapter.resolver import StrategyParamResolver
 from ontobdc.shared.adapter.capability import CapabilityExecutor
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import CommandResponse
@@ -22,7 +20,7 @@ from ontobdc.container.plugin.capability.persister.container import (
 
 class ContainerUpdateSourceKind(str, Enum):
     """
-    The kinds of source `--from` accepts.
+    The kinds of source `--update` accepts.
     """
 
     CSV_FILE = "csv_file"
@@ -32,7 +30,7 @@ class ContainerUpdateSourceKind(str, Enum):
 
 class ContainerUpdateSource:
     """
-    Classifies the value given to `--from` into one of its accepted kinds.
+    Classifies the value given to `--update` into one of its accepted kinds.
     """
 
     CSV_SUFFIX: ClassVar[str] = ".csv"
@@ -182,7 +180,7 @@ class ContainerUpdateCommand(CliCommandPort):
         arguments=[
             {
                 "accepts": [
-                    "--from",
+                    "--update",
                 ],
                 "valued": True,
                 "parameter": "update_source",
@@ -192,12 +190,27 @@ class ContainerUpdateCommand(CliCommandPort):
                     ".csv file, a path to a .json file, or inline "
                     "key=value assignments separated by commas."
                 ),
+                "type": "str",
+                "usage": "ontobdc container --update <source> [--container <id-or-path>]",
+            },
+            {
+                "accepts": [
+                    "--container",
+                ],
+                "valued": True,
+                "parameter": "container",
+                "description": (
+                    "Select the container to update, by storage identifier "
+                    "or filesystem path. When omitted, resolve the "
+                    "container from the current working directory."
+                ),
+                "type": "str",
             },
         ],
     )
 
     UPDATE_FLAG: ClassVar[str] = "--update"
-    SOURCE_FLAG: ClassVar[str] = "--from"
+    CONTAINER_FLAG: ClassVar[str] = "--container"
 
     @staticmethod
     def accepts(args: List[str]) -> bool:
@@ -233,26 +246,27 @@ class ContainerUpdateCommand(CliCommandPort):
     @staticmethod
     def _source(scoped_args: List[str]) -> Optional[str]:
         """
-        Return the --from value these scoped args name, with --update and
-        --from in either order, or None when they do not name one.
-
-        Both flags are required -- there is no bare `container --update`
-        with an implicit source -- but which one a user writes first is
-        not part of the command's meaning.
+        Return the --update value these scoped args name, or None when they
+        do not name one. --update takes the source; --container may select
+        the container, and either may come first.
         """
-        remaining: List[str] = list(scoped_args)
-        if ContainerUpdateCommand.UPDATE_FLAG not in remaining:
-            return None
-        remaining.remove(ContainerUpdateCommand.UPDATE_FLAG)
-
-        if (
-            len(remaining) != 2
-            or remaining[0] != ContainerUpdateCommand.SOURCE_FLAG
-            or not remaining[1].strip()
-        ):
+        if len(scoped_args) % 2 != 0:
             return None
 
-        return remaining[1]
+        flags: List[str] = scoped_args[0::2]
+        values: List[str] = scoped_args[1::2]
+        allowed: List[str] = [
+            ContainerUpdateCommand.UPDATE_FLAG,
+            ContainerUpdateCommand.CONTAINER_FLAG,
+        ]
+        if len(set(flags)) != len(flags) or any(flag not in allowed for flag in flags):
+            return None
+        if ContainerUpdateCommand.UPDATE_FLAG not in flags:
+            return None
+        if not all(value.strip() and not value.startswith("--") for value in values):
+            return None
+
+        return values[flags.index(ContainerUpdateCommand.UPDATE_FLAG)]
 
     def run(self) -> CommandResponse:
         """
@@ -283,10 +297,12 @@ class ContainerUpdateCommand(CliCommandPort):
         capability: StorageContainerMetadataPersisterCapability = (
             StorageContainerMetadataPersisterCapability()
         )
+        # The container is the one the parameter stage resolved for this
+        # command, however it was selected; resolving it again from the
+        # working directory would drop a selection made another way.
         result: Dict[str, Any] = CapabilityExecutor.execute(
             capability,
             self._request.context,
-            StrategyParamResolver(ResolverLoader()),
         )
         self._synchronize_storage_index()
 

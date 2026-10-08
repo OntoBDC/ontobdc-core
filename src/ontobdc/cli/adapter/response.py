@@ -380,6 +380,7 @@ class HealthCheckCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
         return widgets
 
     SCOPE_SEPARATOR: str = " · "
+    DETAIL_SEPARATOR: str = " — "
 
     @classmethod
     def _check_of(cls, check: Any) -> Tuple[str, bool]:
@@ -393,14 +394,19 @@ class HealthCheckCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
         label: Any = getattr(check, "label", None)
         passed: Any = getattr(check, "passed", None)
         scope: Any = getattr(check, "scope", None)
+        details: Any = getattr(check, "details", None)
         if isinstance(check, dict):
             label = check.get("label")
             passed = check.get("passed")
             scope = check.get("scope")
+            details = check.get("details")
 
         line: str = str(label).strip()
         if isinstance(scope, str) and scope.strip():
             line = f"{scope.strip()}{cls.SCOPE_SEPARATOR}{line}"
+        # A check that did not hold says why, when it can.
+        if not passed and isinstance(details, list) and details:
+            line = f"{line}{cls.DETAIL_SEPARATOR}{str(details[0]).strip()}"
 
         return line, bool(passed)
 

@@ -183,6 +183,13 @@ def _has_data_entity(dataset_graph: Graph, subject: URIRef) -> bool:
     return len(data_entity_values) > 0
 
 
+def _has_entity_type(dataset_graph: Graph, subject: URIRef, entity_iri: str) -> bool:
+    return any(
+        (data_entity, RDF.type, URIRef(entity_iri)) in dataset_graph
+        for data_entity in dataset_graph.objects(subject, OBDC.hasDataEntity)
+    )
+
+
 def _has_valid_identifier(
     dataset_graph: Graph,
     subject: URIRef,
@@ -199,7 +206,12 @@ def _has_valid_identifier(
 def main(
     dataset_path: Optional[str] = None,
     root_path: Optional[str] = None,
+    entity_iri: Optional[str] = None,
 ) -> int:
+    """
+    Return 0 when the dataset metadata is valid and, when ``entity_iri`` is
+    given, the dataset's data entity is of that type.
+    """
     resolved_dataset_path: Optional[Path] = _resolve_dataset_path(dataset_path)
     resolved_root_path: Optional[Path] = _resolve_root_path(root_path)
     if resolved_dataset_path is None or resolved_root_path is None:
@@ -260,6 +272,9 @@ def main(
         return 1
 
     if not _has_valid_location(dataset_graph, dataset_subject, resolved_dataset_path):
+        return 1
+
+    if entity_iri and not _has_entity_type(dataset_graph, dataset_subject, entity_iri):
         return 1
 
     return 0

@@ -31,6 +31,7 @@ class RunCapabilityCommand(CliCommandPort):
                     "Canonical identifier of the capability to run, as "
                     "declared in its METADATA.id."
                 ),
+                "type": "str",
             },
             {
                 "accepts": [
@@ -44,6 +45,7 @@ class RunCapabilityCommand(CliCommandPort):
                     "filesystem path. When omitted, resolve the container "
                     "from the current working directory."
                 ),
+                "type": "str",
             },
         ],
     )

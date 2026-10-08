@@ -43,6 +43,7 @@ class ContainerDeleteCommand(CliCommandPort):
                     "untouched."
                 ),
                 "valued": True,
+                "type": "str",
             },
         ],
     )

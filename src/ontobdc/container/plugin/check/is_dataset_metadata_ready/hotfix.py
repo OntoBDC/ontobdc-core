@@ -123,11 +123,54 @@ def _resolve_parent_container(dataset_path: Path, root_path: Path) -> Optional[T
     return _resolve_parent_container_from_container_graph(dataset_path=dataset_path)
 
 
+def _existing_values(
+    dataset_storage_file_path: Path,
+) -> Tuple[Optional[Literal], Optional[Literal], List[URIRef]]:
+    """
+    What the metadata file of the dataset already says and a repair must keep:
+    its title, its creation time and the types of its data entity. Nothing
+    when the file is absent, unreadable or does not describe one dataset.
+    """
+    if not dataset_storage_file_path.is_file():
+        return None, None, []
+
+    existing: Graph = Graph()
+    try:
+        existing.parse(str(dataset_storage_file_path), format="turtle")
+    except Exception:
+        return None, None, []
+
+    subjects: List[URIRef] = [
+        subject
+        for subject in existing.subjects(RDF.type, OBDC.EntityDataset)
+        if isinstance(subject, URIRef)
+    ]
+    if len(subjects) != 1:
+        return None, None, []
+
+    title: object = existing.value(subjects[0], DCTERMS.title)
+    created: object = existing.value(subjects[0], CT.creationDate)
+    entity_types: List[URIRef] = sorted(
+        {
+            entity_type
+            for data_entity in existing.objects(subjects[0], OBDC.hasDataEntity)
+            for entity_type in existing.objects(data_entity, RDF.type)
+            if isinstance(entity_type, URIRef) and entity_type != OBDC.DataEntity
+        }
+    )
+    return (
+        title if isinstance(title, Literal) else None,
+        created if isinstance(created, Literal) else None,
+        entity_types,
+    )
+
+
 def _build_dataset_graph(
     dataset_id: str,
     dataset_path: Path,
     dataset_storage_file_path: Path,
     container_id: str,
+    entity_iri: Optional[str] = None,
 ) -> Graph:
     dataset_graph: Graph = Graph()
     dataset_graph.bind("dcterms", DCTERMS)
@@ -141,19 +184,29 @@ def _build_dataset_graph(
     dataset_metadata_ref: URIRef = URIRef(dataset_storage_file_path.as_uri())
     container_ref: URIRef = URIRef(container_id)
     data_entity_ref: URIRef = URIRef(_build_data_entity_id(dataset_id))
-    created_at: Literal = Literal(
+    existing_title, existing_created_at, existing_types = _existing_values(
+        dataset_storage_file_path
+    )
+    created_at: Literal = existing_created_at or Literal(
         datetime.now().replace(microsecond=0).isoformat(),
         datatype=XSD.dateTime,
     )
-    dataset_title: str = _build_dataset_title(dataset_path)
+    dataset_title: Literal = existing_title or Literal(_build_dataset_title(dataset_path))
     dataset_description: str = f"Storage dataset located at {dataset_path.as_uri()}"
 
     dataset_graph.add((dataset_metadata_ref, RDF.type, OWL.Ontology))
     dataset_graph.add((dataset_ref, RDF.type, OBDC.EntityDataset))
     dataset_graph.add((dataset_ref, OBDC.belongsToDataContainer, container_ref))
     dataset_graph.add((dataset_ref, OBDC.hasDataEntity, data_entity_ref))
+    entity_types: List[URIRef] = sorted(
+        {*existing_types, *([URIRef(entity_iri)] if entity_iri else [])}
+    )
+    if entity_types:
+        dataset_graph.add((data_entity_ref, RDF.type, OBDC.DataEntity))
+        for entity_type in entity_types:
+            dataset_graph.add((data_entity_ref, RDF.type, entity_type))
     dataset_graph.add((dataset_ref, DCTERMS.identifier, Literal(dataset_id)))
-    dataset_graph.add((dataset_ref, DCTERMS.title, Literal(dataset_title)))
+    dataset_graph.add((dataset_ref, DCTERMS.title, dataset_title))
     dataset_graph.add((dataset_ref, DCTERMS.description, Literal(dataset_description)))
     dataset_graph.add((dataset_ref, CT.creationDate, created_at))
     dataset_graph.add((dataset_ref, PROV.atLocation, URIRef(dataset_path.as_uri())))
@@ -164,6 +217,7 @@ def _build_dataset_graph(
 def main(
     dataset_path: Optional[str] = None,
     root_path: Optional[str] = None,
+    entity_iri: Optional[str] = None,
 ) -> int:
     resolved_dataset_path: Optional[Path] = _resolve_path(dataset_path)
     resolved_root_path: Optional[Path] = _resolve_path(root_path)
@@ -191,6 +245,7 @@ def main(
             resolved_dataset_path,
             dataset_storage_file_path,
             parent_container[0],
+            entity_iri,
         )
         serialized_graph: bytes = dataset_graph.serialize(format="turtle", encoding="utf-8")
         dataset_storage_file_path.write_bytes(serialized_graph)

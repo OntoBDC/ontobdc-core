@@ -63,6 +63,7 @@ class ContainerAttachCommand(CliCommandPort, LoggerAwarePort):
                     "attach. When omitted, attach uses the current working "
                     "directory as the target container."
                 ),
+                "type": "Path",
             },
             {
                 "accepts": ["--attach"],

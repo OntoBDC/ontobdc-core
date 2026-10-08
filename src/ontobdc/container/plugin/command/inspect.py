@@ -39,6 +39,7 @@ class StorageContainerInspectCommand(CliCommandPort):
                     "returns the container's registered metadata plus a "
                     "tree summarizing its linkset and datasets."
                 ),
+                "type": "str",
             },
             {
                 "accepts": ["--inspect"],

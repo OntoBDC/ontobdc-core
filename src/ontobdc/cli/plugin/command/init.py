@@ -2,7 +2,7 @@ from typing import Any, List
 from pathlib import Path
 
 from ontobdc.cli.adapter.logger import NullLogRepository
-from ontobdc.cli.adapter.machine import CliInitStateTransitionHandler
+from ontobdc.cli.plugin.machine.init.machine import CliInitStateTransitionHandler
 from ontobdc.cli.domain.port.logger import LoggerAwarePort, LogRepositoryPort
 from ontobdc.cli.domain.model.logger import LogStrategyConfig
 from ontobdc.cli.domain.port.command import CliCommandPort
@@ -75,9 +75,7 @@ class CliInitCommand(CliCommandPort, LoggerAwarePort):
         """
         Execute the command to initialize the ontobdc environment.
         """
-        handler: CliInitStateTransitionHandler = CliInitStateTransitionHandler(
+        return CliInitStateTransitionHandler(
             context=self._request.context,
             logger=self._logger,
-        )
-
-        return handler.execute()
+        ).execute()

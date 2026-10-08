@@ -35,6 +35,12 @@ from ontobdc.cli.domain.response.command import (
 )
 from ontobdc.shared.facade.adapter.logger import ActiveLogRepositoryBroker
 
+DESCRIPTION: Dict[str, str] = {
+    "en": "Core entry points of the OntoBDC executable: bootstrap a workspace, print the command tree, show help and report the installed version.",
+    "pt": "Pontos de entrada principais do executável OntoBDC: inicializa um workspace, imprime a árvore de comandos, exibe ajuda e informa a versão instalada.",
+    "es": "Puntos de entrada principales del ejecutable OntoBDC: inicializa un workspace, imprime el árbol de comandos, muestra la ayuda e informa la versión instalada.",
+}
+
 # Set by a caller that pipes this CLI's output somewhere whose real display
 # width this process cannot query -- an embedded terminal panel in a
 # browser tab, for instance, is neither a TTY nor a fixed 80 columns.

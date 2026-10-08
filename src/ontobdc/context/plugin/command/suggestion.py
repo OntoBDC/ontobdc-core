@@ -43,6 +43,7 @@ class ContextSuggestionCommand(CliCommandPort, LoggerAwarePort):
                     "pipeline suggests ontology classes for every file "
                     "the container's RO-Crate declares."
                 ),
+                "type": "str",
             },
         ],
     )

@@ -3,7 +3,7 @@ from typing import Any, Dict
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
-from ontobdc.container.plugin.machine.container_create.state import DatasetCreateProcessState
+from ontobdc.container.plugin.machine.dataset_create.state import DatasetCreateProcessState
 from ontobdc.container.plugin.check.is_dataset_container_index_ready.check import (
     main as check_dataset_container_index_ready,
 )

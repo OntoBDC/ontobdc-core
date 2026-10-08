@@ -1,0 +1,106 @@
+statechart:
+  name: StandardAnnotationExportToExcel
+  label:
+    en: "Annotation Export to Excel"
+    pt-br: "Exportacao de Anotacoes para Excel"
+  description:
+    en: "Export the annotations of one type to an Excel workbook that embeds the reduced photos they refer to."
+    pt-br: "Exporta as anotacoes de um tipo para uma planilha Excel que embute as fotos reduzidas a que elas se referem."
+
+  root state:
+    name: standard_annotation_export_to_excel
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the scope of the export is identified."
+          pt-br: "Estado inicial antes da identificacao do escopo da exportacao."
+        transitions:
+          - target: export_scope_identified
+            guard: handler.can_transit_to(to_state = AnnotationExportToExcelProcessStatePort.EXPORT_SCOPE_IDENTIFIED)
+            action: handler.perform_state_transition(to_state = AnnotationExportToExcelProcessStatePort.EXPORT_SCOPE_IDENTIFIED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationExportToExcelProcessStatePort.UNDEFINED, to_state = AnnotationExportToExcelProcessStatePort.EXPORT_SCOPE_IDENTIFIED)
+
+      - name: export_scope_identified
+        label:
+          en: "Export Scope Identified"
+          pt-br: "Escopo da Exportacao Identificado"
+        description:
+          en: "The annotation type to export and the container that keeps its annotations have been identified."
+          pt-br: "O tipo de anotacao a exportar e o container que guarda suas anotacoes foram identificados."
+        transitions:
+          - target: annotations_collected
+            guard: handler.can_transit_to(to_state = AnnotationExportToExcelProcessStatePort.ANNOTATIONS_COLLECTED)
+            action: handler.perform_state_transition(to_state = AnnotationExportToExcelProcessStatePort.ANNOTATIONS_COLLECTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationExportToExcelProcessStatePort.EXPORT_SCOPE_IDENTIFIED, to_state = AnnotationExportToExcelProcessStatePort.ANNOTATIONS_COLLECTED)
+
+      - name: annotations_collected
+        label:
+          en: "Annotations Collected"
+          pt-br: "Anotacoes Coletadas"
+        description:
+          en: "The annotations of the identified type have been read from the container and numbered."
+          pt-br: "As anotacoes do tipo identificado foram lidas do container e numeradas."
+        transitions:
+          - target: photos_collected
+            guard: handler.can_transit_to(to_state = AnnotationExportToExcelProcessStatePort.PHOTOS_COLLECTED)
+            action: handler.perform_state_transition(to_state = AnnotationExportToExcelProcessStatePort.PHOTOS_COLLECTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationExportToExcelProcessStatePort.ANNOTATIONS_COLLECTED, to_state = AnnotationExportToExcelProcessStatePort.PHOTOS_COLLECTED)
+
+      - name: photos_collected
+        label:
+          en: "Photos Collected"
+          pt-br: "Fotos Coletadas"
+        description:
+          en: "The images among the files each annotation refers to have been found in the container and numbered."
+          pt-br: "As imagens entre os arquivos a que cada anotacao se refere foram encontradas no container e numeradas."
+        transitions:
+          - target: photos_downsampled
+            guard: handler.can_transit_to(to_state = AnnotationExportToExcelProcessStatePort.PHOTOS_DOWNSAMPLED)
+            action: handler.perform_state_transition(to_state = AnnotationExportToExcelProcessStatePort.PHOTOS_DOWNSAMPLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationExportToExcelProcessStatePort.PHOTOS_COLLECTED, to_state = AnnotationExportToExcelProcessStatePort.PHOTOS_DOWNSAMPLED)
+
+      - name: photos_downsampled
+        label:
+          en: "Photos Downsampled"
+          pt-br: "Fotos Reduzidas"
+        description:
+          en: "Each photo has been reduced to a lighter image to be embedded in the workbook."
+          pt-br: "Cada foto foi reduzida a uma imagem mais leve para ser embutida na planilha."
+        transitions:
+          - target: workbook_built
+            guard: handler.can_transit_to(to_state = AnnotationExportToExcelProcessStatePort.WORKBOOK_BUILT)
+            action: handler.perform_state_transition(to_state = AnnotationExportToExcelProcessStatePort.WORKBOOK_BUILT)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationExportToExcelProcessStatePort.PHOTOS_DOWNSAMPLED, to_state = AnnotationExportToExcelProcessStatePort.WORKBOOK_BUILT)
+
+      - name: workbook_built
+        label:
+          en: "Workbook Built"
+          pt-br: "Planilha Construida"
+        description:
+          en: "The workbook with the index of annotations, the photo archive and the carousel of each item has been built."
+          pt-br: "A planilha com o indice de anotacoes, o acervo de fotos e o carrossel de cada item foi construida."
+        transitions:
+          - target: workbook_saved
+            guard: handler.can_transit_to(to_state = AnnotationExportToExcelProcessStatePort.WORKBOOK_SAVED)
+            action: handler.perform_state_transition(to_state = AnnotationExportToExcelProcessStatePort.WORKBOOK_SAVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationExportToExcelProcessStatePort.WORKBOOK_BUILT, to_state = AnnotationExportToExcelProcessStatePort.WORKBOOK_SAVED)
+
+      - name: workbook_saved
+        type: final
+        label:
+          en: "Workbook Saved"
+          pt-br: "Planilha Salva"
+        description:
+          en: "The workbook has been saved and is ready to be received."
+          pt-br: "A planilha foi salva e esta pronta para ser recebida."

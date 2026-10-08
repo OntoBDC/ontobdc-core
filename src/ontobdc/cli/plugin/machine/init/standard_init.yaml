@@ -1,0 +1,106 @@
+statechart:
+  name: StandardCliInit
+  label:
+    en: "CLI Init"
+    pt-br: "Init da CLI"
+  description:
+    en: "Bring a directory to a project OntoBDC can work in, from its .__ontobdc__ directory to its brand."
+    pt-br: "Leva um diretorio a um projeto em que o OntoBDC pode trabalhar, do seu diretorio .__ontobdc__ a sua marca."
+
+  root state:
+    name: standard_cli_init
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the .__ontobdc__ directory exists."
+          pt-br: "Estado inicial antes de o diretorio .__ontobdc__ existir."
+        transitions:
+          - target: ontobdc_directory_ready
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.ONTOBDC_DIRECTORY_READY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.ONTOBDC_DIRECTORY_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.UNDEFINED, to_state = CliInitProcessStatePort.ONTOBDC_DIRECTORY_READY)
+
+      - name: ontobdc_directory_ready
+        label:
+          en: "OntoBDC Directory Ready"
+          pt-br: "Diretorio OntoBDC Pronto"
+        description:
+          en: "The command target directory contains the .__ontobdc__ directory."
+          pt-br: "O diretorio alvo do comando contem o diretorio .__ontobdc__."
+        transitions:
+          - target: engine_ready
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.ENGINE_READY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.ENGINE_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.ONTOBDC_DIRECTORY_READY, to_state = CliInitProcessStatePort.ENGINE_READY)
+
+      - name: engine_ready
+        label:
+          en: "Engine Ready"
+          pt-br: "Engine Pronto"
+        description:
+          en: "The configured engine is available in the project configuration."
+          pt-br: "O engine configurado esta disponivel na configuracao do projeto."
+        transitions:
+          - target: storage_index_healthy
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.STORAGE_INDEX_HEALTHY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.STORAGE_INDEX_HEALTHY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.ENGINE_READY, to_state = CliInitProcessStatePort.STORAGE_INDEX_HEALTHY)
+
+      - name: storage_index_healthy
+        label:
+          en: "Storage Index Healthy"
+          pt-br: "Indice de Storage Saudavel"
+        description:
+          en: "The storage.ttl file exists and describes the main storage."
+          pt-br: "O arquivo storage.ttl existe e descreve o storage principal."
+        transitions:
+          - target: execution_context_healthy
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.EXECUTION_CONTEXT_HEALTHY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.EXECUTION_CONTEXT_HEALTHY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.STORAGE_INDEX_HEALTHY, to_state = CliInitProcessStatePort.EXECUTION_CONTEXT_HEALTHY)
+
+      - name: execution_context_healthy
+        label:
+          en: "Execution Context Healthy"
+          pt-br: "Contexto de Execucao Saudavel"
+        description:
+          en: "The context.ttl file exists and describes the execution context."
+          pt-br: "O arquivo context.ttl existe e descreve o contexto de execucao."
+        transitions:
+          - target: config_adapter_ready
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.CONFIG_ADAPTER_READY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.CONFIG_ADAPTER_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.EXECUTION_CONTEXT_HEALTHY, to_state = CliInitProcessStatePort.CONFIG_ADAPTER_READY)
+
+      - name: config_adapter_ready
+        label:
+          en: "Config Adapter Ready"
+          pt-br: "Adapter de Config Pronto"
+        description:
+          en: "The config.yaml file declares the project root and can be read by the config adapter."
+          pt-br: "O arquivo config.yaml declara a raiz do projeto e pode ser lido pelo adapter de config."
+        transitions:
+          - target: brand_ready
+            guard: handler.can_transit_to(to_state = CliInitProcessStatePort.BRAND_READY)
+            action: handler.perform_state_transition(to_state = CliInitProcessStatePort.BRAND_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitProcessStatePort.CONFIG_ADAPTER_READY, to_state = CliInitProcessStatePort.BRAND_READY)
+
+      - name: brand_ready
+        label:
+          en: "Brand Ready"
+          pt-br: "Marca Pronta"
+        description:
+          en: "The brand entry (name, mark_svg, logotype_svg, slogan) is available in the project configuration."
+          pt-br: "A entrada de marca (name, mark_svg, logotype_svg, slogan) esta disponivel na configuracao do projeto."
+        type: final

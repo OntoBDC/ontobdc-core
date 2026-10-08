@@ -54,6 +54,7 @@ def _iter_container_files(container_path: Path) -> List[str]:
             dir_name
             for dir_name in dir_names
             if dir_name not in _IGNORED_MARKER_DIR_NAMES
+            and not dir_name.startswith(".")
             and not _is_dataset_dir(root_path / dir_name)
         ]
 

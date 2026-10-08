@@ -3,7 +3,7 @@ import re
 import json
 from typing import Any, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple
 import hashlib
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from functools import lru_cache
 from dataclasses import dataclass
 from urllib.parse import unquote, urlparse
@@ -140,6 +140,15 @@ class ContainerDataPackageSynchronizer:
     _SAFE_RELATIVE_PATH_LENGTH_LIMIT: ClassVar[int] = 512
     _MACOS_MAXPATH: ClassVar[int] = 1024
 
+    @staticmethod
+    def is_hidden_path(path: str) -> bool:
+        """Whether any part of the relative *path* starts with a dot.
+
+        Everything hidden (``.git``, ``.gitignore``, ``.vscode``, ...) is
+        outside the container's published content, whatever its depth.
+        """
+        return any(part.startswith(".") for part in PurePosixPath(path).parts)
+
     @classmethod
     def is_file_blocked_from_publication(cls, file_name: str) -> bool:
         """Return ``True`` when *file_name* must not appear in any
@@ -153,6 +162,8 @@ class ContainerDataPackageSynchronizer:
         or system artefacts).
         """
         normalized_name: str = Path(file_name).name.lower()
+        if normalized_name.startswith("."):
+            return True
         if normalized_name in cls._BLOCKED_FILE_BASENAMES:
             return True
         suffix: str = Path(file_name).suffix.lower().lstrip(".")
@@ -198,10 +209,13 @@ class ContainerDataPackageSynchronizer:
                 dir_name
                 for dir_name in dir_names
                 if dir_name not in cls._IGNORED_MARKER_DIR_NAMES
+                and not dir_name.startswith(".")
                 and not cls._is_dataset_dir(root_path / dir_name)
             ]
 
             for file_name in file_names:
+                if file_name.startswith("."):
+                    continue
                 file_paths.append(root_path / file_name)
 
         return file_paths

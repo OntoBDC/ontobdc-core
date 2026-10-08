@@ -144,9 +144,11 @@ class FileMetadataExtractedCapability(TransactionCapability):
         evaluator: FileTypificationEvaluator = FileTypificationEvaluator(
             FileTypificationLoader()
         )
+
         source_paths: List[str] = ContainerRoCrate.file_paths(container_path)
         files: List[Dict[str, Any]] = []
         source_path: str
+
         for source_path in source_paths:
             file_metadata: Optional[Dict[str, Any]] = self._metadata_of(
                 container_path / source_path

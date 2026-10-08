@@ -45,6 +45,7 @@ class ContainerHealthCommand(CliCommandPort):
                     "against the files it actually holds and reports "
                     "every verification that fails."
                 ),
+                "type": "str",
             },
         ],
     )

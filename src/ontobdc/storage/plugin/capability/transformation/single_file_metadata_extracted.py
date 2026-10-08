@@ -15,7 +15,6 @@ from ontobdc.shared.adapter.parameter import RequiredParameter
 from ontobdc.storage.adapter.taxonomy import OpenFileMetadataTaxonomy
 from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.storage.adapter.bootstrap import (
-    StorageBootstrap,
     StoragePathStatHelper,
 )
 from ontobdc.storage.adapter.media_type import MediaTypeResolver
@@ -102,8 +101,8 @@ class SingleFileMetadataExtractedCapability(TransactionCapability):
             return False
 
         try:
-            root_path = StorageBootstrap.get_init_root_path(context=context)
-            event_path = self.event_path(root_path)
+            container_path = OpenFileMetadataEvent.container_of(resolved_path)
+            event_path = self.event_path(container_path)
             payload = json.loads(event_path.read_text(encoding="utf-8"))
         except (OSError, ValueError, TypeError):
             return False
@@ -149,9 +148,9 @@ class SingleFileMetadataExtractedCapability(TransactionCapability):
             stat_result=stat_result,
         )
 
-        root_path: Path = StorageBootstrap.get_init_root_path(context=context)
+        container_path: Path = OpenFileMetadataEvent.container_of(resolved_path)
         event_path: Path = self._write_event(
-            root_path=root_path,
+            container_path=container_path,
             source_path=source_path,
             resolved_path=resolved_path,
             mime_type=mime_type,
@@ -216,20 +215,20 @@ class SingleFileMetadataExtractedCapability(TransactionCapability):
         )
 
     @classmethod
-    def event_path(cls, root_path: Path) -> Path:
-        return OpenFileMetadataEvent.path(root_path)
+    def event_path(cls, container_path: Path) -> Path:
+        return OpenFileMetadataEvent.path(container_path)
 
     @classmethod
     def _write_event(
         cls,
-        root_path: Path,
+        container_path: Path,
         source_path: Path,
         resolved_path: Path,
         mime_type: Optional[str],
         mime_encoding: Optional[str],
         metadata: Dict[str, Any],
     ) -> Path:
-        event_path: Path = cls.event_path(root_path)
+        event_path: Path = cls.event_path(container_path)
         event_path.parent.mkdir(parents=True, exist_ok=True)
 
         event: Dict[str, Any] = {

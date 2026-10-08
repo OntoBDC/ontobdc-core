@@ -35,6 +35,7 @@ class ContainerCreateCommand(CliCommandPort):
                     "container metadata, initializes its datasets folder "
                     "and registers the container in the storage index."
                 ),
+                "type": "Path",
             },
         ],
     )

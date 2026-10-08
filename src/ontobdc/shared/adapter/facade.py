@@ -144,7 +144,7 @@ class DataContainerFacade:
     """
 
     ONTOLOGY_IRI: ClassVar[str] = (
-        "http://datacenter.app.br/ontology/tool/ontobdc/resource/data_container_facade.ttl"
+        "http://datacenter.app.br/ontology/tool/ontobdc/tbox/data_container_facade.ttl"
     )
 
     @classmethod

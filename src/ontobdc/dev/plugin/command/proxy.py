@@ -4,7 +4,7 @@ import sys
 from importlib.machinery import ModuleSpec
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Dict, Iterable, List, NoReturn, Optional
+from typing import ClassVar, Dict, Iterable, List, NoReturn, Optional
 
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.port.command import CliCommandPort
@@ -17,6 +17,16 @@ class DevProxyCommand(CliCommandPort):
 
     TEST_REPO_ENV_VAR: str = "ONTOBDC_DEV_TEST_REPO"
     TEST_REPO_VALUE: str = "ontobdc"
+    # The system this executable's own proxy belongs to. Injected as the
+    # default --system for `doc --create ...` when the caller didn't pass
+    # one, so `ontobdc dev doc --create cli-reference` needs no --system at
+    # all -- only the standalone ontobdc_dev entry point, which has no
+    # executable of its own to infer one from, still requires it explicitly.
+    # infobim's proxy overrides this the same way it already overrides
+    # TEST_REPO_VALUE.
+    SYSTEM_NAME: ClassVar[str] = "ontobdc"
+    _DOC_CREATE_PREFIX: ClassVar[List[str]] = ["doc", "--create"]
+    _SYSTEM_FLAG: ClassVar[str] = "--system"
 
     METADATA: CliCommandMetadata = CliCommandMetadata(
         id="dev",
@@ -57,9 +67,7 @@ class DevProxyCommand(CliCommandPort):
                 f"directory: {current_directory}"
             )
 
-        forwarded_args: List[str] = list(self._request.command_args)
-        if not forwarded_args:
-            forwarded_args = ["--help"]
+        forwarded_args: List[str] = self._forwarded_args()
 
         environment: Dict[str, str] = dict(os.environ)
         environment[self.TEST_REPO_ENV_VAR] = self.TEST_REPO_VALUE
@@ -82,6 +90,14 @@ class DevProxyCommand(CliCommandPort):
             execution_arguments=execution_arguments,
             environment=environment,
         )
+
+    def _forwarded_args(self) -> List[str]:
+        args: List[str] = list(self._request.command_args)
+        if not args:
+            return ["--help"]
+        if args[:2] == self._DOC_CREATE_PREFIX and self._SYSTEM_FLAG not in args:
+            args = [*args, self._SYSTEM_FLAG, self.SYSTEM_NAME]
+        return args
 
     def _resolve_dev_src_path(self) -> Optional[Path]:
         installed_src_path: Optional[Path] = (

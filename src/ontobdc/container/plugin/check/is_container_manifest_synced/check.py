@@ -53,6 +53,7 @@ def _iter_container_files(container_path: Path) -> List[str]:
             dir_name
             for dir_name in dir_names
             if dir_name not in _IGNORED_MARKER_DIR_NAMES
+            and not dir_name.startswith(".")
             and not _is_dataset_dir(root_path / dir_name)
         ]
 
@@ -142,7 +143,10 @@ def _extract_has_part_ids(crate_data: Dict[str, Any]) -> Optional[Set[str]]:
         if not isinstance(part_id, str) or not part_id.strip():
             return None
         normalized_id: str = _normalize_file_id(part_id)
-        if ContainerDataPackageSynchronizer.is_file_blocked_from_publication(Path(normalized_id).name):
+        if (
+            ContainerDataPackageSynchronizer.is_file_blocked_from_publication(Path(normalized_id).name)
+            and not ContainerDataPackageSynchronizer.is_hidden_path(normalized_id)
+        ):
             continue
         file_ids.add(normalized_id)
 
@@ -162,7 +166,10 @@ def _extract_file_nodes(crate_data: Dict[str, Any]) -> Optional[Dict[str, Dict[s
         if not isinstance(node_id, str) or node_id in {"./", "ro-crate-metadata.json"}:
             continue
         normalized_id: str = _normalize_file_id(node_id)
-        if ContainerDataPackageSynchronizer.is_file_blocked_from_publication(Path(normalized_id).name):
+        if (
+            ContainerDataPackageSynchronizer.is_file_blocked_from_publication(Path(normalized_id).name)
+            and not ContainerDataPackageSynchronizer.is_hidden_path(normalized_id)
+        ):
             continue
         node_type = node.get("@type")
         if node_type == "File" or (isinstance(node_type, list) and "File" in node_type):

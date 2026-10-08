@@ -40,6 +40,7 @@ class ContextPdfToGraphCommand(CliCommandPort):
                     "verifies text readiness and then extracts "
                     "positioned text blocks from the PDF."
                 ),
+                "type": "Path",
             },
             {
                 "accepts": ["--output-path"],
@@ -51,6 +52,7 @@ class ContextPdfToGraphCommand(CliCommandPort):
                     "pipeline writes into the standard ETL directory "
                     "contract resolved from the project container."
                 ),
+                "type": "Path",
             },
         ],
     )

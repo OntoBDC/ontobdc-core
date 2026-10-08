@@ -7,7 +7,7 @@ from test.e2e.cli_process_runner import CliInvocationResult, OntobdcCliProcessRu
 
 class TestOntobdcContainerUpdateCommand:
     """
-    E2E coverage for `ontobdc container --update --from <source> --json`.
+    E2E coverage for `ontobdc container --update <source> --json`.
 
     The source is accepted in three shapes: a .csv file, a .json file, or
     inline key=value assignments. A source that parses is written into the
@@ -38,7 +38,7 @@ class TestOntobdcContainerUpdateCommand:
         assert cli_runner.run("init").exit_code == 0
 
         result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "title=Sem Container"
+            "container", "--update", "title=Sem Container"
         )
 
         assert result.exit_code == 1
@@ -59,7 +59,7 @@ class TestOntobdcContainerUpdateCommand:
     def test_source_flag_without_a_value_is_rejected(
         self, cli_runner: OntobdcCliProcessRunner
     ) -> None:
-        result: CliInvocationResult = cli_runner.run("container", "--update", "--from")
+        result: CliInvocationResult = cli_runner.run("container", "--update")
 
         assert result.exit_code == 1
         assert "Invalid command arguments" in self._error_of(result)
@@ -72,7 +72,7 @@ class TestOntobdcContainerUpdateCommand:
         self, cli_runner: OntobdcCliProcessRunner
     ) -> None:
         result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "so-texto"
+            "container", "--update", "so-texto"
         )
 
         assert result.exit_code == 1
@@ -82,7 +82,7 @@ class TestOntobdcContainerUpdateCommand:
         self, cli_runner: OntobdcCliProcessRunner
     ) -> None:
         result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", ""
+            "container", "--update", ""
         )
 
         assert result.exit_code == 1
@@ -96,7 +96,7 @@ class TestOntobdcContainerUpdateCommand:
         self, cli_runner: OntobdcCliProcessRunner
     ) -> None:
         result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "ausente.json"
+            "container", "--update", "ausente.json"
         )
 
         assert result.exit_code == 1
@@ -108,7 +108,7 @@ class TestOntobdcContainerUpdateCommand:
         self, cli_runner: OntobdcCliProcessRunner
     ) -> None:
         result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "ausente.csv"
+            "container", "--update", "ausente.csv"
         )
 
         assert self._error_of(result) == (
@@ -122,7 +122,7 @@ class TestOntobdcContainerUpdateCommand:
         source.write_text(json.dumps(["title", "description"]), encoding="utf-8")
 
         result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "list.json"
+            "container", "--update", "list.json"
         )
 
         assert self._error_of(result) == (
@@ -136,7 +136,7 @@ class TestOntobdcContainerUpdateCommand:
         source.write_text("title\nPrimeiro\nSegundo\n", encoding="utf-8")
 
         result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "rows.csv"
+            "container", "--update", "rows.csv"
         )
 
         assert self._error_of(result) == (
@@ -150,7 +150,7 @@ class TestOntobdcContainerUpdateCommand:
         source.write_text("title,description\n", encoding="utf-8")
 
         result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "header.csv"
+            "container", "--update", "header.csv"
         )
 
         assert self._error_of(result) == (
@@ -161,7 +161,7 @@ class TestOntobdcContainerUpdateCommand:
         self, cli_runner: OntobdcCliProcessRunner
     ) -> None:
         result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "=semchave"
+            "container", "--update", "=semchave"
         )
 
         assert self._error_of(result) == (
@@ -172,7 +172,7 @@ class TestOntobdcContainerUpdateCommand:
         self, cli_runner: OntobdcCliProcessRunner
     ) -> None:
         result: CliInvocationResult = cli_runner.run(
-            "container", "--update", "--from", "title=A,title=B"
+            "container", "--update", "title=A,title=B"
         )
 
         assert self._error_of(result) == "Duplicate container update key: title"

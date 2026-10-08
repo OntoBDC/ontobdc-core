@@ -68,6 +68,7 @@ class RunTagCommand(CliCommandPort):
                     "capabilities that carry at least one matching tag "
                     "execute."
                 ),
+                "type": "List[str]",
             },
         ],
     )

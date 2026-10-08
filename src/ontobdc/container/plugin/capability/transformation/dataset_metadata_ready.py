@@ -1,9 +1,11 @@
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
-from ontobdc.container.plugin.machine.container_create.state import DatasetCreateProcessState
+from ontobdc.container.adapter.dataset import DatasetTitleRepository
+from ontobdc.container.plugin.machine.dataset_create.state import DatasetCreateProcessState
 from ontobdc.container.plugin.check.is_dataset_metadata_ready.check import (
     main as check_dataset_metadata_ready,
 )
@@ -48,19 +50,27 @@ class DatasetMetadataReadyCapability(TransactionCapability):
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         target_path: str = str(context.get_parameter_value("dataset_path")).strip()
         root_path: str = str(context.root_path).strip()
+        entity_iri: Optional[str] = self._text(context, "dataset_entity_iri")
         if check_dataset_metadata_ready(
             dataset_path=target_path,
             root_path=root_path,
+            entity_iri=entity_iri,
         ) != 0:
             if hotfix_dataset_metadata_ready(
                 dataset_path=target_path,
                 root_path=root_path,
+                entity_iri=entity_iri,
             ) != 0:
                 raise ValueError("Failed to hotfix dataset metadata during storage dataset creation.")
+
+        dataset_title: Optional[str] = self._text(context, "dataset_title")
+        if dataset_title is not None:
+            DatasetTitleRepository(Path(target_path)).write_title(dataset_title)
 
         if check_dataset_metadata_ready(
             dataset_path=target_path,
             root_path=root_path,
+            entity_iri=entity_iri,
         ) != 0:
             raise ValueError("Dataset metadata is still invalid after the storage dataset hotfix.")
 
@@ -68,3 +78,11 @@ class DatasetMetadataReadyCapability(TransactionCapability):
             "resulting_state": DatasetCreateProcessState.DATASET_METADATA_READY,
             "path": target_path,
         }
+
+    @staticmethod
+    def _text(context: CliContextPort, key: str) -> Optional[str]:
+        value: Any = context.get_parameter_value(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+        return None

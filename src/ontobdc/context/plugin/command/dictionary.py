@@ -23,6 +23,7 @@ class ContextDictionaryInspectCommand(CliCommandPort):
                 "valued": True,
                 "parameter": "text",
                 "description": "Term or value to inspect in the context dictionary.",
+                "type": "str",
             },
             {
                 "accepts": ["--inspect"],

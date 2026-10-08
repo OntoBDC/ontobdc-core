@@ -34,6 +34,7 @@ class AnnotateCommand(CliCommandPort):
                     "annotate, by storage identifier or filesystem "
                     "path."
                 ),
+                "type": "str",
             },
             {
                 "accepts": [
@@ -46,6 +47,7 @@ class AnnotateCommand(CliCommandPort):
                     "its global identifier or its filesystem path "
                     "inside the container."
                 ),
+                "type": "str",
             },
         ],
     )

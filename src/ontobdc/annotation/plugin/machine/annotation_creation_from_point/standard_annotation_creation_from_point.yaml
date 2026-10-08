@@ -1,0 +1,120 @@
+statechart:
+  name: StandardAnnotationCreationFromPoint
+  label:
+    en: "Annotation Creation from Point"
+    pt-br: "Criacao de Anotacao por Ponto"
+  description:
+    en: "Identify the type of an annotation, then create annotations of that type at points picked on a drawing."
+    pt-br: "Identifica o tipo de uma anotacao e cria anotacoes desse tipo em pontos escolhidos sobre um desenho."
+
+  root state:
+    name: standard_annotation_creation_from_point
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the type of the annotation is identified."
+          pt-br: "Estado inicial antes da identificacao do tipo da anotacao."
+        transitions:
+          - target: annotation_type_identified
+            guard: handler.can_transit_to(to_state = AnnotationCreationFromPointProcessStatePort.ANNOTATION_TYPE_IDENTIFIED)
+            action: handler.perform_state_transition(to_state = AnnotationCreationFromPointProcessStatePort.ANNOTATION_TYPE_IDENTIFIED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationCreationFromPointProcessStatePort.UNDEFINED, to_state = AnnotationCreationFromPointProcessStatePort.ANNOTATION_TYPE_IDENTIFIED)
+
+      - name: annotation_type_identified
+        label:
+          en: "Annotation Type Identified"
+          pt-br: "Tipo da Anotacao Identificado"
+        description:
+          en: "The type of the annotation to create has been identified."
+          pt-br: "O tipo da anotacao a ser criada foi identificado."
+        transitions:
+          - target: file_metadata_extracted
+            guard: handler.can_transit_to(to_state = AnnotationCreationFromPointProcessStatePort.FILE_METADATA_EXTRACTED)
+            action: handler.perform_state_transition(to_state = AnnotationCreationFromPointProcessStatePort.FILE_METADATA_EXTRACTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationCreationFromPointProcessStatePort.ANNOTATION_TYPE_IDENTIFIED, to_state = AnnotationCreationFromPointProcessStatePort.FILE_METADATA_EXTRACTED)
+
+      - name: file_metadata_extracted
+        label:
+          en: "File Metadata Extracted"
+          pt-br: "Metadados do Arquivo Extraidos"
+        description:
+          en: "The MIME type and filesystem metadata of the requested drawing file have been extracted."
+          pt-br: "O tipo MIME e os metadados de sistema de arquivos do desenho solicitado foram extraidos."
+        transitions:
+          - target: drawable_documents_loaded
+            guard: handler.can_transit_to(to_state = AnnotationCreationFromPointProcessStatePort.DRAWABLE_DOCUMENTS_LOADED)
+            action: handler.perform_state_transition(to_state = AnnotationCreationFromPointProcessStatePort.DRAWABLE_DOCUMENTS_LOADED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationCreationFromPointProcessStatePort.FILE_METADATA_EXTRACTED, to_state = AnnotationCreationFromPointProcessStatePort.DRAWABLE_DOCUMENTS_LOADED)
+
+      - name: drawable_documents_loaded
+        label:
+          en: "Drawable Documents Loaded"
+          pt-br: "Documentos Desenhaveis Carregados"
+        description:
+          en: "The requested drawing, converted from DWG when needed, has been loaded as the original DXF document."
+          pt-br: "O desenho solicitado, convertido de DWG quando necessario, foi carregado como documento DXF original."
+        transitions:
+          - target: drawable_file_viewer_opened
+            guard: handler.can_transit_to(to_state = AnnotationCreationFromPointProcessStatePort.DRAWABLE_FILE_VIEWER_OPENED)
+            action: handler.perform_state_transition(to_state = AnnotationCreationFromPointProcessStatePort.DRAWABLE_FILE_VIEWER_OPENED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationCreationFromPointProcessStatePort.DRAWABLE_DOCUMENTS_LOADED, to_state = AnnotationCreationFromPointProcessStatePort.DRAWABLE_FILE_VIEWER_OPENED)
+
+      - name: drawable_file_viewer_opened
+        label:
+          en: "Drawable File Viewer Opened"
+          pt-br: "Visualizador de Arquivo Desenhavel Aberto"
+        description:
+          en: "The loaded drawing has been opened in a 2D viewer window that stays open for the point capture."
+          pt-br: "O desenho carregado foi aberto em uma janela do visualizador 2D que permanece aberta para a captura de pontos."
+        transitions:
+          - target: points_captured
+            guard: handler.can_transit_to(to_state = AnnotationCreationFromPointProcessStatePort.POINTS_CAPTURED)
+            action: handler.perform_state_transition(to_state = AnnotationCreationFromPointProcessStatePort.POINTS_CAPTURED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationCreationFromPointProcessStatePort.DRAWABLE_FILE_VIEWER_OPENED, to_state = AnnotationCreationFromPointProcessStatePort.POINTS_CAPTURED)
+
+      - name: points_captured
+        label:
+          en: "Points Captured"
+          pt-br: "Pontos Capturados"
+        description:
+          en: "The points at which the annotations are placed have been picked on the open viewer window, in click order."
+          pt-br: "Os pontos nos quais as anotacoes sao posicionadas foram escolhidos na janela aberta do visualizador, na ordem dos cliques."
+        transitions:
+          - target: annotation_details_filled
+            guard: handler.can_transit_to(to_state = AnnotationCreationFromPointProcessStatePort.ANNOTATION_DETAILS_FILLED)
+            action: handler.perform_state_transition(to_state = AnnotationCreationFromPointProcessStatePort.ANNOTATION_DETAILS_FILLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationCreationFromPointProcessStatePort.POINTS_CAPTURED, to_state = AnnotationCreationFromPointProcessStatePort.ANNOTATION_DETAILS_FILLED)
+
+      - name: annotation_details_filled
+        label:
+          en: "Annotation Details Filled"
+          pt-br: "Detalhes da Anotacao Preenchidos"
+        description:
+          en: "The title, the text and the author of the annotations have been filled in by the person who picked the points."
+          pt-br: "O titulo, o texto e o autor das anotacoes foram preenchidos por quem escolheu os pontos."
+        transitions:
+          - target: annotations_created
+            guard: handler.can_transit_to(to_state = AnnotationCreationFromPointProcessStatePort.ANNOTATIONS_CREATED)
+            action: handler.perform_state_transition(to_state = AnnotationCreationFromPointProcessStatePort.ANNOTATIONS_CREATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationCreationFromPointProcessStatePort.ANNOTATION_DETAILS_FILLED, to_state = AnnotationCreationFromPointProcessStatePort.ANNOTATIONS_CREATED)
+
+      - name: annotations_created
+        type: final
+        label:
+          en: "Annotations Created"
+          pt-br: "Anotacoes Criadas"
+        description:
+          en: "Annotations of the identified type have been created at the captured points."
+          pt-br: "Anotacoes do tipo identificado foram criadas nos pontos capturados."

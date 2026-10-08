@@ -23,7 +23,7 @@ class ContainerRefreshCommand(CliCommandPort, LoggerAwarePort):
     describes it: the datasets it indexes, the datapackage that lists its
     resources, and the RO-Crate. It changes no data of its own — a user who
     wants to write values into the container metadata uses
-    ``container update --from`` instead.
+    ``container --update <source>`` instead.
     """
 
     METADATA: CliCommandMetadata = CliCommandMetadata(
@@ -45,6 +45,7 @@ class ContainerRefreshCommand(CliCommandPort, LoggerAwarePort):
                     "and RO-Crate from the files the container actually "
                     "holds; it never writes values into metadata fields."
                 ),
+                "type": "str",
             },
         ],
     )

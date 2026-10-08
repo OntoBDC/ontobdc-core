@@ -40,6 +40,7 @@ class StorageContainerInteractiveInspectCommand(CliCommandPort):
                     "identifier. When omitted, the container is resolved "
                     "from the current working directory."
                 ),
+                "type": "str",
             },
             {
                 "accepts": ["--inspect"],

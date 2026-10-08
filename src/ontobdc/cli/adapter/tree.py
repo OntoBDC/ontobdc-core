@@ -319,6 +319,14 @@ class CommandTreeAdapter:
         discovered: Dict[str, List[Type[CliCommandPort]]] = self._discover()
         return self._to_description(discovered)
 
+    def discover(self) -> Dict[str, List[Type[CliCommandPort]]]:
+        """The raw command classes behind `describe()`, grouped by module,
+        before they are reduced to plain description/argument dicts -- lets
+        a caller inspect a command's own Python attributes (such as a
+        proxy's declared loader for its real, privately-housed commands),
+        not just its declared METADATA."""
+        return self._discover()
+
     def discover_command_paths(self) -> List[List[str]]:
         discovered: Dict[str, List[Type[CliCommandPort]]] = self._discover()
         paths: List[List[str]] = []
@@ -355,7 +363,7 @@ class CommandTreeAdapter:
         if self._explicit_commands:
             for component, command_class in self._explicit_commands:
                 metadata: CliCommandMetadata = command_class.METADATA
-                if metadata.id in self._excluded_ids:
+                if self._is_excluded(command_class, metadata):
                     continue
                 component_list: List[Type[CliCommandPort]] = discovered.setdefault(component, [])
                 component_list.append(command_class)
@@ -367,12 +375,29 @@ class CommandTreeAdapter:
             filtered: List[Type[CliCommandPort]] = []
             for command_class in commands:
                 command_metadata: CliCommandMetadata = command_class.METADATA
-                if command_metadata.id in self._excluded_ids:
+                if self._is_excluded(command_class, command_metadata):
                     continue
                 filtered.append(command_class)
             if filtered:
                 discovered[module] = filtered
         return discovered
+
+    def _is_excluded(
+        self, command_class: Type[CliCommandPort], metadata: CliCommandMetadata,
+    ) -> bool:
+        if metadata.id in self._excluded_ids:
+            return True
+
+        # A command can mark itself hidden from every tree view (not just
+        # whichever one a caller happened to configure) by listing its own
+        # id in its own EXCLUDED_COMMAND_IDS -- the one existing case is a
+        # "welcome"/"hello" command whose entire purpose is to print this
+        # same tree, so showing it as an entry inside the tree it renders
+        # would be self-referential noise.
+        own_exclusions: Tuple[str, ...] = tuple(
+            getattr(command_class, "EXCLUDED_COMMAND_IDS", ())
+        )
+        return metadata.id in own_exclusions
 
     def _scan_module(self) -> List[str]:
         discovered: List[str] = []
@@ -424,11 +449,15 @@ class CommandTreeAdapter:
                     optional_raw: Any = argument_definition.get("optional", False)
                     optional: bool = bool(optional_raw)
                     description_raw: Any = argument_definition["description"]
+                    parameter_raw: Any = argument_definition.get("parameter")
+                    type_raw: Any = argument_definition.get("type")
                     arguments_out.append({
                         "flag": "|".join(accepts),
                         "valued": valued,
                         "optional": optional,
                         "description": str(description_raw),
+                        "parameter": str(parameter_raw) if parameter_raw else None,
+                        "type": str(type_raw) if type_raw else None,
                     })
                 tree[module][key] = {
                     "name": key,
