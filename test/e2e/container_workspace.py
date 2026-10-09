@@ -47,7 +47,7 @@ class ContainerE2eWorkspace:
             assert repair(container_path=str(container), root_path=str(root)) == 0, (
                 repair.__module__
             )
-        listing: CliInvocationResult = runner.run("container")
+        listing: CliInvocationResult = runner.run("container", "--list")
         assert listing.exit_code == 0, listing.stdout + listing.stderr
         containers: List[Dict[str, Any]] = listing.json["content"]["containers"]
         matches: List[Dict[str, Any]] = [

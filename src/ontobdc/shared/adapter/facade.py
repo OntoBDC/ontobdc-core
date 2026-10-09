@@ -143,8 +143,12 @@ class DataContainerFacade:
     The public projection of the storage container.
     """
 
+    # brasidatacenter commit 6d9e604 moved this file to
+    # tbox/facade/data_container.ttl; the ontology's own owl:Ontology IRI
+    # is unchanged, but BrasidataCenterOntologyLibrary resolves an IRI to
+    # a file 1:1, so only the physical path here needs to follow.
     ONTOLOGY_IRI: ClassVar[str] = (
-        "http://datacenter.app.br/ontology/tool/ontobdc/tbox/data_container_facade.ttl"
+        "http://datacenter.app.br/ontology/tool/ontobdc/tbox/facade/data_container.ttl"
     )
 
     @classmethod

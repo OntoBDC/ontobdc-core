@@ -20,7 +20,7 @@ class ContextBaseCommand(CliCommandPort, LoggerAwarePort):
     """
 
     METADATA: CliCommandMetadata = CliCommandMetadata(
-        id="base",
+        id="context_base",
         logical_component="context",
         description="Base context command handler.",
         depends_on=None,
@@ -28,6 +28,7 @@ class ContextBaseCommand(CliCommandPort, LoggerAwarePort):
 
     COMPONENT: ClassVar[str] = "context"
     EXECUTABLE: ClassVar[str] = "ontobdc"
+    ROOT_PACKAGE: ClassVar[str] = "ontobdc"
     HELP_FLAGS: ClassVar[List[str]] = ["--help", "-h"]
 
     @staticmethod
@@ -78,10 +79,13 @@ class ContextBaseCommand(CliCommandPort, LoggerAwarePort):
             for command_class in CommandLoader(
                 self.COMPONENT,
                 self._logger,
+                root_package=self.ROOT_PACKAGE,
             ).get_all()
         ]
         command_tree: str = CommandTreeAdapter(
             logger=self._logger,
+            root_package=self.ROOT_PACKAGE,
+            executable=self.EXECUTABLE,
             command_classes=component_commands,
         ).render()
 

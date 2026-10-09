@@ -55,7 +55,7 @@ class TestOntobdcContainerMovedRoot:
     ) -> None:
         workspace: ContainerE2eWorkspace = self._moved_workspace(tmp_path)
 
-        listing: CliInvocationResult = OntobdcCliProcessRunner(workspace.root).run("container")
+        listing: CliInvocationResult = OntobdcCliProcessRunner(workspace.root).run("container", "--list")
 
         assert listing.exit_code == 0, listing.stdout + listing.stderr
         containers: List[Dict[str, Any]] = listing.json["content"]["containers"]

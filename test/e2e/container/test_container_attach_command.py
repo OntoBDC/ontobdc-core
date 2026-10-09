@@ -46,7 +46,7 @@ class TestOntobdcContainerAttachCommand:
             Path(result.json["content"]["container_path"]).resolve()
             == imported.resolve()
         )
-        listing: CliInvocationResult = target_runner.run("container")
+        listing: CliInvocationResult = target_runner.run("container", "--list")
         assert listing.exit_code == 0, listing.stdout
         entries: List[Dict[str, Any]] = listing.json["content"]["containers"]
         assert len(entries) == 1
@@ -61,7 +61,7 @@ class TestOntobdcContainerAttachCommand:
         repeated: CliInvocationResult = runner.run(*arguments)
         assert repeated.exit_code == 0, repeated.stdout + repeated.stderr
         assert repeated.json["title"] == "Storage Container Attached"
-        repeated_listing: CliInvocationResult = target_runner.run("container")
+        repeated_listing: CliInvocationResult = target_runner.run("container", "--list")
         assert repeated_listing.exit_code == 0, repeated_listing.stdout
         assert [
             entry["id"] for entry in repeated_listing.json["content"]["containers"]

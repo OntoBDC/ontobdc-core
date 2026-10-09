@@ -35,7 +35,7 @@ class TestOntobdcContainerCreateCommand:
         cli_runner.run("init")
         cli_runner.run("container", "--create", "my-container")
 
-        list_result: CliInvocationResult = cli_runner.run("container")
+        list_result: CliInvocationResult = cli_runner.run("container", "--list")
 
         assert list_result.exit_code == 0
         containers: List[Dict[str, Any]] = list_result.json["content"]["containers"]

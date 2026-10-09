@@ -1,90 +1,105 @@
-from typing import Callable, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Tuple, Type
 
+from ontobdc.cli.adapter.tree import CommandTreeAdapter
+from ontobdc.cli.adapter.logger import NullLogRepository
+from ontobdc.shared.adapter.loader import CommandLoader
+from ontobdc.cli.domain.port.logger import LoggerAwarePort, LogRepositoryPort
+from ontobdc.cli.domain.model.logger import LogStrategyConfig
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
-from ontobdc.storage.adapter.file import StorageFileLocator
 from ontobdc.cli.domain.request.command import CliCommandRequest
-from ontobdc.storage.adapter.repository import LoadedStorageGraph
-from ontobdc.cli.domain.response.command import (
-    CommandResponse,
-    ExceptionCommandResponse,
-    ListCommandResponse,
-)
+from ontobdc.cli.domain.response.command import HelpCommandResponse
 
 
-class ContainerBaseCommand(CliCommandPort):
+class ContainerBaseCommand(CliCommandPort, LoggerAwarePort):
     """
-    Base command for the container plugin.
+    Entry-point command shown when running ``ontobdc container``.
+
+    Single responsibility: list the commands registered under the
+    ``container`` logical component of OntoBDC. Listing the containers
+    themselves is a separate, real action owned by
+    :class:`ContainerListCommand` (``--list``/``-l``).
     """
-    METADATA = CliCommandMetadata(
-        id="base",
+
+    METADATA: CliCommandMetadata = CliCommandMetadata(
+        id="container_base",
         logical_component="container",
-        description="Base Container command handler.",
+        description="Base container component command handler.",
         depends_on=None,
         arguments=[
             {
                 "accepts": [
-                    "--list",
-                    "-l",
+                    "--help",
+                    "-h",
                 ],
                 "description": (
-                    "Print the list of every storage container currently "
-                    "registered in the root storage index, along with the "
-                    "metadata each container declares."
+                    "Print the tree of commands registered under the "
+                    "``container`` logical component of OntoBDC."
                 ),
-            }
+            },
         ],
     )
 
+    COMPONENT: ClassVar[str] = "container"
+    EXECUTABLE: ClassVar[str] = "ontobdc"
+    ROOT_PACKAGE: ClassVar[str] = "ontobdc"
+    HELP_FLAGS: ClassVar[List[str]] = ["--help", "-h"]
+
     @staticmethod
     def accepts(args: List[str]) -> bool:
-        """
-        Match the component root command and its list flags.
-        """
-        return (
-            len(args) >= 1
-            and args[0] == "container"
-            and (len(args) == 1 or args[1] in ["--list", "-l"])
+        if not args or args[0] != ContainerBaseCommand.COMPONENT:
+            return False
+
+        return len(args) == 1 or (
+            len(args) == 2 and args[1] in ContainerBaseCommand.HELP_FLAGS
         )
 
     def __init__(self, request: CliCommandRequest) -> None:
         self._request: CliCommandRequest = request
-        self._print_log: Optional[Callable[[str], None]] = None
+        self._logger: LogRepositoryPort = NullLogRepository()
+        self._log_strategy: Any = None
 
-    def set_print_log(self, print_log: Callable[[str], None]) -> None:
-        self._print_log = print_log
+    @property
+    def log_strategy(self) -> Any:
+        return self._log_strategy
+
+    def set_log_strategy(self, log_strategy: LogStrategyConfig) -> None:
+        self._log_strategy = log_strategy
+        self._logger = log_strategy.log_repository
 
     def check(self) -> bool:
-        """
-        Check if the command is valid.
-        Returns True if the command is valid, False otherwise.
-        """
-        return (len(self._request.command_args) == 0 or (
-            len(self._request.command_args) == 1
-            and self._request.command_args[0] in ["--list", "-l"]
-        ))
+        command_args: List[str] = self._request.command_args
+        if not command_args:
+            return True
 
-    def run(self) -> CommandResponse:
-        """
-        List every container registered in the storage graph.
-        """
-        try:
-            storage_graph: LoadedStorageGraph = LoadedStorageGraph(
-                StorageFileLocator.resolve()
-            )
-            containers: List[Dict[str, Optional[str]]] = (
-                storage_graph.storage_graph.list_containers()
-            )
+        if len(command_args) == 1:
+            return command_args[0] in self.HELP_FLAGS
 
-        except Exception as e:
-            return ExceptionCommandResponse(
-                title="Failed to List Containers",
-                description=f"An error occurred while reading storage.ttl: {str(e)}",
-                content={"containers": [], "error": str(e)}
-            )
+        return False
 
-        return ListCommandResponse(
-            title="Containers",
-            description=f"Found {len(containers)} container(s) in the storage.",
-            content={"containers": containers}
+    def run(self) -> HelpCommandResponse:
+        component_commands: List[Tuple[str, Type[CliCommandPort]]] = [
+            (self.COMPONENT, command_class)
+            for command_class in CommandLoader(
+                self.COMPONENT,
+                self._logger,
+                root_package=self.ROOT_PACKAGE,
+            ).get_all()
+        ]
+        command_tree: str = CommandTreeAdapter(
+            logger=self._logger,
+            root_package=self.ROOT_PACKAGE,
+            executable=self.EXECUTABLE,
+            command_classes=component_commands,
+        ).render()
+
+        content: Dict[str, str] = {
+            "Usage": f"{self.EXECUTABLE} {self.COMPONENT} [flags/parameters]",
+            "Commands": command_tree,
+        }
+
+        return HelpCommandResponse(
+            title="Container Commands",
+            description="Available container utilities.",
+            content=content,
         )

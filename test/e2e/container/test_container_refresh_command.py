@@ -105,7 +105,7 @@ class TestOntobdcContainerRefreshCommand:
             second.json["content"]["current_state"] == "__container_ro_crate_updated__"
         )
         listing: CliInvocationResult = OntobdcCliProcessRunner(workspace.root).run(
-            "container"
+            "container", "--list"
         )
         assert listing.exit_code == 0, listing.stdout
         assert [entry["id"] for entry in listing.json["content"]["containers"]] == [

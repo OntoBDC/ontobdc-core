@@ -37,7 +37,7 @@ class TestOntobdcContainerDeleteCommand:
         assert result.exit_code == 0, result.stdout + result.stderr
         assert result.json["title"] == "Container Unregistered"
         assert result.json["content"]["container_id"] == target.identifier
-        listing: CliInvocationResult = cli_runner.run("container")
+        listing: CliInvocationResult = cli_runner.run("container", "--list")
         assert listing.exit_code == 0, listing.stdout
         entries: List[Dict[str, Any]] = listing.json["content"]["containers"]
         assert [entry["id"] for entry in entries] == [other.identifier]

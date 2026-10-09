@@ -161,7 +161,7 @@ def test_undefined_transition_validation_does_not_hide_action_error(write_reques
         handler.execute()
 
 
-def test_real_facade_has_eight_columns_in_published_order():
+def test_real_facade_has_nine_columns_in_published_order():
     facade = EntityFacadeLocator.of(Annotation.ENTITY_IRI)
     assert facade.column_names() == [
         "global_id",
@@ -172,13 +172,12 @@ def test_real_facade_has_eight_columns_in_published_order():
         "source_document",
         "author",
         "created_at",
+        "related_documents",
     ]
     assert [field.identifier for field in facade.fields if field.required] == [
         "global_id",
         "annotation_type",
         "title",
-        "geometry",
-        "source_document",
         "created_at",
     ]
     assert [field.order for field in facade.fields] == sorted(

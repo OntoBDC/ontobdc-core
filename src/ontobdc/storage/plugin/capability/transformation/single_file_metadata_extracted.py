@@ -142,6 +142,12 @@ class SingleFileMetadataExtractedCapability(TransactionCapability):
         mime_type: Optional[str]
         mime_encoding: Optional[str]
         mime_type, mime_encoding = MediaTypeResolver.guess(resolved_path.name)
+        if mime_type is None and resolved_path.suffix:
+            raise LookupError(
+                f"No MIME type is registered for the extension "
+                f"{resolved_path.suffix!r} of {resolved_path}."
+            )
+
         metadata: Dict[str, Any] = self._metadata_of(
             source_path=source_path,
             resolved_path=resolved_path,
