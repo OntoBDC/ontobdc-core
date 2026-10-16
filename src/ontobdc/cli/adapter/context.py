@@ -16,7 +16,7 @@ from ontobdc.shared.domain.exception.config import (
 )
 
 BASE_URI: Namespace = Namespace("urn:ontobdc:context/")
-OBDC: Namespace = Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#")
+OBDC: Namespace = Namespace("http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#")
 
 
 class CliContextAdapter(CliContextPort):
@@ -117,7 +117,14 @@ class CliContextAdapter(CliContextPort):
         Returns the root path of the repository: where its
         ``.__ontobdc__/config.yaml`` marker was found, not the absolute path
         recorded in that config, which goes stale once the root is moved.
+
+        A ``storage_root`` already recovered into this context — a
+        temporary one, say — is trusted over that search.
         """
+        storage_root: Any = self.get_parameter_value("storage_root")
+        if isinstance(storage_root, str) and storage_root.strip():
+            return storage_root
+
         try:
             return str(self._config_adapter.root_dir)
         except ProjectRootDirectoryNotSetError:

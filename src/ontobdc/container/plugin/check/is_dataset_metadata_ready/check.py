@@ -179,6 +179,7 @@ def _has_data_entity(dataset_graph: Graph, subject: URIRef) -> bool:
         str(data_entity).strip()
         for data_entity in dataset_graph.objects(subject, OBDC.hasDataEntity)
         if str(data_entity).strip()
+        and (data_entity, RDF.type, OBDC.DataEntity) in dataset_graph
     ]
     return len(data_entity_values) > 0
 

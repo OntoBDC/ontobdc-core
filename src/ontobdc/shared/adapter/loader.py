@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import ast
+from pathlib import Path
 from abc import abstractmethod
 import sys
 from typing import Any, ClassVar, List, Optional, Set, Tuple, Type
@@ -156,9 +158,42 @@ class CapabilityLoader(PluginLoader):
 
     def get(self, id: str) -> Type[CapabilityPort]:
         """
-        Retrieves a capability plugin by its unique ID.
+        Resolve an ID from source before importing its declaring module.
+
+        Discovery must not execute unrelated plugins: they may require native
+        libraries unavailable in this runtime. Python's AST folds adjacent
+        string literals, including multiline metadata IDs and class constants.
+        Runtime metadata remains authoritative after the candidate is imported.
         """
-        return super().get("capability", id)
+        for root_package in self._root_packages:
+            for plugin_package in self._list_plugin_folder("capability", root_package):
+                package_root = (str(self._make_config_data_adapter().script_dir)
+                                if root_package == 'ontobdc'
+                                else self._find_installed_package_root(root_package))
+                if package_root is None:
+                    continue
+                relative = plugin_package.split('.')[len(root_package.split('.')):]
+                directory = Path(package_root).joinpath(*relative, 'capability')
+                for source in sorted(directory.rglob('*.py')):
+                    if '__pycache__' in source.parts:
+                        continue
+                    tree = ast.parse(source.read_text(encoding='utf-8'), filename=str(source))
+                    if not any(isinstance(node, ast.Constant) and node.value == id
+                               for node in ast.walk(tree)):
+                        continue
+                    suffix = source.relative_to(directory).with_suffix('').parts
+                    if suffix[-1] == '__init__':
+                        suffix = suffix[:-1]
+                    name = '.'.join((plugin_package, 'capability', *suffix))
+                    # Import failures of a requested capability must propagate.
+                    module = importlib.import_module(name)
+                    for _, candidate in inspect.getmembers(module, inspect.isclass):
+                        if not issubclass(candidate, Capability):
+                            continue
+                        metadata = getattr(candidate, 'METADATA', None)
+                        if isinstance(metadata, CapabilityMetadata) and metadata.id == id:
+                            return candidate
+        return None
 
     def get_all(self, resource: str = "capability") -> List[Type[CapabilityPort]]:
         """

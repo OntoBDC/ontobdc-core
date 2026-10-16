@@ -20,7 +20,7 @@ class ResourceFacadeReader:
     """
 
     FACADE: ClassVar[Namespace] = Namespace(
-        "http://ontobdc.org/ontology/domain/facade.ttl#"
+        "http://datacenter.app.br/ontology/tool/ontobdc/facade/ns.ttl#"
     )
     SCHEMA: ClassVar[Namespace] = Namespace("https://schema.org/")
 
@@ -148,7 +148,7 @@ class DataContainerFacade:
     # is unchanged, but BrasidataCenterOntologyLibrary resolves an IRI to
     # a file 1:1, so only the physical path here needs to follow.
     ONTOLOGY_IRI: ClassVar[str] = (
-        "http://datacenter.app.br/ontology/tool/ontobdc/tbox/facade/data_container.ttl"
+        "http://datacenter.app.br/ontology/tool/ontobdc/facade/data_container.ttl"
     )
 
     @classmethod

@@ -9,7 +9,7 @@ from ontobdc.storage.domain.exception.location import InconsistentStorageIndexEr
 from ontobdc.storage.domain.model.location import StorageLocation
 
 
-OBDC: Namespace = Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#")
+OBDC: Namespace = Namespace("http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#")
 
 
 class TestStorageLocation:

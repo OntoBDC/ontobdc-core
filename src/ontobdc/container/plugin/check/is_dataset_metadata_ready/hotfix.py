@@ -201,10 +201,9 @@ def _build_dataset_graph(
     entity_types: List[URIRef] = sorted(
         {*existing_types, *([URIRef(entity_iri)] if entity_iri else [])}
     )
-    if entity_types:
-        dataset_graph.add((data_entity_ref, RDF.type, OBDC.DataEntity))
-        for entity_type in entity_types:
-            dataset_graph.add((data_entity_ref, RDF.type, entity_type))
+    dataset_graph.add((data_entity_ref, RDF.type, OBDC.DataEntity))
+    for entity_type in entity_types:
+        dataset_graph.add((data_entity_ref, RDF.type, entity_type))
     dataset_graph.add((dataset_ref, DCTERMS.identifier, Literal(dataset_id)))
     dataset_graph.add((dataset_ref, DCTERMS.title, dataset_title))
     dataset_graph.add((dataset_ref, DCTERMS.description, Literal(dataset_description)))

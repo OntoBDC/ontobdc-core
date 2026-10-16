@@ -25,7 +25,7 @@ class ExtensionFileTypificationStrategy(FileTypificationStrategyPort):
     URI: ClassVar[str] = "org.ontobdc.context.plugin.typification.extension"
 
     TBOX_IRI: ClassVar[str] = (
-        "http://datacenter.app.br/ontology/tool/ontobdc/tbox/typification.ttl"
+        "http://datacenter.app.br/ontology/tool/ontobdc/typification.ttl"
     )
     ABOX_IRI: ClassVar[str] = (
         "http://datacenter.app.br/ontology/tool/ontobdc/abox/typification.ttl"

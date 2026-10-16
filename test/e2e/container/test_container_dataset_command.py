@@ -2,15 +2,37 @@ from typing import Dict, List, Tuple
 from pathlib import Path
 
 import pytest
-from rdflib import Graph, Literal, URIRef
+from rdflib import Graph, Literal, Namespace, URIRef
 from rdflib.term import Identifier
-from rdflib.namespace import DCTERMS
+from rdflib.namespace import DCTERMS, RDF
 
 from test.e2e.cli_process_runner import CliInvocationResult, OntobdcCliProcessRunner
 from test.e2e.container_workspace import ContainerE2eWorkspace
 
 
+OBDC = Namespace("http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#")
+
+
 class TestOntobdcContainerDatasetCommand:
+    def test_create_dataset_registers_a_data_entity_in_the_dataset_metadata(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        workspace: ContainerE2eWorkspace = ContainerE2eWorkspace.create(tmp_path)
+
+        result: CliInvocationResult = workspace.runner().run(
+            "container", "--create-dataset", "Medições de Campo"
+        )
+
+        assert result.exit_code == 0, result.stdout + result.stderr
+        graph: Graph = Graph().parse(
+            workspace.container / "medicoes-de-campo" / ".__ontobdc__" / "dataset.ttl",
+            format="turtle",
+        )
+        entities: List[Identifier] = list(graph.objects(None, OBDC.hasDataEntity))
+        assert len(entities) == 1, entities
+        assert (entities[0], RDF.type, OBDC.DataEntity) in graph
+
     @pytest.mark.parametrize("selector", ["id", "path", "cwd"])
     def test_create_dataset_persists_the_title_and_registers_it_in_the_container(
         self,

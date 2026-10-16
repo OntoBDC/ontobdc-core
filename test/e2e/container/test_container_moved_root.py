@@ -9,7 +9,7 @@ from test.e2e.cli_process_runner import CliInvocationResult, OntobdcCliProcessRu
 from test.e2e.container_workspace import ContainerE2eWorkspace
 
 
-OBDC_DATA_STORAGE: URIRef = URIRef("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#DataStorage")
+OBDC_DATA_STORAGE: URIRef = URIRef("http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#DataStorage")
 
 
 def _locations(graph_file: Path) -> Set[str]:

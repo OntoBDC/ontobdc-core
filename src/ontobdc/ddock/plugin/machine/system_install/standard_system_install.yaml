@@ -1,0 +1,129 @@
+statechart:
+  name: StandardSystemInstall
+  description: "Statechart for installing a system: the ddock, its Python dependencies and its packages."
+
+  root state:
+    name: standard_system_install
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the installation has a valid system.obdc."
+          pt-br: "Estado inicial antes de a instalação ter um system.obdc válido."
+        transitions:
+          - target: system_descriptor_valid
+            guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.SYSTEM_DESCRIPTOR_VALID)
+            action: handler.perform_state_transition(to_state = SystemInstallProcessStatePort.SYSTEM_DESCRIPTOR_VALID)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemInstallProcessStatePort.UNDEFINED, to_state = SystemInstallProcessStatePort.SYSTEM_DESCRIPTOR_VALID)
+
+      - name: system_descriptor_valid
+        label:
+          en: "System Descriptor Valid"
+          pt-br: "Descritor do Sistema Válido"
+        description:
+          en: "The project has a system.obdc and it is valid."
+          pt-br: "O projeto tem um system.obdc e ele é válido."
+        transitions:
+          - target: python_dependencies_installed
+            guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.PYTHON_DEPENDENCIES_INSTALLED)
+            action: handler.perform_state_transition(to_state = SystemInstallProcessStatePort.PYTHON_DEPENDENCIES_INSTALLED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemInstallProcessStatePort.SYSTEM_DESCRIPTOR_VALID, to_state = SystemInstallProcessStatePort.PYTHON_DEPENDENCIES_INSTALLED)
+
+      - name: python_dependencies_installed
+        label:
+          en: "Python Dependencies Installed"
+          pt-br: "Dependências Python Instaladas"
+        description:
+          en: "The Python dependencies of system.obdc are installed, at the versions it asks for."
+          pt-br: "As dependências Python do system.obdc estão instaladas, nas versões que ele pede."
+        transitions:
+          - target: ddock_zip_extracted
+            guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.DDOCK_ZIP_EXTRACTED)
+            action: handler.perform_state_transition(to_state = SystemInstallProcessStatePort.DDOCK_ZIP_EXTRACTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemInstallProcessStatePort.PYTHON_DEPENDENCIES_INSTALLED, to_state = SystemInstallProcessStatePort.DDOCK_ZIP_EXTRACTED)
+
+      - name: ddock_zip_extracted
+        label:
+          en: "DDock Zip Extracted"
+          pt-br: "Zip do DDock Descompactado"
+        description:
+          en: "The zip of ddock was downloaded and unpacked."
+          pt-br: "O zip do ddock foi baixado e descompactado."
+        transitions:
+          - target: ddock_source_moved
+            guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.DDOCK_SOURCE_MOVED)
+            action: handler.perform_state_transition(to_state = SystemInstallProcessStatePort.DDOCK_SOURCE_MOVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemInstallProcessStatePort.DDOCK_ZIP_EXTRACTED, to_state = SystemInstallProcessStatePort.DDOCK_SOURCE_MOVED)
+
+      - name: ddock_source_moved
+        label:
+          en: "DDock Source Moved"
+          pt-br: "Fonte do DDock Movida"
+        description:
+          en: "The folder of ddock that system.obdc names as source is in the project."
+          pt-br: "A pasta do ddock que o system.obdc nomeia como source está no projeto."
+        transitions:
+          - target: packages_extracted
+            guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.PACKAGES_EXTRACTED)
+            action: handler.perform_state_transition(to_state = SystemInstallProcessStatePort.PACKAGES_EXTRACTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemInstallProcessStatePort.DDOCK_SOURCE_MOVED, to_state = SystemInstallProcessStatePort.PACKAGES_EXTRACTED)
+
+      - name: packages_extracted
+        label:
+          en: "Packages Extracted"
+          pt-br: "Pacotes Descompactados"
+        description:
+          en: "The zip of each package of system.obdc was downloaded and unpacked."
+          pt-br: "O zip de cada pacote do system.obdc foi baixado e descompactado."
+        transitions:
+          - target: packages_host_moved
+            guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.PACKAGES_HOST_MOVED)
+            action: handler.perform_state_transition(to_state = SystemInstallProcessStatePort.PACKAGES_HOST_MOVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemInstallProcessStatePort.PACKAGES_EXTRACTED, to_state = SystemInstallProcessStatePort.PACKAGES_HOST_MOVED)
+
+      - name: packages_host_moved
+        label:
+          en: "Packages Host Moved"
+          pt-br: "Host dos Pacotes Movido"
+        description:
+          en: "The contents of src/host of each package are in the source folder of the project."
+          pt-br: "O conteúdo de src/host de cada pacote está na pasta source do projeto."
+        transitions:
+          - target: system_lock_written
+            guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.SYSTEM_LOCK_WRITTEN)
+            action: handler.perform_state_transition(to_state = SystemInstallProcessStatePort.SYSTEM_LOCK_WRITTEN)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemInstallProcessStatePort.PACKAGES_HOST_MOVED, to_state = SystemInstallProcessStatePort.SYSTEM_LOCK_WRITTEN)
+
+      - name: system_lock_written
+        label:
+          en: "System Lock Written"
+          pt-br: "Lock do Sistema Gravado"
+        description:
+          en: "The system.obdc.lock says what was installed."
+          pt-br: "O system.obdc.lock diz o que foi instalado."
+        transitions:
+          - target: node_built
+            guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.NODE_BUILT)
+            action: handler.perform_state_transition(to_state = SystemInstallProcessStatePort.NODE_BUILT)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemInstallProcessStatePort.SYSTEM_LOCK_WRITTEN, to_state = SystemInstallProcessStatePort.NODE_BUILT)
+
+      - name: node_built
+        label:
+          en: "Node Built"
+          pt-br: "Node Compilado"
+        description:
+          en: "The node application was compiled with npm run build."
+          pt-br: "A aplicação node foi compilada com npm run build."
+        type: final

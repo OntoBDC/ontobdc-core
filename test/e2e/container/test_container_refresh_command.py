@@ -199,7 +199,7 @@ class TestOntobdcContainerRefreshDatasetHealth:
     dataset and the checks it still fails.
     """
 
-    FACADE: str = "http://ontobdc.org/ontology/domain/facade.ttl#"
+    FACADE: str = "http://datacenter.app.br/ontology/tool/ontobdc/facade/ns.ttl#"
 
     def _workspace_with_dataset(self, tmp_path: Path) -> Tuple[ContainerE2eWorkspace, Path]:
         workspace: ContainerE2eWorkspace = ContainerE2eWorkspace.create(tmp_path)

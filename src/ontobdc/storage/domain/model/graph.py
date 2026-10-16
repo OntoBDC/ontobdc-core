@@ -9,7 +9,7 @@ from ontobdc.storage.domain.model.location import StorageLocation
 from ontobdc.storage.domain.port.graph import StorageGraphModelPort
 
 
-OBDC: Namespace = Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#")
+OBDC: Namespace = Namespace("http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#")
 CT: Namespace = Namespace("http://standards.iso.org/iso/21597/-1/ed-1/en/Container#")
 
 

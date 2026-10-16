@@ -10,7 +10,7 @@ from ontobdc.container.plugin.check.is_container_metadata_ready import hotfix as
 from ontobdc.container.plugin.check.is_container_storage_index_ready import check, hotfix
 from ontobdc.storage.domain.exception.location import InconsistentStorageIndexError
 
-OBDC: Namespace = Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#")
+OBDC: Namespace = Namespace("http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#")
 
 
 class TestIsContainerStorageIndexReady:

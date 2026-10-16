@@ -15,6 +15,12 @@ from ontobdc.storage.adapter.repository import LoadedStorageGraph
 from ontobdc.shared.domain.port.parameter import ParameterPort
 from ontobdc.shared.domain.model.parameter import ParameterMetadata
 from ontobdc.storage.domain.port.repository import StorageContainerRepositoryPort
+from ontobdc.container.plugin.check.is_container_core_namespace_current.check import (
+    main as check_core_namespace,
+)
+from ontobdc.container.plugin.check.is_container_core_namespace_current.hotfix import (
+    main as hotfix_core_namespace,
+)
 
 
 class ContainerIdStrategy(
@@ -141,6 +147,10 @@ class ContainerIdStrategy(
             container_file = candidate / ".__ontobdc__" / "container.ttl"
             if not container_file.is_file():
                 continue
+
+            if check_core_namespace(container_path=str(candidate)) != 0:
+                if hotfix_core_namespace(container_path=str(candidate)) != 0:
+                    raise ValueError(f"Failed to migrate the container core namespace: {container_file}")
 
             graph = Graph()
             graph.parse(str(container_file), format="turtle")

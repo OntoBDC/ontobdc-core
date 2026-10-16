@@ -2,6 +2,7 @@ import csv
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
+from brasidatacenter.tool.adapter.entity_info import entity_info
 from rdflib import Graph, URIRef
 from rdflib.namespace import DCTERMS, RDF
 
@@ -18,7 +19,10 @@ class ContainerEntities:
     """
     Lists the entities a container holds, dataset by dataset.
 
-    The datasets are the ones the container registers. An entity is a row of
+    The datasets are the ones the container registers, and only the ones
+    whose ``dataset.ttl`` declares a data entity of a type BrasidataCenter
+    publishes as a ``DataEntity`` are listed; what a dataset holds is read
+    from its metadata, never guessed from its files. An entity is a row of
     a data source of its dataset, wherever the dataset keeps it: a CSV
     spreadsheet under ``payload/document`` (one entity per row, identified by
     ``global_id``) or a Turtle file under ``payload/triple`` (one entity per
@@ -30,13 +34,15 @@ class ContainerEntities:
     PAYLOAD_DIRECTORY: ClassVar[str] = "payload"
     IDENTIFIER_COLUMN: ClassVar[str] = "global_id"
     NAME_COLUMNS: ClassVar[List[str]] = ["title", "name"]
+    MULTIPLE_VALUES_SEPARATOR: ClassVar[str] = "|"
     ENCODING: ClassVar[str] = "utf-8"
 
     @classmethod
     def of(cls, container_path: Path) -> List[Dict[str, Any]]:
         """
-        One entry per registered dataset: its title, where it is, the
-        entity types it declares and the entities its data sources hold.
+        One entry per registered dataset that declares a published
+        ``DataEntity`` type: its title, where it is, those types and the
+        entities its data sources hold.
         """
         container: Path = container_path.expanduser().resolve()
         datasets: List[Dict[str, Any]] = []
@@ -44,6 +50,9 @@ class ContainerEntities:
         for dataset_path in cls.distinct_datasets(container):
             metadata: Graph = cls._metadata(dataset_path)
             types: List[str] = cls._entity_types(metadata)
+            if not types:
+                continue
+
             datasets.append(
                 {
                     "title": cls._title(metadata, dataset_path),
@@ -88,15 +97,28 @@ class ContainerEntities:
 
         return dataset_path.name
 
+    @staticmethod
+    def _published_types() -> List[str]:
+        """
+        The entity types BrasidataCenter publishes: the direct subclasses of
+        ``DataEntity``.
+        """
+        return [str(entity["entity_iri"]) for entity in entity_info() or []]
+
     @classmethod
     def _entity_types(cls, metadata: Graph) -> List[str]:
+        """
+        The types of the data entities the dataset declares, as far as they
+        are published ones.
+        """
+        published: List[str] = cls._published_types()
         types: List[str] = []
         subject: Any
         data_entity: Any
         for subject in metadata.subjects(RDF.type, OBDC.EntityDataset):
             for data_entity in metadata.objects(subject, OBDC.hasDataEntity):
                 for entity_type in metadata.objects(data_entity, RDF.type):
-                    if entity_type != OBDC.DataEntity and str(entity_type) not in types:
+                    if str(entity_type) in published and str(entity_type) not in types:
                         types.append(str(entity_type))
 
         return sorted(types)
@@ -106,7 +128,7 @@ class ContainerEntities:
         entities: List[Dict[str, Any]] = []
         default_type: str = cls._local_name(types[0]) if len(types) == 1 else ""
         facade: Optional[EntityFacade] = cls._facade(types)
-        entities.extend(cls._triple_entities(dataset_path))
+        entities.extend(cls._triple_entities(dataset_path, facade))
         entities.extend(cls._csv_entities(dataset_path, default_type, facade))
         return entities
 
@@ -133,7 +155,11 @@ class ContainerEntities:
             return None
 
     @classmethod
-    def _triple_entities(cls, dataset_path: Path) -> List[Dict[str, Any]]:
+    def _triple_entities(
+        cls,
+        dataset_path: Path,
+        facade: Optional[EntityFacade],
+    ) -> List[Dict[str, Any]]:
         directory: Path = dataset_path / cls.PAYLOAD_DIRECTORY / cls.TRIPLE_DIRECTORY
         entities: List[Dict[str, Any]] = []
         triple_file: Path
@@ -154,7 +180,7 @@ class ContainerEntities:
                         "type": cls._local_name(str(entity_type))
                         if entity_type is not None
                         else "",
-                        "fields": cls._triple_fields(graph, subject),
+                        "fields": cls._triple_fields(graph, subject, facade),
                     }
                 )
 
@@ -167,9 +193,8 @@ class ContainerEntities:
         facade: Optional[EntityFacade],
     ) -> List[Dict[str, Any]]:
         """
-        The columns of the row. The ones the facade declares come first, in
-        its order, with the names it gives them by language; any other column
-        follows, as the data source has it.
+        Only the facade's fields, in declared order. A missing CSV column
+        is an empty field; an undeclared column is not part of the visual.
         """
         declared: Dict[str, Dict[str, str]] = (
             {field.identifier: field.labels for field in facade.fields}
@@ -181,24 +206,40 @@ class ContainerEntities:
             if facade is not None
             else []
         )
-        columns: List[str] = [column for column in declared if column in row]
-        columns += [column for column in row if column and column not in declared]
+        columns: List[str] = list(declared)
         return [
             {
                 "name": column,
                 "labels": declared.get(column, {}),
                 "editable": column in editable,
-                "values": [row[column]] if row[column] else [],
+                "values": [row[column]] if row.get(column) else [],
             }
             for column in columns
         ]
 
     @classmethod
-    def _triple_fields(cls, graph: Graph, subject: URIRef) -> List[Dict[str, Any]]:
+    def _triple_fields(
+        cls,
+        graph: Graph,
+        subject: URIRef,
+        facade: Optional[EntityFacade],
+    ) -> List[Dict[str, Any]]:
         """
-        What the subject says, field by field: the predicate names the field
-        and every object it points to is a value.
+        With a facade, the facade's fields as a CSV row would give them: each
+        takes what the subject says through the property its ``mapsToResource``
+        names, several values joined by ``|``. Without one, what the subject
+        says, field by field: the predicate names the field and every object
+        it points to is a value.
         """
+        if facade is not None:
+            row: Dict[str, str] = {
+                field.identifier: cls.MULTIPLE_VALUES_SEPARATOR.join(
+                    sorted(str(value) for value in graph.objects(subject, URIRef(field.maps_to_resource)))
+                )
+                for field in facade.fields
+            }
+            return cls._csv_fields(row, facade)
+
         values_by_field: Dict[str, List[str]] = {}
         predicate: Any
         value: Any

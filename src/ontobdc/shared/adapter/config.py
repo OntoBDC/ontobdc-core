@@ -149,36 +149,24 @@ class ConfigDataAdapter(ConfigDataPort):
         return os.path.join(config_dir, "config.yaml")
 
     def find_project_root(self, current_dir: Path) -> Optional[Path]:
-        """Recursively search for project root by looking for .__ontobdc__/config.yaml."""
-        config_file: Path = Path(self.get_config_file(current_dir))
+        """
+        Recursively search for the project root, stopping safely at any
+        filesystem root, by looking for ``.__ontobdc__/config.yaml``.
+        """
+        config_file: Path = current_dir / ".__ontobdc__" / "config.yaml"
         if config_file.is_file():
             return current_dir
 
-        parent_dir = current_dir.parent
+        parent_dir: Path = current_dir.parent
         if parent_dir == current_dir:
             return None
 
         return self.find_project_root(parent_dir)
 
-    def _find_root_dir(self, path: Optional[str] = None) -> Optional[str]:
-        """Find the nearest project root and stop safely at any filesystem root."""
-        current_path: Path = Path(path or os.getcwd()).expanduser().resolve()
-
-        while True:
-            config_file: Path = current_path / ".__ontobdc__" / "config.yaml"
-            if config_file.is_file():
-                return str(current_path)
-
-            parent_path: Path = current_path.parent
-            if parent_path == current_path:
-                return None
-
-            current_path = parent_path
-
     def _get_root_dir(self) -> str:
         """
         Get the directory where the project root is stored.
-        
+
         Returns:
             The path to the project root directory
         """
@@ -186,17 +174,11 @@ class ConfigDataAdapter(ConfigDataPort):
         if project_root and os.path.exists(project_root):
             return project_root
 
-        try:
-            project_root = self._find_root_dir()
-            if project_root and os.path.exists(project_root):
-                return project_root
-
-        except FileNotFoundError:
-            pass
-        
-        discovered_root: Path = self.find_project_root(Path.cwd().resolve())
-        if discovered_root and discovered_root.exists():
-                return str(discovered_root.resolve())
+        discovered_root: Optional[Path] = self.find_project_root(
+            Path.cwd().expanduser().resolve()
+        )
+        if discovered_root is not None and discovered_root.exists():
+            return str(discovered_root)
 
         raise ProjectRootDirectoryNotSetError("Project root directory not set.")
 

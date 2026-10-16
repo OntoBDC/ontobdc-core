@@ -48,6 +48,17 @@ class ContainerEntityStore:
 
         raise LookupError(f"No entity the container keeps has the global id {global_id}.")
 
+    def exists(self, global_id: str) -> bool:
+        """
+        Whether a dataset the repository reads keeps an entity with this global id.
+        """
+        dataset_path: Path
+        for dataset_path in self._datasets():
+            if global_id in self._repository.rows(dataset_path):
+                return True
+
+        return False
+
     def update(self, global_id: str, changes: Dict[str, Any]) -> List[str]:
         """
         Change fields of the entity; returns the fields that changed.
@@ -75,6 +86,11 @@ class ContainerEntityStore:
                 changed[name] = text
 
         if changed:
+            # A field the data source has never held (an annotation that was
+            # never closed has no completed_at) gets its column when first written.
+            missing: List[str] = [name for name in changed if name not in row]
+            if missing:
+                self._repository.add_columns(dataset_path, missing)
             self._repository.upsert_rows(dataset_path, [{**row, **changed}])
 
         return sorted(changed)

@@ -15,6 +15,9 @@ class EntityFacadeField(BaseModel):
     required: bool
     multivalued: bool
     maps_to_resource: str
+    editable: bool = False
+    default: Optional[str] = None
+    options: List[str] = Field(default_factory=list)
     labels: Dict[str, str] = Field(default_factory=dict)
 
 
@@ -27,6 +30,7 @@ class EntityFacade(BaseModel):
     identifier: str
     name: str
     entity_iri: str
+    creatable: bool = False
     fields: List[EntityFacadeField] = Field(default_factory=list)
 
     def field(self, identifier: str) -> Optional[EntityFacadeField]:

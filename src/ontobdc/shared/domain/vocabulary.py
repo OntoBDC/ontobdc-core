@@ -3,7 +3,7 @@ from rdflib.namespace import Namespace
 
 #: OntoBDC's own vocabulary: the classes and properties the storage graphs
 #: are written with (``obdc:DataStorage``, ``obdc:DataContainer``, ...).
-OBDC: Namespace = Namespace("http://ontobdc.org/ontology/domain/ontobdc/ns.ttl#")
+OBDC: Namespace = Namespace("http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#")
 
 #: ISO 21597-1 (Information container for linked document delivery), the
 #: standard the containers follow.
@@ -17,3 +17,7 @@ ICDD_CONTAINER: Namespace = Namespace(
 ICDD_LINKSET: Namespace = Namespace(
     "https://standards.iso.org/iso/21597/-1/ed-1/en/Linkset#"
 )
+
+#: W3C Linked Data Platform 1.0, the protocol a container is published with
+#: over HTTP (``ldp:BasicContainer``, ``ldp:contains``).
+LDP: Namespace = Namespace("http://www.w3.org/ns/ldp#")

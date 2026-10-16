@@ -14,7 +14,7 @@ from rdflib.namespace import RDF
 from ontobdc.shared.adapter.ontology import BrasidataCenterOntologyLibrary
 
 FACADE: Namespace = Namespace(
-    "http://ontobdc.org/ontology/domain/facade.ttl#"
+    "http://datacenter.app.br/ontology/tool/ontobdc/facade/ns.ttl#"
 )
 
 # brasidatacenter commit 6d9e604 split the old single-file
@@ -22,7 +22,7 @@ FACADE: Namespace = Namespace(
 # annotation.ttl); the shapes this check needs stayed in ns.ttl under
 # the ontology's own, still-unchanged owl:Ontology IRI, so only the
 # physical path brasidatacenter.resources resolves from moved.
-FACADE_SHAPES_IRI: str = "http://datacenter.app.br/ontology/tool/ontobdc/tbox/facade/ns.ttl"
+FACADE_SHAPES_IRI: str = "http://datacenter.app.br/ontology/tool/ontobdc/facade/ns.ttl"
 
 FACADE_FILE_NAME: str = "dataset_facade.ttl"
 LINKSET_DIRECTORY_NAME: str = "linkset"

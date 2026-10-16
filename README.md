@@ -443,7 +443,7 @@ node --check src/ontobdc/view/plugin/asset/js/**/*.js
 ```
 
 Release validation targets: wheel/ZIP with proper package data, Surface opening
-offline via `file://`, annotation save-reopen with no regression, keyboard
+offline via `file://`, annotate save-reopen with no regression, keyboard
 focus and visual contrast.
 
 ---

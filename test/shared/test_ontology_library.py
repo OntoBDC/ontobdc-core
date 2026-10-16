@@ -169,7 +169,7 @@ class TestOntologyConsumers:
     def test_the_container_facade_names_the_ontology_it_lacks(
         self, ontology_tree: Callable[[Dict[str, str]], None]
     ) -> None:
-        with pytest.raises(FileNotFoundError, match="data_container_facade.ttl"):
+        with pytest.raises(FileNotFoundError, match="facade/data_container.ttl"):
             DataContainerFacade.read()
 
     def test_typification_names_the_ontology_it_lacks(
@@ -177,7 +177,7 @@ class TestOntologyConsumers:
     ) -> None:
         ExtensionFileTypificationStrategy._type_by_extension.cache_clear()
 
-        with pytest.raises(FileNotFoundError, match="tbox/typification.ttl"):
+        with pytest.raises(FileNotFoundError, match="tool/ontobdc/typification.ttl"):
             ExtensionFileTypificationStrategy().evaluate("model.ifc", None)
 
     def test_the_dataset_facade_check_names_the_shapes_it_lacks(
@@ -186,15 +186,15 @@ class TestOntologyConsumers:
         linkset: Path = tmp_path / "payload" / "linkset"
         linkset.mkdir(parents=True)
         (linkset / "dataset_facade.ttl").write_text(
-            "<urn:facade> a <http://ontobdc.org/ontology/domain/facade.ttl#DataEntityFacade> .",
+            "<urn:facade> a <http://datacenter.app.br/ontology/tool/ontobdc/facade/ns.ttl#DataEntityFacade> .",
             encoding="utf-8",
         )
 
-        with pytest.raises(FileNotFoundError, match="tbox/facade.ttl"):
+        with pytest.raises(FileNotFoundError, match="facade/ns.ttl"):
             check_dataset_facade_valid(dataset_path=str(tmp_path))
 
     def test_the_dataset_facade_hotfix_names_the_shapes_it_lacks(
         self, tmp_path: Path, ontology_tree: Callable[[Dict[str, str]], None]
     ) -> None:
-        with pytest.raises(FileNotFoundError, match="tbox/facade.ttl"):
+        with pytest.raises(FileNotFoundError, match="facade/ns.ttl"):
             hotfix_dataset_facade_valid(dataset_path=str(tmp_path))

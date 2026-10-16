@@ -1,7 +1,7 @@
 from typing import Any, ClassVar, Dict, List, Optional
 
 from rdflib import Graph, Literal, URIRef
-from rdflib.namespace import RDF, XSD, Namespace
+from rdflib.namespace import DCTERMS, RDF, RDFS, XSD, Namespace
 
 from ontobdc.shared.adapter.ontology import BrasidataCenterOntologyLibrary
 from ontobdc.container.domain.exception.entity import EntityFacadeNotFoundError
@@ -15,16 +15,14 @@ class EntityFacadeLocator:
     """
     Find the facade the ontologies publish for an entity type.
 
-    The facades live under ``tool/ontobdc/tbox/`` of the ontologies, and
-    each declares which entity class it is the facade of, so the entity is
-    all it takes to find one.
+    Each facade declares which entity class it is the facade of, so the
+    entity is all it takes to find one.
     """
 
     FACADE: ClassVar[Namespace] = Namespace(
-        "http://ontobdc.org/ontology/domain/facade.ttl#"
+        "http://datacenter.app.br/ontology/tool/ontobdc/facade/ns.ttl#"
     )
     SCHEMA: ClassVar[Namespace] = Namespace("https://schema.org/")
-    TBOX_DIRECTORY: ClassVar[str] = "/tool/ontobdc/tbox/"
 
     @classmethod
     def of(cls, entity_iri: str) -> EntityFacade:
@@ -37,9 +35,6 @@ class EntityFacadeLocator:
         library: BrasidataCenterOntologyLibrary = BrasidataCenterOntologyLibrary()
         iri: str
         for iri in library.iris():
-            if cls.TBOX_DIRECTORY not in iri:
-                continue
-
             graph: Graph = library.graph(iri)
             subject: Optional[URIRef] = cls._facade_of(graph, entity_iri)
             if subject is not None:
@@ -69,6 +64,7 @@ class EntityFacadeLocator:
             identifier=cls._required_text(graph, subject, cls.SCHEMA.identifier),
             name=cls._label(graph, subject),
             entity_iri=entity_iri,
+            creatable=cls._declared_flag(graph, subject, cls.FACADE.isCreatable),
             fields=sorted(fields, key=lambda declared: declared.order),
         )
 
@@ -83,6 +79,9 @@ class EntityFacadeLocator:
             maps_to_resource=cls._required_text(
                 graph, subject, cls.FACADE.mapsToResource
             ),
+            editable=cls._declared_flag(graph, subject, cls.FACADE.isEditable),
+            default=cls._generator(graph, subject),
+            options=cls._options(graph, subject),
             labels=cls._labels(graph, subject),
         )
 
@@ -104,6 +103,44 @@ class EntityFacadeLocator:
             raise ValueError(f"The facade declares no {predicate} for {subject}.")
 
         return str(value).strip()
+
+    @classmethod
+    def _options(cls, graph: Graph, subject: URIRef) -> List[str]:
+        """
+        The identifiers (``dcterms:identifier``) of the direct subclasses of the
+        class the facade says the field takes its values from; none when it
+        does not say so.
+        """
+        parent: Any = graph.value(subject, cls.FACADE.hasValuesFromSubclassesOf)
+        if not isinstance(parent, URIRef):
+            return []
+
+        library: BrasidataCenterOntologyLibrary = BrasidataCenterOntologyLibrary()
+        identifiers: set[str] = set()
+        iri: str
+        for iri in library.iris():
+            ontology: Graph = library.graph(iri)
+            child: Any
+            for child in ontology.subjects(RDFS.subClassOf, parent):
+                identifier: Any = ontology.value(child, DCTERMS.identifier)
+                if isinstance(identifier, Literal):
+                    identifiers.add(str(identifier))
+
+        return sorted(identifiers)
+
+    @classmethod
+    def _generator(cls, graph: Graph, subject: URIRef) -> Optional[str]:
+        """The IRI of the value generator the facade gives the field as its default, if any."""
+        generator: Any = graph.value(subject, cls.FACADE.hasDefault)
+        return str(generator) if isinstance(generator, URIRef) else None
+
+    @classmethod
+    def _declared_flag(cls, graph: Graph, subject: URIRef, predicate: URIRef) -> bool:
+        """A flag the facade may leave out: what it does not say is false."""
+        if graph.value(subject, predicate) is None:
+            return False
+
+        return cls._flag(graph, subject, predicate)
 
     @staticmethod
     def _flag(graph: Graph, subject: URIRef, predicate: URIRef) -> bool:

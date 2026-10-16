@@ -14,7 +14,7 @@ class FsmHandlerLocator:
     ``machine.py``, and that module defines the one
     ``*StateTransitionHandler`` class that drives it. The YAML is given as a
     path, or as a path inside an installed top-level package
-    (``ontobdc/annotation/.../standard_x.yaml``), which is how a caller that
+    (``ontobdc/annotate/.../standard_x.yaml``), which is how a caller that
     does not know where the packages are installed names it.
     """
 
