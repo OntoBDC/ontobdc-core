@@ -32,7 +32,7 @@ dependencies = [
     "openpyxl",
     "pillow",
     "stanza",
-    "brasidatacenter>=0.10.1",
+    "brasidatacenter>=0.11",
 ]
 
 [project.optional-dependencies]
