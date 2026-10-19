@@ -64,6 +64,25 @@ class ContainerEntities:
 
         return datasets
 
+    @classmethod
+    def triples(cls, container_path: Path) -> Graph:
+        """
+        What the Turtle data sources of the datasets that hold entities say,
+        all datasets together: the relations between entities, wherever each
+        one is kept. An entity kept in a CSV row has no resource in it.
+        """
+        merged: Graph = Graph()
+        dataset_path: Path
+        for dataset_path in cls.distinct_datasets(container_path.expanduser().resolve()):
+            if not cls._entity_types(cls._metadata(dataset_path)):
+                continue
+
+            triple_file: Path
+            for triple_file in sorted((dataset_path / cls.PAYLOAD_DIRECTORY / cls.TRIPLE_DIRECTORY).glob("*.ttl")):
+                merged.parse(str(triple_file), format="turtle")
+
+        return merged
+
     @staticmethod
     def distinct_datasets(container_path: Path) -> List[Path]:
         """
@@ -172,19 +191,37 @@ class ContainerEntities:
                     continue
 
                 entity_type: Optional[Any] = next(graph.objects(subject, RDF.type), None)
+                fields: List[Dict[str, Any]] = cls._triple_fields(graph, subject, facade)
                 entities.append(
                     {
+                        "iri": str(subject),
                         "global_id": cls._attribute(graph, subject, "globalId")
                         or str(subject),
-                        "name": cls._attribute(graph, subject, "name"),
+                        "name": cls._attribute(graph, subject, "name")
+                        or cls._named_by_fields(fields),
                         "type": cls._local_name(str(entity_type))
                         if entity_type is not None
                         else "",
-                        "fields": cls._triple_fields(graph, subject, facade),
+                        "fields": fields,
                     }
                 )
 
         return entities
+
+    @classmethod
+    def _named_by_fields(cls, fields: List[Dict[str, Any]]) -> str:
+        """The name the facade's own title field gives, when the subject has no ``name`` attribute."""
+        return next(
+            (
+                value
+                for column in cls.NAME_COLUMNS
+                for field in fields
+                if field["name"] == column
+                for value in field["values"]
+                if value
+            ),
+            "",
+        )
 
     @classmethod
     def _csv_fields(

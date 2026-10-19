@@ -1,6 +1,7 @@
 from typing import Any, ClassVar, Dict, Optional
 from urllib.parse import urlsplit
 
+from brasidatacenter.tool.adapter.entity_mapping import entity_iri
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransformationCapability
 from ontobdc.shared.adapter.parameter import RequiredParameter
@@ -11,16 +12,6 @@ class EntityUriResolvedCapability(TransformationCapability):
     INPUT_KEY: ClassVar[str] = "entity_id"
     OUTPUT_KEY: ClassVar[str] = "entity_uri"
     SOURCE_KEY: ClassVar[str] = "entity_uri_source"
-    ENTITY_URIS: ClassVar[Dict[str, str]] = {
-        "annotation": "http://datacenter.app.br/ontology/domain/annotation/taxonomy/type.ttl#Annotation",
-        "anotação": "http://datacenter.app.br/ontology/domain/annotation/taxonomy/type.ttl#Annotation",
-        "anotacao": "http://datacenter.app.br/ontology/domain/annotation/taxonomy/type.ttl#Annotation",
-        "dataset": "http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#EntityDataset",
-        "entitydataset": "http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#EntityDataset",
-        "entity_dataset": "http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#EntityDataset",
-        "datacontainer": "http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#DataContainer",
-        "data_container": "http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#DataContainer",
-    }
     METADATA: CapabilityMetadata = CapabilityMetadata(
         id="org.ontobdc.context.plugin.capability.transformation.target.entity_uri_resolved",
         version="1.0.0", name="Entity URI Resolved",
@@ -41,8 +32,9 @@ class EntityUriResolvedCapability(TransformationCapability):
     def resolve(cls, entity: Optional[str]) -> Optional[str]:
         if entity is None:
             return None  # No selector: the next state lists all entity facades.
-        if entity.casefold() in cls.ENTITY_URIS:
-            return cls.ENTITY_URIS[entity.casefold()]
+        known: Optional[str] = entity_iri(entity)
+        if known is not None:
+            return known
         if urlsplit(entity).scheme and not any(char.isspace() for char in entity):
             return entity
         raise LookupError(f"No URI is registered for the entity name <{entity}>.")
