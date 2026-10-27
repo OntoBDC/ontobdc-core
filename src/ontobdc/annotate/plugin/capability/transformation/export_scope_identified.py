@@ -19,8 +19,8 @@ class ExportScopeIdentifiedCapability(TransactionCapability):
     Identify what the export covers: the annotation type, named by a
     parameter of the context as its IRI or by any label or identifier, and
     the container whose annotations are exported. The label of the type in
-    the language of the export, and the name of the container (the project),
-    are kept for the workbook.
+    the language of the export, and the name of the container, are kept for
+    the workbook.
     """
 
     METADATA = CapabilityMetadata(
@@ -70,7 +70,7 @@ class ExportScopeIdentifiedCapability(TransactionCapability):
             "iri": str(annotation_type),
             "identifier": identifier,
             "label": label,
-            "project": container_path.name,
+            "container": container_path.name,
             "language": language,
         }
         context.set_parameter_value(Request.GROUP_KEY, group)

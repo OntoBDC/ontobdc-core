@@ -3,6 +3,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 
 from rdflib import URIRef
 
+from ontobdc.container.adapter.entity_repository import ContainerEntityRepository
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
@@ -140,6 +141,7 @@ class AnnotationCreateCommand(CliCommandPort):
     def run(self) -> CommandResponse:
         context: Any = self._request.context
         # Before anything is resolved for an annotation that could not be kept.
+        ContainerEntityRepository.provide(context)
         EntityWriteRequest.repository(context)
 
         container_path: Path = Path(

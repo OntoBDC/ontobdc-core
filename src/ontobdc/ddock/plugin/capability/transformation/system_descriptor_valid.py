@@ -15,7 +15,7 @@ class SystemDescriptorValidCapability(TransactionCapability):
         id="org.ontobdc.ddock.plugin.capability.transformation.target.system_descriptor_valid",
         version="1.0.0",
         name="System Descriptor Valid",
-        description="Confirm that the project has a system.obdc and that it is valid.",
+        description="Confirm that the container has a system.obdc and that it is valid.",
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["ddock", "install", "system"],
         supported_languages=["en", "pt-br"],
@@ -35,15 +35,15 @@ class SystemDescriptorValidCapability(TransactionCapability):
 
     def is_satisfied(self, context: CliContextPort) -> bool:
         try:
-            SystemDescriptors.read(SystemInstallRequest.project_path(context))
+            SystemDescriptors.read(SystemInstallRequest.container_path(context))
         except Exception:
             return False
 
         return True
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-        project_path: Path = SystemInstallRequest.project_path(context)
-        descriptor: SystemDescriptor = SystemDescriptors.read(project_path)
+        container_path: Path = SystemInstallRequest.container_path(context)
+        descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
 
         return {
             "resulting_state": SystemInstallProcessState.SYSTEM_DESCRIPTOR_VALID,

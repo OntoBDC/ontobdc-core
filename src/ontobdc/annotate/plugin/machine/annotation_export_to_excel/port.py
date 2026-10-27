@@ -18,6 +18,7 @@ class AnnotationExportToExcelRequestPort:
     ANNOTATION_TYPE_KEY: ClassVar[str] = "annotation_type"
     CONTAINER_KEY: ClassVar[str] = "container_path"
     LANGUAGE_KEY: ClassVar[str] = "export_language"
+    ONLY_KEY: ClassVar[str] = "export_only"
     OUTPUT_KEY: ClassVar[str] = "export_output_path"
     # Between the capabilities of a run.
     GROUP_KEY: ClassVar[str] = "export_group"

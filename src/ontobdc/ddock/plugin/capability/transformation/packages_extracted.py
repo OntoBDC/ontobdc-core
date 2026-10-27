@@ -42,16 +42,16 @@ class PackagesExtractedCapability(TransactionCapability):
 
     def is_satisfied(self, context: CliContextPort) -> bool:
         # Only the packages the lock does not have yet are downloaded.
-        project_path: Path = SystemInstallRequest.project_path(context)
-        descriptor: SystemDescriptor = SystemDescriptors.read(project_path)
-        pending: List[str] = SystemLock.pending_packages(project_path, descriptor)
+        container_path: Path = SystemInstallRequest.container_path(context)
+        descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
+        pending: List[str] = SystemLock.pending_packages(container_path, descriptor)
         extracted: List[str] = [package.address for package in SystemInstallRequest.packages(context, descriptor.packages)]
         return all(address in extracted for address in pending)
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-        project_path: Path = SystemInstallRequest.project_path(context)
-        descriptor: SystemDescriptor = SystemDescriptors.read(project_path)
-        pending: List[str] = SystemLock.pending_packages(project_path, descriptor)
+        container_path: Path = SystemInstallRequest.container_path(context)
+        descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
+        pending: List[str] = SystemLock.pending_packages(container_path, descriptor)
         extracted: List[str] = [package.address for package in SystemInstallRequest.packages(context, descriptor.packages)]
         fetched: List[str] = []
         index: int

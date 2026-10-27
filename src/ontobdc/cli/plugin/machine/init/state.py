@@ -5,8 +5,8 @@ from ontobdc.cli.plugin.machine.init.port import CliInitProcessStatePort
 
 class CliInitProcessState(CliInitProcessStatePort):
     """
-    The states a project goes through, from a directory with nothing in it to
-    a project OntoBDC can work in. Labels and descriptions come from the
+    The states a container goes through, from a directory with nothing in it to
+    a container OntoBDC can work in. Labels and descriptions come from the
     statechart that declares them.
     """
 

@@ -1,5 +1,6 @@
 from typing import Any, ClassVar, Dict, List
 
+from ontobdc.container.adapter.entity_repository import ContainerEntityRepository
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
@@ -88,6 +89,7 @@ class AnnotationCreationFromPointCommand(CliCommandPort):
         """
         context: Any = self._request.context
         # Before anyone is made to pick points that could not be kept.
+        ContainerEntityRepository.provide(context)
         EntityWriteRequest.repository(context)
         annotation_type: str = RequiredParameter.of(context, self.TYPE_KEY)
         drawing: str = RequiredParameter.of(context, self.FILE_KEY)

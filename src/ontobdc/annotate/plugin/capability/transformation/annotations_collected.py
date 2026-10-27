@@ -6,6 +6,8 @@ from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.shared.adapter.parameter import RequiredParameter
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.container.adapter.document_iri import ContainerDocumentIri
+from ontobdc.container.adapter.entity_geometry import EntityGeometries
+from ontobdc.annotate.adapter.geometry_drawing import GeometryDrawing
 from ontobdc.container.adapter.entity_dataset import EntityDatasets
 from ontobdc.container.domain.port.entity import EntityRepositoryPort
 from ontobdc.container.plugin.machine.entity_write.machine import EntityWriteRequest
@@ -57,6 +59,14 @@ class AnnotationsCollectedCapability(TransactionCapability):
         ).expanduser().resolve()
         group: Dict[str, str] = context.get_parameter_value(Request.GROUP_KEY)
 
+        only: Optional[str] = RequiredParameter.optional(context, Request.ONLY_KEY)
+        # The order of the ids is the order the person saw: the workbook follows it.
+        wanted: Optional[List[str]] = (
+            [identifier.strip() for identifier in only.split(Annotation.RELATED_SEPARATOR) if identifier.strip()]
+            if only is not None
+            else None
+        )
+
         dataset_path: Optional[Path] = EntityDatasets.first(container_path, Annotation.ENTITY_IRI)
         rows: List[Dict[str, str]] = []
         if dataset_path is not None and repository.data_source_exists(dataset_path):
@@ -64,13 +74,17 @@ class AnnotationsCollectedCapability(TransactionCapability):
                 row
                 for row in repository.rows(dataset_path).values()
                 if row.get("annotation_type", "") == group["identifier"]
+                and (wanted is None or row.get("global_id", "") in wanted)
             ]
         if not rows:
             raise LookupError(
                 f"The container keeps no annotation of type '{group['identifier']}' to export."
             )
 
-        rows.sort(key=lambda row: (row.get("created_at", ""), row.get("title", "")))
+        if wanted is None:
+            rows.sort(key=lambda row: (row.get("created_at", ""), row.get("title", "")))
+        else:
+            rows.sort(key=lambda row: wanted.index(row.get("global_id", "")))
         width: int = max(2, len(str(len(rows))))
         items: List[Dict[str, Any]] = [
             {
@@ -81,6 +95,13 @@ class AnnotationsCollectedCapability(TransactionCapability):
                 "author": row.get("author", ""),
                 "created_at": row.get("created_at", ""),
                 "completed_at": row.get("completed_at", ""),
+                "source": ContainerDocumentIri.path_of(container_path, row["source_document"]) or "" if row.get("source_document") else "",
+                "shapes": len(EntityGeometries.read(dataset_path, row.get("global_id", ""))),
+                "geometries": [
+                    geometry._asdict()
+                    for geometry in EntityGeometries.read(dataset_path, row.get("global_id", ""))
+                    if GeometryDrawing.is_flat(geometry.wkt)
+                ],
                 "related": [
                     path
                     for path in (

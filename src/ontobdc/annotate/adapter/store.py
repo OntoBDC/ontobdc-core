@@ -2,8 +2,10 @@ from pathlib import Path
 from typing import Dict, Optional
 
 from ontobdc.container.adapter.entity_dataset import EntityDatasets
+from ontobdc.container.adapter.entity_geometry import EntityGeometries
 from ontobdc.container.domain.port.entity import EntityRepositoryPort
 from ontobdc.annotate.domain.model.annotate import Annotation
+from ontobdc.annotate.domain.model.view import AnnotationView
 
 
 class AnnotationStore:
@@ -34,12 +36,28 @@ class AnnotationStore:
 
         return stored
 
+    def annotation(self, guid: str) -> Annotation:
+        """
+        The annotation, with the geometries that are kept beside its row. Raises as ``row`` does.
+        """
+        stored: Dict[str, str] = self.row(guid)
+        return Annotation.from_record(stored, EntityGeometries.read(self._dataset_path(), guid))
+
     def delete(self, guid: str) -> None:
         """
-        Remove the annotation. Raises ``LookupError`` as ``row`` does.
+        Remove the annotation, and its geometries and view. Raises ``LookupError`` as ``row`` does.
         """
         self.row(guid)
-        self._repository.delete_rows(self._dataset_path(), [guid])
+        dataset_path: Path = self._dataset_path()
+        self._repository.delete_rows(dataset_path, [guid])
+        EntityGeometries.delete(dataset_path, guid)
+        self.view_path(guid).unlink(missing_ok=True)
+
+    def view_path(self, guid: str) -> Path:
+        """
+        Where the view of the annotation is kept: in the documents of the dataset, named by the global id of the annotation.
+        """
+        return self._dataset_path() / "payload" / "document" / AnnotationView.file_name(guid)
 
     def _dataset_path(self) -> Path:
         dataset_path: Optional[Path] = EntityDatasets.first(

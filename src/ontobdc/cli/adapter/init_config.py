@@ -6,7 +6,7 @@ import yaml
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 
 
-class InitProjectFiles:
+class InitContainerFiles:
     """
     The files of the .__ontobdc__ directory an init brings to a healthy state.
     """

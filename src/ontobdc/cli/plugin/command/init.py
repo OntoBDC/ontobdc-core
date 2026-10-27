@@ -9,12 +9,12 @@ from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import CommandResponse
-from ontobdc.shared.domain.exception.config import ProjectRootDirectoryNotSetError
+from ontobdc.shared.domain.exception.config import ContainerRootDirectoryNotSetError
 
 
 class CliInitCommand(CliCommandPort, LoggerAwarePort):
     """
-    Command to initialize the ontobdc configuration in a project.
+    Command to initialize the ontobdc configuration in a container.
     """
 
     METADATA: CliCommandMetadata = CliCommandMetadata(
@@ -29,7 +29,7 @@ class CliInitCommand(CliCommandPort, LoggerAwarePort):
                 ],
                 "description": (
                     "Bootstrap ontobdc in the current working directory: "
-                    "create the storage root, write the project root "
+                    "create the storage root, write the container root "
                     "marker and initialize any auxiliary folders required "
                     "by the ETL contracts."
                 ),
@@ -66,7 +66,7 @@ class CliInitCommand(CliCommandPort, LoggerAwarePort):
         try:
             if isinstance(self._request.context.root_path, Path):
                 return False
-        except ProjectRootDirectoryNotSetError:
+        except ContainerRootDirectoryNotSetError:
             pass
 
         return True

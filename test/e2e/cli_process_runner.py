@@ -41,11 +41,11 @@ class OntobdcCliProcessRunner:
     -- one missing dependencies (like ``frictionless``) that the venv has,
     making entire commands fail to even load.
 
-    `ONTOBDC_PROJECT_ROOT` is deliberately left unset rather than pointed at
+    `ONTOBDC_CONTAINER_ROOT` is deliberately left unset rather than pointed at
     the isolated directory: `ConfigDataAdapter` crashes with an
     `AttributeError` when that override names a directory without its own
     `.__ontobdc__/config.yaml`, since it never falls back to
-    `UnsetProjectRootConfigDataAdapter` in that case.
+    `UnsetContainerRootConfigDataAdapter` in that case.
     """
     _TIMEOUT_SECONDS: int = 30
 
@@ -58,7 +58,7 @@ class OntobdcCliProcessRunner:
         """
         full_arguments: List[str] = [str(self._executable_path()), *arguments, "--json"]
         environment: Dict[str, str] = dict(os.environ)
-        environment.pop("ONTOBDC_PROJECT_ROOT", None)
+        environment.pop("ONTOBDC_CONTAINER_ROOT", None)
 
         completed_process: "subprocess.CompletedProcess[str]" = subprocess.run(
             full_arguments,

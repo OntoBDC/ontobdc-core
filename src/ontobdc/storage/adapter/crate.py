@@ -1,10 +1,11 @@
 import json
 import hashlib
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from urllib.parse import unquote
 
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
+from ontobdc.storage.adapter.crate_file_history import CrateFileHistory
 
 
 class ContainerRoCrate:
@@ -28,6 +29,7 @@ class ContainerRoCrate:
     GRAPH_KEY: ClassVar[str] = "@graph"
     NODE_ID_KEY: ClassVar[str] = "@id"
     HAS_PART_KEY: ClassVar[str] = "hasPart"
+    LIST_KEY: ClassVar[str] = CrateFileHistory.LIST_PROPERTY
 
     @classmethod
     def file_paths(cls, container_path: Path) -> List[str]:
@@ -45,6 +47,13 @@ class ContainerRoCrate:
                 f"its parts as something other than a list."
             )
 
+        # A file is named by its path, or by an identifier whose node says the path in its history.
+        nodes: Dict[str, Any] = {
+            node[cls.NODE_ID_KEY]: node
+            for node in cls.of(container_path).get(cls.GRAPH_KEY, [])
+            if isinstance(node, dict) and isinstance(node.get(cls.NODE_ID_KEY), str)
+        }
+
         file_paths: List[str] = []
         part: Any
         for part in parts:
@@ -55,9 +64,15 @@ class ContainerRoCrate:
             if not isinstance(part_id, str) or not part_id.strip():
                 continue
 
+            node: Any = nodes.get(part_id)
+            if CrateFileHistory.is_identifier(part_id) or (isinstance(node, dict) and node.get(cls.LIST_KEY)):
+                # A file may be at several paths: a copy is the same file.
+                file_paths.extend(CrateFileHistory.paths_of(node if isinstance(node, dict) else {"@id": part_id}))
+                continue
+
             file_paths.append(cls._path_of(part_id))
 
-        return sorted(file_paths)
+        return sorted(set(file_paths))
 
     @classmethod
     def file_hash(cls, container_path: Path) -> str:

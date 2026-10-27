@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 
-from ontobdc.cli.adapter.init_config import InitProjectFiles
+from ontobdc.cli.adapter.init_config import InitContainerFiles
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 
 DEFAULT_BRAND: Dict[str, str] = {
@@ -27,7 +27,7 @@ DEFAULT_BRAND: Dict[str, str] = {
 def main(root_path: Optional[str] = None) -> int:
     try:
         root: str = str(StorageBootstrap.get_init_root_path(root_path=root_path))
-        config: Dict[str, Any] = InitProjectFiles.read_config(root)
+        config: Dict[str, Any] = InitContainerFiles.read_config(root)
         brand: Any = config.get("brand")
         if not isinstance(brand, dict):
             brand = {}
@@ -36,7 +36,7 @@ def main(root_path: Optional[str] = None) -> int:
             if not isinstance(value, str) or not value.strip():
                 brand[key] = default_value
         config["brand"] = brand
-        InitProjectFiles.write_config(root, config)
+        InitContainerFiles.write_config(root, config)
         return 0
     except Exception:
         return 1

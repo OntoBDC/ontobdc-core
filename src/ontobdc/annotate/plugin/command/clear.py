@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List
 
+from ontobdc.container.adapter.entity_repository import ContainerEntityRepository
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
@@ -17,9 +18,10 @@ class AnnotationClearCommand(CliCommandPort):
     Empty optional fields of an annotation the container already keeps.
 
     The annotation is the one whose global id ``--guid`` gives, and each
-    ``--clear`` names a field to empty: ``text``, ``author``, ``completed_at`` or ``related``
-    (the related documents). What an annotation cannot do without, such as its
-    title, its type and the place it was made, is not clearable. The rest of
+    ``--clear`` names a field to empty: ``text``, ``author``, ``completed_at``, ``related``
+    (the related documents) or ``geometry`` (every place it was made at, which leaves it
+    placed nowhere). What an annotation cannot do without, such as its title and its type,
+    is not clearable. The rest of
     the annotation stays as it was. It is written back through the model and
     the entity repository the context carries; OntoBDC has no default one, so
     without it this fails, before anything is read.
@@ -37,7 +39,7 @@ class AnnotationClearCommand(CliCommandPort):
                 "description": "Global id of the annotation to change.",
                 "type": "str",
                 "usage": (
-                    "ontobdc annotation --guid <id> --clear <text|author|related|completed_at>... "
+                    "ontobdc annotation --guid <id> --clear <text|author|related|completed_at|geometry>... "
                     "[--container <id>]"
                 ),
             },
@@ -45,7 +47,7 @@ class AnnotationClearCommand(CliCommandPort):
                 "accepts": ["--clear"],
                 "valued": True,
                 "description": (
-                    "Field to empty: text, author, related or completed_at. Repeat it for "
+                    "Field to empty: text, author, related, completed_at or geometry. Repeat it for "
                     "each field."
                 ),
                 "type": "str",
@@ -76,6 +78,7 @@ class AnnotationClearCommand(CliCommandPort):
         "author": ("author", None),
         "related": ("related_documents", []),
         "completed_at": ("completed_at", None),
+        "geometry": ("geometries", []),
     }
 
     @staticmethod
@@ -101,6 +104,7 @@ class AnnotationClearCommand(CliCommandPort):
     def run(self) -> CommandResponse:
         context: Any = self._request.context
         # Before anything is read of an annotation that could not be kept.
+        ContainerEntityRepository.provide(context)
         repository: EntityRepositoryPort = EntityWriteRequest.repository(context)
 
         guid: str = RequiredParameter.of(context, self.GUID_KEY)
@@ -109,9 +113,7 @@ class AnnotationClearCommand(CliCommandPort):
         ).expanduser().resolve()
         fields: List[str] = self._fields()
 
-        annotation: Annotation = Annotation.from_record(
-            AnnotationStore(repository, container_path).row(guid)
-        )
+        annotation: Annotation = AnnotationStore(repository, container_path).annotation(guid)
         emptied: Dict[str, Any] = dict(self.EMPTY_BY_FIELD[field] for field in fields)
         updated: Annotation = Annotation.model_validate(
             {**annotation.model_dump(), **emptied}

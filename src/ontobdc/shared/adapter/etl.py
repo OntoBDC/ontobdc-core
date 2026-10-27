@@ -9,7 +9,7 @@ All contracts exposed by this module are encapsulated into
 single-responsibility namespace classes, matching how
 :mod:`ontobdc.shared.adapter.ontology` separates resource locators from
 config adapters and :mod:`ontobdc.shared.adapter.config` keeps config
-data and unset-project-root adapters in dedicated types.
+data and unset-container-root adapters in dedicated types.
 
 No module-level constants are exposed; every consumer must import the
 relevant class and access its :class:`ClassVar` attributes.  This keeps

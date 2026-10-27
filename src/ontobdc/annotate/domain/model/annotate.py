@@ -1,30 +1,27 @@
-import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
+from ontobdc.annotate.domain.model.geometry import AnnotationGeometry
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.cli.domain.response.command import CommandResponse
+from ontobdc.container.adapter.entity_geometry import EntityGeometries, EntityGeometry
 from ontobdc.container.plugin.machine.entity_write.machine import (
     EntityWriteRequest,
     EntityWriteStateTransitionHandler,
 )
 
 
-class AnnotationPoint(BaseModel):
-    """
-    A point of an annotation, in the coordinates of the document it was made on.
-    """
-
-    x: float
-    y: float
-
-
 class Annotation(BaseModel):
     """
     Something said about a place in a document.
+
+    Its geometries are the places it was made at: points, lines, polygons or
+    meshes, in two or three dimensions, as well-known text. They are not in
+    its row but in the triples of its dataset (``EntityGeometries``).
 
     The model knows the shape an annotation is persisted in (the row the
     annotation facade declares) and writes itself through the entity writing
@@ -44,12 +41,14 @@ class Annotation(BaseModel):
     annotation_type: str = Field(min_length=1)
     title: str = Field(min_length=1)
     text: Optional[str] = None
-    points: List[AnnotationPoint] = Field(default_factory=list)
+    geometries: List[AnnotationGeometry] = Field(default_factory=list)
     source_document: Optional[str] = None
     related_documents: List[str] = Field(default_factory=list)
     author: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now().replace(microsecond=0))
     completed_at: Optional[datetime] = None
+    # The other cells of its row, such as its tags: what the model does not know it does not own, and keeps as it was.
+    extra: Dict[str, str] = Field(default_factory=dict)
 
     @field_validator("title", "annotation_type")
     @classmethod
@@ -75,26 +74,12 @@ class Annotation(BaseModel):
 
         return related
 
-    @property
-    def geometry(self) -> Optional[str]:
-        """
-        The well-known text of the points, in click order: a POINT for one,
-        a LINESTRING for more; None for an annotation placed at no point.
-        """
-        if not self.points:
-            return None
-
-        coordinates: List[str] = [f"{point.x:g} {point.y:g}" for point in self.points]
-        if len(coordinates) == 1:
-            return f"POINT({coordinates[0]})"
-
-        return f"LINESTRING({', '.join(coordinates)})"
-
     def to_record(self) -> Dict[str, Any]:
         """
         The row of this annotation: facade field identifier to value.
         """
         record: Dict[str, Any] = {
+            **self.extra,
             "global_id": self.global_id,
             "annotation_type": self.annotation_type,
             "title": self.title,
@@ -102,8 +87,6 @@ class Annotation(BaseModel):
         }
         if self.source_document is not None:
             record["source_document"] = self.source_document
-        if self.geometry is not None:
-            record["geometry"] = self.geometry
         if self.related_documents:
             record["related_documents"] = self.RELATED_SEPARATOR.join(
                 self.related_documents
@@ -118,52 +101,36 @@ class Annotation(BaseModel):
         return record
 
     @classmethod
-    def from_record(cls, record: Dict[str, str]) -> "Annotation":
+    def from_record(cls, record: Dict[str, str], geometries: List[EntityGeometry]) -> "Annotation":
         """
         The annotation a row of the data source states: the inverse of
         ``to_record``. A cell the row leaves empty is an absent value.
 
+        The geometries are not in the row but beside it: the caller gives the ones it read.
+
         Raises:
-            ValueError: the row does not state a valid annotation, or its
-                geometry is not a POINT or a LINESTRING, which are the only
-                ones an annotation writes.
+            ValueError: the row does not state a valid annotation, or one of its geometries is not
+                the well-known text of a geometry an annotation can have.
         """
         def cell(name: str) -> Optional[str]:
             value: str = (record.get(name) or "").strip()
             return value or None
 
         related: Optional[str] = cell("related_documents")
+        known: set = set(cls.model_fields) - {"extra"} | {"geometry"}
         return cls(
+            extra={name: value for name, value in record.items() if name not in known and value},
             global_id=cell("global_id") or "",
             annotation_type=cell("annotation_type") or "",
             title=cell("title") or "",
             text=cell("text"),
-            points=cls._points_of(cell("geometry")),
+            geometries=[AnnotationGeometry.of(geometry) for geometry in geometries],
             source_document=cell("source_document"),
             related_documents=related.split(cls.RELATED_SEPARATOR) if related else [],
             author=cell("author"),
             created_at=datetime.fromisoformat(cell("created_at") or ""),
             completed_at=datetime.fromisoformat(cell("completed_at")) if cell("completed_at") else None,
         )
-
-    @staticmethod
-    def _points_of(geometry: Optional[str]) -> List[AnnotationPoint]:
-        if geometry is None:
-            return []
-
-        match = re.fullmatch(r"(POINT|LINESTRING)\s*\((.*)\)", geometry, re.IGNORECASE)
-        if match is None:
-            raise ValueError(f"unsupported geometry: {geometry!r}")
-
-        points: List[AnnotationPoint] = []
-        pair: str
-        for pair in match.group(2).split(","):
-            coordinates: List[str] = pair.split()
-            if len(coordinates) != 2:
-                raise ValueError(f"unsupported geometry: {geometry!r}")
-            points.append(AnnotationPoint(x=float(coordinates[0]), y=float(coordinates[1])))
-
-        return points
 
     @classmethod
     def save_all(
@@ -203,7 +170,17 @@ class Annotation(BaseModel):
             ),
         )
         try:
-            return EntityWriteStateTransitionHandler(context).execute()
+            response: CommandResponse = EntityWriteStateTransitionHandler(context).execute()
+            # The row is written: the geometries go beside it. Writing both is not one step: when this one fails,
+            # the annotation has its row and the geometries it had before.
+            dataset_path: Path = Path(str(response.content["dataset_path"]))
+            for annotation in annotations:
+                EntityGeometries.write(
+                    dataset_path,
+                    annotation.global_id,
+                    [geometry.kept() for geometry in annotation.geometries],
+                )
+            return response
         finally:
             key: str
             for key in keys:

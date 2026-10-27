@@ -4,9 +4,9 @@ from typing import List, Set
 from rdflib import URIRef
 from rdflib.graph import Graph
 from rdflib.namespace import OWL, Namespace
-from rdflib.util import guess_format
 
 from brasidatacenter import resources
+from brasidatacenter.tool.adapter import ontology_cache
 
 from ontobdc.shared.domain.port.ontology import OntologyLibraryPort
 
@@ -28,10 +28,16 @@ class BrasidataCenterOntologyLibrary(OntologyLibraryPort):
             raise FileNotFoundError(str(error)) from error
 
     def graph(self, iri: str) -> Graph:
-        file_path: Path = self.path(iri)
-        graph: Graph = Graph()
-        graph.parse(str(file_path), format=guess_format(str(file_path)))
-        return graph
+        """
+        The graph of the ontology, parsed once per process and shared: it must only be read. Parsing
+        the same files again for every question was most of the time a command took. To change one,
+        take a copy (``graph_copy``).
+        """
+        return ontology_cache.parsed(self.path(iri))
+
+    def graph_copy(self, iri: str) -> Graph:
+        """A graph with what the ontology says, which the caller may change."""
+        return ontology_cache.copy(self.path(iri))
 
     def graph_with_imports(self, iri: str) -> Graph:
         merged: Graph = Graph()

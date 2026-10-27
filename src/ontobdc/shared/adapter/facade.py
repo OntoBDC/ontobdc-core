@@ -22,7 +22,7 @@ class ResourceFacadeReader:
     FACADE: ClassVar[Namespace] = Namespace(
         "http://datacenter.app.br/ontology/tool/ontobdc/facade/ns.ttl#"
     )
-    SCHEMA: ClassVar[Namespace] = Namespace("https://schema.org/")
+    SCHEMA: ClassVar[Namespace] = Namespace("http://schema.org/")
 
     def __init__(self, facade_path: Path) -> None:
         if not facade_path.is_file():

@@ -17,7 +17,7 @@ class StorageRootRecoveredCapability(TransactionCapability):
     A root already recovered by another capability (a temporary one, say)
     and left in the ``storage_root`` context parameter is trusted as-is.
     Otherwise the root is where a ``.__ontobdc__`` directory marks the
-    project, found by walking up from the current directory. There is
+    container, found by walking up from the current directory. There is
     nothing to repair here: a missing root is not created, only reported.
     """
 

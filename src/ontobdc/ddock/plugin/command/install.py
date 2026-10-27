@@ -15,10 +15,10 @@ class DdockInstallCommand(CliCommandPort):
     """
     Command for installing a system: ddock and its packages.
 
-    ``--install`` names the GitHub repository of ddock by whatever address the
-    person has at hand. The install-from-GitHub strategy of the parameter stage
-    turns it into the address of the zip of its master branch (else its main
-    branch), and ``check`` refuses a command whose address named no repository.
+    ``--install`` optionally names a GitHub repository. When omitted, the
+    install-from-GitHub strategy chooses the official OntoBDC dDock repository.
+    It resolves the zip of the master branch (else main), and ``check``
+    refuses repositories that could not be resolved.
     ``run`` installs, in the current directory, the system that its
     ``system.obdc`` describes, through the system install machine.
     """
@@ -33,11 +33,11 @@ class DdockInstallCommand(CliCommandPort):
                 "valued": True,
                 "parameter": "ddock_install_source",
                 "description": (
-                    "The GitHub repository of ddock, by any address; it is "
-                    "installed from the zip of its master branch, else of its main branch."
+                    "Optional GitHub repository of ddock; defaults to the official "
+                    "OntoBDC dDock repository. Installs from master, else main."
                 ),
                 "type": "str",
-                "usage": "ontobdc ddock --install <github-address>",
+                "usage": "ontobdc ddock --install [github-address]",
             },
         ],
     )
@@ -75,13 +75,19 @@ class DdockInstallCommand(CliCommandPort):
     @staticmethod
     def _matches(scoped_args: List[str]) -> bool:
         """
-        Report whether these scoped args are --install and its value, nothing else.
+        Match --install with either no repository or one explicit repository.
         """
         return (
-            len(scoped_args) == 2
+            bool(scoped_args)
             and scoped_args[0] == DdockInstallCommand.INSTALL_FLAG
-            and bool(scoped_args[1].strip())
-            and not scoped_args[1].startswith("--")
+            and (
+                len(scoped_args) == 1
+                or (
+                    len(scoped_args) == 2
+                    and bool(scoped_args[1].strip())
+                    and not scoped_args[1].startswith("--")
+                )
+            )
         )
 
     def run(self) -> CommandResponse:
@@ -91,9 +97,9 @@ class DdockInstallCommand(CliCommandPort):
         the node application.
         """
         context: Any = self._request.context
-        context.set_parameter_value(SystemInstallRequest.PROJECT_PATH_KEY, os.getcwd())
+        context.set_parameter_value(SystemInstallRequest.CONTAINER_PATH_KEY, os.getcwd())
         try:
             return SystemInstallStateTransitionHandler(context).execute()
         finally:
-            context.delete_parameter(SystemInstallRequest.PROJECT_PATH_KEY)
+            context.delete_parameter(SystemInstallRequest.CONTAINER_PATH_KEY)
             context.delete_parameter(SystemInstallRequest.BUILT_KEY)

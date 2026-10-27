@@ -26,8 +26,8 @@ statechart:
           en: "System Descriptor Valid"
           pt-br: "Descritor do Sistema Válido"
         description:
-          en: "The project has a system.obdc and it is valid."
-          pt-br: "O projeto tem um system.obdc e ele é válido."
+          en: "The container has a system.obdc and it is valid."
+          pt-br: "O container tem um system.obdc e ele é válido."
         transitions:
           - target: python_dependencies_installed
             guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.PYTHON_DEPENDENCIES_INSTALLED)
@@ -68,8 +68,8 @@ statechart:
           en: "DDock Source Moved"
           pt-br: "Fonte do DDock Movida"
         description:
-          en: "The folder of ddock that system.obdc names as source is in the project."
-          pt-br: "A pasta do ddock que o system.obdc nomeia como source está no projeto."
+          en: "The folder of ddock that system.obdc names as source is in the container."
+          pt-br: "A pasta do ddock que o system.obdc nomeia como source está no container."
         transitions:
           - target: packages_extracted
             guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.PACKAGES_EXTRACTED)
@@ -96,8 +96,8 @@ statechart:
           en: "Packages Host Moved"
           pt-br: "Host dos Pacotes Movido"
         description:
-          en: "The contents of src/host of each package are in the source folder of the project."
-          pt-br: "O conteúdo de src/host de cada pacote está na pasta source do projeto."
+          en: "The contents of src/host of each package are in the source folder of the container."
+          pt-br: "O conteúdo de src/host de cada pacote está na pasta source do container."
         transitions:
           - target: system_lock_written
             guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.SYSTEM_LOCK_WRITTEN)

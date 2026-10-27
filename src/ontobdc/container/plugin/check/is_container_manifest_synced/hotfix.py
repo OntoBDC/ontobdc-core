@@ -1,31 +1,17 @@
-import os
+import json
 import warnings
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 from rocrate.rocrate import ROCrate
 
-from ontobdc.storage.adapter.media_type import MediaTypeResolver
-from ontobdc.storage.adapter.manifest import ContainerDataPackageSynchronizer
-from ontobdc.storage.adapter.bootstrap import (
-    StorageBootstrap,
-    StorageLayoutConstants,
-    StoragePathStatHelper,
-)
+from ontobdc.storage.adapter.container_file_repository import ContainerFileRepository
+from ontobdc.storage.adapter.crate_file_history import CrateFileHistory
+from ontobdc.storage.domain.model.file_history import DatasetHistoryEntry, FileHistory
+from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 from ontobdc.container.plugin.check.is_container_storage_index_ready.check import (
     main as check_container_storage_index_ready,
 )
-
-
-_IGNORED_MARKER_DIR_NAMES: Set[str] = {StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME}
-_DATASET_MARKER_FILE_NAMES: Set[str] = {
-    StorageLayoutConstants.DATASET_STORAGE_FILE_NAME,
-    "nid.ttl",
-}
-_DATASET_LINKSET_DIR_NAME: str = "linkset"
-_DATASET_DATAPACKAGE_FILE_NAME: str = "datapackage.json"
-_GENERATED_SURFACE_FILE_NAME: str = "index.html"
 
 
 def _resolve_path(path_value: Optional[str]) -> Optional[Path]:
@@ -35,93 +21,61 @@ def _resolve_path(path_value: Optional[str]) -> Optional[Path]:
     return Path(path_value).expanduser().resolve()
 
 
-def _is_dataset_dir(candidate_dir: Path) -> bool:
-    marker_dir: Path = candidate_dir / StorageLayoutConstants.ONTOBDC_DIRECTORY_NAME
-    if marker_dir.is_dir():
-        for file_name in _DATASET_MARKER_FILE_NAMES:
-            if (marker_dir / file_name).is_file():
-                return True
-
-    datapackage_file: Path = candidate_dir / _DATASET_LINKSET_DIR_NAME / _DATASET_DATAPACKAGE_FILE_NAME
-    return datapackage_file.is_file()
-
-
-def _iter_container_files(container_path: Path) -> List[str]:
-    files: List[str] = []
-    for root, dir_names, file_names in os.walk(container_path, topdown=True):
-        root_path: Path = Path(root)
-        dir_names[:] = [
-            dir_name
-            for dir_name in dir_names
-            if dir_name not in _IGNORED_MARKER_DIR_NAMES
-            and not dir_name.startswith(".")
-            and not _is_dataset_dir(root_path / dir_name)
-        ]
-
-        for file_name in file_names:
-            if ContainerDataPackageSynchronizer.is_file_blocked_from_publication(file_name):
-                continue
-            file_path: Path = root_path / file_name
-            relative_path: str = file_path.relative_to(container_path).as_posix()
-            if not relative_path.strip() or relative_path == _GENERATED_SURFACE_FILE_NAME:
-                continue
-            files.append(relative_path)
-
-    return sorted(set(files))
-
-
-def _iso_utc(timestamp: float) -> str:
-    return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def _file_properties(file_path: Path) -> Optional[Dict[str, Any]]:
-    """Return filesystem metadata for *file_path*, or ``None`` when the file
-    truly cannot be statted even after the central Win32 extended-path
-    retry provided by ``StoragePathStatHelper.safe_stat``.
-
-    The only case where ``None`` is acceptable is when *file_path* has
-    genuinely vanished between the directory walk and this call (e.g. a
-    synced folder actively propagating a delete).  Files whose names just
-    look odd to Win32 (trailing dots, trailing spaces, >260 char paths
-    inside nested OneDrive corporate trees) must produce a populated dict
-    via the central extended-path retry instead of being dropped.
-    """
-    stat_result = StoragePathStatHelper.safe_stat(file_path)
-    if stat_result is None:
-        return None
-
-    properties: Dict[str, Any] = {
-        "name": file_path.name,
-        "contentSize": str(stat_result.st_size),
-        "dateModified": _iso_utc(stat_result.st_mtime),
-    }
-
-    media_type: Optional[str] = MediaTypeResolver.of(file_path.name)
-    if media_type:
-        properties["encodingFormat"] = media_type
-
-    birth_time = getattr(stat_result, "st_birthtime", None)
-    if birth_time is None and os.name == "nt":
-        birth_time = stat_result.st_ctime
-    if birth_time is not None:
-        properties["dateCreated"] = _iso_utc(float(birth_time))
-
-    return properties
+def _previous_crate(container_path: Path) -> Dict[str, Any]:
+    """The crate that is there; nothing when there is no crate, or it cannot be read."""
+    crate_file: Path = StorageBootstrap.get_container_crate_metadata_file_path(container_path)
+    try:
+        crate: Any = json.loads(crate_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return crate if isinstance(crate, dict) else {}
 
 
 def _write_crate_manifest(marker_path: Path, container_path: Path, file_ids: List[str]) -> None:
+    files: ContainerFileRepository = ContainerFileRepository(container_path)
     crate: ROCrate = ROCrate(gen_preview=False)
+    # What the container knew of its files before is kept: the crate is written again, the history is not lost.
+    before: Dict[str, Any] = _previous_crate(container_path)
+    previous: Dict[str, FileHistory] = CrateFileHistory.read_all(before)
+    owners: Dict[str, str] = CrateFileHistory.owners(before)
+    node_histories: Dict[str, FileHistory] = CrateFileHistory.node_histories(before)
+    # The history of the whole container keeps the entries of the files that are gone, and the ones of the nodes this crate drops.
+    dataset_entries: List[DatasetHistoryEntry] = CrateFileHistory.dataset_entries_of(before) if before else []
+
+    on_disk: Dict[str, Any] = {}
     for file_id in file_ids:
-        file_path = container_path / Path(file_id)
-        properties = _file_properties(file_path)
-        if properties is None:
-            # File actually vanished between the directory walk and the
-            # manifest serialization *after* we already retried the
-            # extended Win32 form above.  This is the real TOCTOU case (a
-            # synced folder actively propagating a delete right now) and
-            # the correct behaviour is still to drop the stale entry so
-            # the manifest converges to the on-disk truth.
+        properties = files.properties(file_id)
+        if properties is not None:
+            # A file that vanished between the directory walk and the serialization is dropped (a synced
+            # folder propagating a delete): the manifest converges to the on-disk truth.
+            on_disk[file_id] = properties
+
+    # A file named by an identifier is one node, whatever the number of paths it is at (a copy is the same file).
+    grouped: Dict[str, List[str]] = {}
+    for file_id in on_disk:
+        owner: Optional[str] = owners.get(file_id)
+        if owner is not None and CrateFileHistory.is_identifier(owner):
+            grouped.setdefault(owner, []).append(file_id)
+
+    histories: Dict[str, FileHistory] = {}
+    identifiers: Dict[str, str] = {}
+    written: Dict[str, str] = {}
+    for owner, paths in grouped.items():
+        history: FileHistory = node_histories.get(owner, FileHistory())
+        current: Optional[Any] = history.current()
+        primary: str = current.relative_path if current is not None and current.relative_path in paths else sorted(paths)[0]
+        for path in sorted(paths):
+            history = CrateFileHistory.history_of(files, path, history)
+        histories[primary] = CrateFileHistory.end_missing(history, set(paths))
+        identifiers[primary] = owner
+        for path in paths:
+            written[path] = primary
+
+    for file_id, properties in on_disk.items():
+        if file_id in written and written[file_id] != file_id:
             continue
+        if file_id not in written:
+            histories[file_id] = CrateFileHistory.history_of(files, file_id, previous.get(file_id, FileHistory()))
         crate.add_file(
             source=None,
             dest_path=file_id,
@@ -131,6 +85,17 @@ def _write_crate_manifest(marker_path: Path, container_path: Path, file_ids: Lis
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=r"No source for .*")
         crate.write(marker_path)
+
+    # The history is a list of items without identity of their own, which the library does not write:
+    # it goes into the document it wrote, in the node of each file.
+    # What the crate that was there said is kept: the identifier of each file that is still there, and
+    # the history of the whole container, with the entries of the files that are gone.
+    CrateFileHistory.save(
+        StorageBootstrap.get_container_crate_metadata_file_path(container_path),
+        histories,
+        identifiers=identifiers,
+        dataset_entries=dataset_entries,
+    )
 
 
 def main(
@@ -149,7 +114,7 @@ def main(
         return 1
 
     marker_path: Path = StorageBootstrap.ensure_ontobdc_directory(resolved_container_path)
-    file_ids: List[str] = _iter_container_files(resolved_container_path)
+    file_ids: List[str] = ContainerFileRepository(resolved_container_path).list()
     _write_crate_manifest(marker_path, resolved_container_path, file_ids)
     return 0
 

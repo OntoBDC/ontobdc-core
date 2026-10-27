@@ -1,0 +1,134 @@
+statechart:
+  name: StandardFileReconciliation
+  label:
+    en: "File Reconciliation"
+    pt-br: "Reconciliacao de Arquivos"
+  description:
+    en: "Find the files the RO-Crate of a container states that are not on disk, where a file of the same name is, and record what the files are now in the history of the crate."
+    pt-br: "Encontra os arquivos que o RO-Crate de um container declara e que nao estao no disco, onde ha um arquivo com o mesmo nome, e registra o que os arquivos sao agora no historico do crate."
+
+  root state:
+    name: standard_file_reconciliation
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the files of the crate are checked."
+          pt-br: "Estado inicial antes de os arquivos do crate serem conferidos."
+        transitions:
+          - target: missing_files_listed
+            guard: handler.can_transit_to(to_state = FileReconciliationProcessStatePort.MISSING_FILES_LISTED)
+            action: handler.perform_state_transition(to_state = FileReconciliationProcessStatePort.MISSING_FILES_LISTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileReconciliationProcessStatePort.UNDEFINED, to_state = FileReconciliationProcessStatePort.MISSING_FILES_LISTED)
+
+      - name: missing_files_listed
+        label:
+          en: "Missing Files Listed"
+          pt-br: "Arquivos Ausentes Listados"
+        description:
+          en: "Every file the RO-Crate states was looked for on disk, and the ones that are not there were listed."
+          pt-br: "Cada arquivo que o RO-Crate declara foi procurado no disco, e os que nao estao la foram listados."
+        transitions:
+          - target: same_name_files_found
+            guard: handler.can_transit_to(to_state = FileReconciliationProcessStatePort.SAME_NAME_FILES_FOUND)
+            action: handler.perform_state_transition(to_state = FileReconciliationProcessStatePort.SAME_NAME_FILES_FOUND)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileReconciliationProcessStatePort.MISSING_FILES_LISTED, to_state = FileReconciliationProcessStatePort.SAME_NAME_FILES_FOUND)
+
+      - name: same_name_files_found
+        label:
+          en: "Same Name Files Found"
+          pt-br: "Arquivos de Mesmo Nome Encontrados"
+        description:
+          en: "For each missing file, the files of the same name that are somewhere else in the container were found. They only may have been moved."
+          pt-br: "Para cada arquivo ausente, foram encontrados os arquivos de mesmo nome que estao em outro lugar do container. Eles apenas podem ter sido movidos."
+        transitions:
+          - target: moved_files_relocated
+            guard: handler.can_transit_to(to_state = FileReconciliationProcessStatePort.MOVED_FILES_RELOCATED)
+            action: handler.perform_state_transition(to_state = FileReconciliationProcessStatePort.MOVED_FILES_RELOCATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileReconciliationProcessStatePort.SAME_NAME_FILES_FOUND, to_state = FileReconciliationProcessStatePort.MOVED_FILES_RELOCATED)
+
+      - name: moved_files_relocated
+        label:
+          en: "Moved Files Relocated"
+          pt-br: "Arquivos Movidos Reencontrados"
+        description:
+          en: "Each missing file whose content (the SHA-256 its history last saw) is held by exactly one file the crate does not state was found at its new path: the node of the file now says it is there. The ones with no match, or with several, stay as they were."
+          pt-br: "Cada arquivo ausente cujo conteudo (o SHA-256 que seu historico viu por ultimo) esta em exatamente um arquivo que o crate nao declara foi encontrado no novo caminho: o no do arquivo passa a dizer que ele esta la. Os sem correspondencia, ou com varias, ficam como estavam."
+        transitions:
+          - target: same_name_and_size_files_relocated
+            guard: handler.can_transit_to(to_state = FileReconciliationProcessStatePort.SAME_NAME_AND_SIZE_FILES_RELOCATED)
+            action: handler.perform_state_transition(to_state = FileReconciliationProcessStatePort.SAME_NAME_AND_SIZE_FILES_RELOCATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileReconciliationProcessStatePort.MOVED_FILES_RELOCATED, to_state = FileReconciliationProcessStatePort.SAME_NAME_AND_SIZE_FILES_RELOCATED)
+
+      - name: same_name_and_size_files_relocated
+        label:
+          en: "Same Name And Size Files Relocated"
+          pt-br: "Arquivos de Mesmo Nome e Tamanho Reencontrados"
+        description:
+          en: "Each file still missing whose history knows its size, and that has exactly one file of the same name and size the crate does not state, was found at its new path (its content may have changed). The ones with no match, or with several, stay as they were."
+          pt-br: "Cada arquivo ainda ausente cujo historico sabe o tamanho, e que tem exatamente um arquivo de mesmo nome e tamanho que o crate nao declara, foi encontrado no novo caminho (o conteudo pode ter mudado). Os sem correspondencia, ou com varias, ficam como estavam."
+        transitions:
+          - target: orphan_pointers_recorded
+            guard: handler.can_transit_to(to_state = FileReconciliationProcessStatePort.ORPHAN_POINTERS_RECORDED)
+            action: handler.perform_state_transition(to_state = FileReconciliationProcessStatePort.ORPHAN_POINTERS_RECORDED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileReconciliationProcessStatePort.SAME_NAME_AND_SIZE_FILES_RELOCATED, to_state = FileReconciliationProcessStatePort.ORPHAN_POINTERS_RECORDED)
+
+      - name: orphan_pointers_recorded
+        label:
+          en: "Orphan Pointers Recorded"
+          pt-br: "Ponteiros Orfaos Registrados"
+        description:
+          en: "Every path a file is said to be at and is not on disk was ended in its history (an entry with missingSince, keeping what the file was there), so it can be pointed again when the file turns up. The files that are nowhere are the orphan pointers."
+          pt-br: "Todo caminho em que um arquivo deveria estar e nao esta no disco foi encerrado no historico dele (uma entrada com missingSince, guardando o que o arquivo era la), para poder ser apontado de novo quando o arquivo aparecer. Os arquivos que nao estao em lugar nenhum sao os ponteiros orfaos."
+        transitions:
+          - target: current_state_recorded
+            guard: handler.can_transit_to(to_state = FileReconciliationProcessStatePort.CURRENT_STATE_RECORDED)
+            action: handler.perform_state_transition(to_state = FileReconciliationProcessStatePort.CURRENT_STATE_RECORDED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileReconciliationProcessStatePort.ORPHAN_POINTERS_RECORDED, to_state = FileReconciliationProcessStatePort.CURRENT_STATE_RECORDED)
+
+      - name: current_state_recorded
+        label:
+          en: "Current State Recorded"
+          pt-br: "Estado Atual Registrado"
+        description:
+          en: "A history entry with the path, the hash and the timestamp each file has now was added to the history of the RO-Crate, for the files it states that are on disk and for the files of the same name found elsewhere."
+          pt-br: "Uma entrada de historico com o caminho, o hash e o timestamp que cada arquivo tem agora foi acrescentada ao historico do RO-Crate, para os arquivos que ele declara e estao no disco e para os arquivos de mesmo nome encontrados em outro lugar."
+        transitions:
+          - target: file_identifiers_replaced
+            guard: handler.can_transit_to(to_state = FileReconciliationProcessStatePort.FILE_IDENTIFIERS_REPLACED)
+            action: handler.perform_state_transition(to_state = FileReconciliationProcessStatePort.FILE_IDENTIFIERS_REPLACED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileReconciliationProcessStatePort.CURRENT_STATE_RECORDED, to_state = FileReconciliationProcessStatePort.FILE_IDENTIFIERS_REPLACED)
+
+      - name: file_identifiers_replaced
+        label:
+          en: "File Identifiers Replaced"
+          pt-br: "Identificadores dos Arquivos Substituidos"
+        description:
+          en: "Each file of the crate that has a history is named by an identifier (a UUID) in place of its path, in its node and in the parts of the root dataset. The path is kept in the latest entry of its history."
+          pt-br: "Cada arquivo do crate que tem historico passou a ser nomeado por um identificador (um UUID) no lugar do caminho, no seu no e nas partes do dataset raiz. O caminho fica guardado na entrada mais recente do seu historico."
+        transitions:
+          - target: dataset_history_recorded
+            guard: handler.can_transit_to(to_state = FileReconciliationProcessStatePort.DATASET_HISTORY_RECORDED)
+            action: handler.perform_state_transition(to_state = FileReconciliationProcessStatePort.DATASET_HISTORY_RECORDED)
+            contract:
+              - after: handler.validate_state_transition(from_state = FileReconciliationProcessStatePort.FILE_IDENTIFIERS_REPLACED, to_state = FileReconciliationProcessStatePort.DATASET_HISTORY_RECORDED)
+
+      - name: dataset_history_recorded
+        type: final
+        label:
+          en: "Dataset History Recorded"
+          pt-br: "Historico do Dataset Registrado"
+        description:
+          en: "The history of every file was also recorded in the fileHistory of the root dataset, ordered by timestamp, each entry with the identifier of its file. The entries of files that are gone stay."
+          pt-br: "O historico de cada arquivo tambem foi registrado no fileHistory do dataset raiz, ordenado por timestamp, cada entrada com o identificador do seu arquivo. As entradas de arquivos que sumiram permanecem."

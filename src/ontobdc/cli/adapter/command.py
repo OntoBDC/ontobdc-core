@@ -13,7 +13,7 @@ from ontobdc.shared.domain.port.loader import CommandLoaderPort
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.exception.command import CliCommandArgumentException
 from ontobdc.shared.domain.exception.config import (
-    ProjectRootDirectoryNotSetError,
+    ContainerRootDirectoryNotSetError,
 )
 
 
@@ -63,7 +63,7 @@ class CliCommandRunAdapter:
 
         try:
             is_valid = cls.check(args, logger, check_level)
-        except ProjectRootDirectoryNotSetError:
+        except ContainerRootDirectoryNotSetError:
             is_valid = cls.check(args, logger, 0)
 
         if not is_valid:
@@ -123,5 +123,5 @@ class CliCommandRunAdapter:
                 )
 
             return command
-        except ProjectRootDirectoryNotSetError:
+        except ContainerRootDirectoryNotSetError:
             raise

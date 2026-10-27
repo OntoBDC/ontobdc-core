@@ -41,9 +41,9 @@ class DdockZipExtractedCapability(TransactionCapability):
         return self.metadata.description
 
     def is_satisfied(self, context: CliContextPort) -> bool:
-        # Nothing is left to unpack when the project already has all that ddock puts in it.
-        project_path: Path = SystemInstallRequest.project_path(context)
-        if SystemLock.ddock_complete(project_path, SystemDescriptors.read(project_path)):
+        # Nothing is left to unpack when the container already has all that ddock puts in it.
+        container_path: Path = SystemInstallRequest.container_path(context)
+        if SystemLock.ddock_complete(container_path, SystemDescriptors.read(container_path)):
             return True
 
         return SystemInstallRequest.fetched(SystemInstallRequest.ddock_path(context)) is not None
@@ -53,7 +53,7 @@ class DdockZipExtractedCapability(TransactionCapability):
         target: Path = SystemInstallRequest.work_path(context) / "ddock"
         SystemInstallRequest.discard_fetch(target)
         sha256: str = ZipArchive.fetch(zip_address, target)
-        descriptor: SystemDescriptor = SystemDescriptors.read(SystemInstallRequest.project_path(context))
+        descriptor: SystemDescriptor = SystemDescriptors.read(SystemInstallRequest.container_path(context))
         origin: Path = target / descriptor.source
         if not origin.is_dir():
             raise FileNotFoundError(f"The zip of ddock has no folder '{descriptor.source}', the source of system.obdc.")

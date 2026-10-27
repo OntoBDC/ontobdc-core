@@ -9,7 +9,7 @@ class TitleSlug:
 
     The title is what a reader sees, kept as given in the metadata; the slug
     is what the filesystem sees, so it carries no accent, no space and no
-    character that would need quoting in a shell. Datasets and projects are
+    character that would need quoting in a shell. Datasets and containers are
     both named this way, which is why this does not belong to either.
     """
 

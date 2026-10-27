@@ -17,7 +17,7 @@ class EngineReadyCapability(TransactionCapability):
         id="org.ontobdc.cli.plugin.capability.transformation.target.engine_ready",
         version="1.0.0",
         name="Engine Ready",
-        description="Ensure that the project config declares the engine.",
+        description="Ensure that the container config declares the engine.",
         author=["TRAE"],
         tags=['cli', 'init', 'engine'],
         supported_languages=["en", "pt-br"],

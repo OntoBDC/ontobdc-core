@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 class ArchiveFiles(BaseModel):
     """
     A zip that was unpacked: where it came from, its sha256, and the files of
-    it that go into the project, by their path from the source folder.
+    it that go into the container, by their path from the source folder.
     """
 
     zip: str

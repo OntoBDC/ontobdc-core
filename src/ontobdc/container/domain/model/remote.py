@@ -7,7 +7,7 @@ from urllib.parse import unquote, urlparse
 class RemoteContainerUrl:
     """
     The address of a remote OntoBDC Container: an ``http`` or ``https`` URL
-    that points to the project's ``.obdc`` file.
+    that points to the container's ``.obdc`` file.
     """
 
     SCHEMES: ClassVar[Tuple[str, ...]] = ("http", "https")

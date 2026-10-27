@@ -12,7 +12,7 @@ import importlib
 
 from ontobdc.shared.adapter.config import (
     ConfigDataAdapter,
-    UnsetProjectRootConfigDataAdapter,
+    UnsetContainerRootConfigDataAdapter,
 )
 from ontobdc.cli.domain.port.logger import LogRepositoryPort
 from ontobdc.cli.domain.port.command import CliCommandPort
@@ -27,7 +27,7 @@ from ontobdc.shared.domain.port.loader import (
 from ontobdc.shared.domain.port.capability import CapabilityPort
 from ontobdc.shared.domain.port.resolver import ParamResolverStrategyPort
 from ontobdc.shared.domain.exception.config import (
-    ProjectRootDirectoryNotSetError,
+    ContainerRootDirectoryNotSetError,
 )
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 
@@ -40,10 +40,10 @@ class PluginLoader(PluginLoaderPort):
         try:
             return ConfigDataAdapter()
 
-        except ProjectRootDirectoryNotSetError:
+        except ContainerRootDirectoryNotSetError:
             pass
 
-        return UnsetProjectRootConfigDataAdapter()
+        return UnsetContainerRootConfigDataAdapter()
 
     def _walk_packages_recursive(self, path: List[str], prefix: str, current_depth: int, max_depth: int) -> List[Tuple[Any, str, bool]]:
         """

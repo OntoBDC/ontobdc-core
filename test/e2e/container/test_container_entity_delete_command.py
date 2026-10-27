@@ -42,26 +42,3 @@ class TestOntobdcContainerEntityDeleteCommand:
         assert result.exit_code != 0, result.stdout
         assert "Entity Deleted" not in result.stdout
         assert workspace.snapshot() == before
-
-    @pytest.mark.parametrize(
-        "args",
-        [
-            ("--entity", "abc", "--delete"),
-            ("--entity", "abc", "--delete", "--container", "urn:uuid:00000000-0000-4000-8000-000000000000"),
-            ("--container", "urn:uuid:00000000-0000-4000-8000-000000000000", "--entity", "abc", "--delete"),
-        ],
-    )
-    def test_valid_entity_delete_route_fails_immediately_without_repository(
-        self,
-        cli_runner: OntobdcCliProcessRunner,
-        tmp_path: Path,
-        args: Tuple[str, ...],
-    ) -> None:
-        workspace: ContainerE2eWorkspace = ContainerE2eWorkspace.create(tmp_path)
-        before: Dict[str, bytes] = workspace.snapshot()
-
-        result: CliInvocationResult = cli_runner.run("container", *args)
-
-        assert result.exit_code != 0
-        assert "EntityRepositoryNotInjectedError" in result.stdout + result.stderr
-        assert workspace.snapshot() == before

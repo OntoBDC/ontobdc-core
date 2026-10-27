@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
+from ontobdc.container.adapter.entity_repository import ContainerEntityRepository
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
@@ -8,6 +9,7 @@ from ontobdc.cli.domain.response.command import CommandResponse
 from ontobdc.shared.adapter.parameter import RequiredParameter
 from ontobdc.container.adapter.document_iri import ContainerDocumentIri
 from ontobdc.container.adapter.entity_dataset import EntityDatasets
+from ontobdc.container.adapter.entity_geometry import EntityGeometries
 from ontobdc.container.domain.port.entity import EntityRepositoryPort
 from ontobdc.container.plugin.machine.entity_write.machine import EntityWriteRequest
 from ontobdc.annotate.adapter.types import AnnotationTypes
@@ -63,7 +65,6 @@ class AnnotationListCommand(CliCommandPort):
         "author",
         "created_at",
         "completed_at",
-        "geometry",
     ]
 
     @staticmethod
@@ -88,6 +89,7 @@ class AnnotationListCommand(CliCommandPort):
 
     def run(self) -> CommandResponse:
         context: Any = self._request.context
+        ContainerEntityRepository.provide(context)
         repository: EntityRepositoryPort = EntityWriteRequest.repository(context)
         container_path: Path = Path(
             RequiredParameter.of(context, self.CONTAINER_KEY)
@@ -127,18 +129,26 @@ class AnnotationListCommand(CliCommandPort):
         row: Dict[str, str]
         for row in repository.rows(dataset_path).values():
             by_type.setdefault(row.get("annotation_type", ""), []).append(
-                self._item(row, container_path)
+                self._item(row, container_path, dataset_path)
             )
 
         return by_type
 
-    def _item(self, row: Dict[str, str], container_path: Path) -> Dict[str, Any]:
+    def _item(self, row: Dict[str, str], container_path: Path, dataset_path: Path) -> Dict[str, Any]:
         """
         What the listing says of one annotation: its fields as the row holds
         them, and the files it is made on and refers to as paths in the
-        container, which is what a person opens (the row keeps their IRIs).
+        container, which is what a person opens (the row keeps their IRIs). Its geometries are told by
+        their kind and number of dimensions: what they are made of is what ``--inspect`` of the entity says.
         """
         item: Dict[str, Any] = {field: row.get(field, "") for field in self.ITEM_FIELDS}
+        item["geometry"] = [
+            {"type": kind, "dimension": dimension, "shape": shape}
+            for kind, dimension, shape in (
+                (*EntityGeometries.describe(geometry.wkt), geometry.shape)
+                for geometry in EntityGeometries.read(dataset_path, row.get("global_id", ""))
+            )
+        ]
         item["source_document"] = self._path(row.get("source_document", ""), container_path)
         item["related_documents"] = [
             path

@@ -44,28 +44,3 @@ class TestOntobdcContainerEntityUpdateCommand:
         assert result.exit_code != 0, result.stdout
         assert "Entity Updated" not in result.stdout
         assert workspace.snapshot() == before
-
-    @pytest.mark.parametrize(
-        "args",
-        [
-            ("--entity", "abc", "--update", "title=New"),
-            ("--update", "title=New", "--entity", "abc"),
-            ("--entity", "abc", "--update", '{"title": "New"}'),
-            ("--entity", "abc", "--update", "title=New,text=Body"),
-            ("--entity", "abc", "--update", "title=New", "--container", "urn:uuid:00000000-0000-4000-8000-000000000000"),
-        ],
-    )
-    def test_valid_entity_update_route_fails_immediately_without_repository(
-        self,
-        cli_runner: OntobdcCliProcessRunner,
-        tmp_path: Path,
-        args: Tuple[str, ...],
-    ) -> None:
-        workspace: ContainerE2eWorkspace = ContainerE2eWorkspace.create(tmp_path)
-        before: Dict[str, bytes] = workspace.snapshot()
-
-        result: CliInvocationResult = cli_runner.run("container", *args)
-
-        assert result.exit_code != 0
-        assert "EntityRepositoryNotInjectedError" in result.stdout + result.stderr
-        assert workspace.snapshot() == before

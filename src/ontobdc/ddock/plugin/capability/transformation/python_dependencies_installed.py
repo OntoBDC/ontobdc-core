@@ -35,11 +35,11 @@ class PythonDependenciesInstalledCapability(TransactionCapability):
         return self.metadata.description
 
     def is_satisfied(self, context: CliContextPort) -> bool:
-        descriptor: SystemDescriptor = SystemDescriptors.read(SystemInstallRequest.project_path(context))
+        descriptor: SystemDescriptor = SystemDescriptors.read(SystemInstallRequest.container_path(context))
         return PythonDependencies.satisfied(descriptor.python_dependencies)
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-        descriptor: SystemDescriptor = SystemDescriptors.read(SystemInstallRequest.project_path(context))
+        descriptor: SystemDescriptor = SystemDescriptors.read(SystemInstallRequest.container_path(context))
         installed: Dict[str, str] = PythonDependencies.install(descriptor.python_dependencies)
 
         return {

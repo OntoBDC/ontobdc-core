@@ -9,6 +9,7 @@ from ontobdc.shared.adapter.parameter import RequiredParameter
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.container.adapter.document_iri import ContainerDocumentIri
 from ontobdc.annotate.domain.model.annotate import Annotation
+from ontobdc.annotate.domain.model.geometry import AnnotationGeometry
 from ontobdc.annotate.plugin.capability.transformation.annotation_type_identified import (
     AnnotationTypeIdentifiedCapability,
 )
@@ -87,7 +88,7 @@ class AnnotationsCreatedCapability(TransactionCapability):
             author=RequiredParameter.optional(
                 context, AnnotationDetailsRequestPort.AUTHOR_KEY
             ),
-            points=points,
+            geometries=[AnnotationGeometry.from_points(points)],
             source_document=str(ContainerDocumentIri.of(container_path, file_path)),
         )
         response: Any = annotation.save(context, str(container_path))

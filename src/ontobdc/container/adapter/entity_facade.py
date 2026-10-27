@@ -22,7 +22,7 @@ class EntityFacadeLocator:
     FACADE: ClassVar[Namespace] = Namespace(
         "http://datacenter.app.br/ontology/tool/ontobdc/facade/ns.ttl#"
     )
-    SCHEMA: ClassVar[Namespace] = Namespace("https://schema.org/")
+    SCHEMA: ClassVar[Namespace] = Namespace("http://schema.org/")
 
     @classmethod
     def of(cls, entity_iri: str) -> EntityFacade:
@@ -35,10 +35,10 @@ class EntityFacadeLocator:
         library: BrasidataCenterOntologyLibrary = BrasidataCenterOntologyLibrary()
         iri: str
         for iri in library.iris():
-            graph: Graph = library.graph(iri)
-            subject: Optional[URIRef] = cls._facade_of(graph, entity_iri)
+            subject: Optional[URIRef] = cls._facade_of(library.graph(iri), entity_iri)
             if subject is not None:
-                return cls._read(graph, subject, entity_iri)
+                # Reading the facade brings other ontologies into the graph: it works on a copy.
+                return cls._read(library.graph_copy(iri), subject, entity_iri)
 
         raise EntityFacadeNotFoundError(
             f"No ontology publishes a facade of the entity <{entity_iri}>."
@@ -54,7 +54,24 @@ class EntityFacadeLocator:
         return None
 
     @classmethod
+    def _bring_in_fields(cls, graph: Graph, subject: URIRef) -> None:
+        """
+        A field the facade lists but the file of the facade does not describe is described in the
+        ontology that names it: a field is an IRI, and an ontology is published at the IRI that
+        names its file. Its description is read from there, so a field can be shared by the
+        facades of many ontologies.
+        """
+        library: BrasidataCenterOntologyLibrary = BrasidataCenterOntologyLibrary()
+        field_subject: Any
+        for field_subject in list(graph.objects(subject, cls.FACADE.hasFacadeField)):
+            if not isinstance(field_subject, URIRef) or graph.value(field_subject, cls.SCHEMA.identifier) is not None:
+                continue
+
+            graph += library.graph(str(field_subject).split("#", 1)[0])
+
+    @classmethod
     def _read(cls, graph: Graph, subject: URIRef, entity_iri: str) -> EntityFacade:
+        cls._bring_in_fields(graph, subject)
         fields: List[EntityFacadeField] = [
             cls._read_field(graph, field_subject)
             for field_subject in graph.objects(subject, cls.FACADE.hasFacadeField)
@@ -65,6 +82,7 @@ class EntityFacadeLocator:
             name=cls._label(graph, subject),
             entity_iri=entity_iri,
             creatable=cls._declared_flag(graph, subject, cls.FACADE.isCreatable),
+            commentable=cls._declared_flag(graph, subject, cls.FACADE.isCommentable),
             fields=sorted(fields, key=lambda declared: declared.order),
         )
 

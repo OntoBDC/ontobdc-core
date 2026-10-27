@@ -3,6 +3,7 @@ from typing import Any, ClassVar, Dict, List
 
 from rdflib import URIRef
 
+from ontobdc.container.adapter.entity_repository import ContainerEntityRepository
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
@@ -145,15 +146,14 @@ class AnnotationUpdateCommand(CliCommandPort):
     def run(self) -> CommandResponse:
         context: Any = self._request.context
         # Before anything is read of an annotation that could not be kept.
+        ContainerEntityRepository.provide(context)
         repository: EntityRepositoryPort = EntityWriteRequest.repository(context)
 
         guid: str = RequiredParameter.of(context, self.GUID_KEY)
         container_path: Path = Path(
             RequiredParameter.of(context, self.CONTAINER_KEY)
         ).expanduser().resolve()
-        stored: Dict[str, str] = AnnotationStore(repository, container_path).row(guid)
-
-        annotation: Annotation = Annotation.from_record(stored)
+        annotation: Annotation = AnnotationStore(repository, container_path).annotation(guid)
         changes: Dict[str, Any] = self._changes(context, container_path)
         updated: Annotation = Annotation.model_validate(
             {**annotation.model_dump(), **changes}

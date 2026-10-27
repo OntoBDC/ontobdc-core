@@ -1,5 +1,6 @@
 from typing import Any, ClassVar, Dict, List
 
+from ontobdc.container.adapter.entity_repository import ContainerEntityRepository
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
@@ -40,7 +41,7 @@ class AnnotationExportCommand(CliCommandPort):
                 "type": "str",
                 "usage": (
                     "ontobdc annotation --export excel --type <type> "
-                    "[--output <file>] [--language <tag>] [--container <id>]"
+                    "[--only <id|id...>] [--output <file>] [--language <tag>] [--container <id>]"
                 ),
             },
             {
@@ -50,6 +51,17 @@ class AnnotationExportCommand(CliCommandPort):
                 "description": (
                     "Annotation type whose annotations are exported: its IRI, "
                     "or a label or identifier in any language."
+                ),
+                "type": "str",
+            },
+            {
+                "accepts": ["--only"],
+                "valued": True,
+                "parameter": "export_only",
+                "description": (
+                    "Global ids, separated by a vertical bar, of the only annotations to export, which "
+                    "are written in that order. When omitted, every annotation of the type is "
+                    "exported, oldest first."
                 ),
                 "type": "str",
             },
@@ -84,7 +96,7 @@ class AnnotationExportCommand(CliCommandPort):
     COMPONENT: ClassVar[str] = "annotate"
     EXPORT_FLAG: ClassVar[str] = "--export"
     TYPE_FLAG: ClassVar[str] = "--type"
-    OPTIONAL_FLAGS: ClassVar[List[str]] = ["--output", "--language", "--container"]
+    OPTIONAL_FLAGS: ClassVar[List[str]] = ["--only", "--output", "--language", "--container"]
     FORMAT_KEY: ClassVar[str] = "export_format"
     FORMATS: ClassVar[List[str]] = ["excel"]
 
@@ -111,6 +123,7 @@ class AnnotationExportCommand(CliCommandPort):
     def run(self) -> CommandResponse:
         context: Any = self._request.context
         # Before anything is read for an export that could not be made.
+        ContainerEntityRepository.provide(context)
         EntityWriteRequest.repository(context)
 
         export_format: str = RequiredParameter.of(context, self.FORMAT_KEY).strip().lower()
@@ -134,7 +147,7 @@ class AnnotationExportCommand(CliCommandPort):
     def _matches(scoped_args: List[str]) -> bool:
         """
         Report whether these scoped args are --export and --type, optionally
-        --output, --language and --container, each with a value, in any
+        --only, --output, --language and --container, each with a value, in any
         order and none repeated.
         """
         if len(scoped_args) % 2 != 0:

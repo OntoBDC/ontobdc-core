@@ -8,6 +8,7 @@ from rdflib.namespace import DCTERMS, RDF
 
 from ontobdc.container.adapter.dataset import RegisteredDatasets
 from ontobdc.container.adapter.entity_facade import EntityFacadeLocator
+from ontobdc.container.adapter.entity_geometry import EntityGeometries
 from ontobdc.container.adapter.entity_rules import EntityFieldRules
 from ontobdc.container.domain.exception.entity import EntityFacadeNotFoundError
 from ontobdc.container.domain.model.entity_facade import EntityFacade
@@ -33,7 +34,7 @@ class ContainerEntities:
     TRIPLE_DIRECTORY: ClassVar[str] = "triple"
     PAYLOAD_DIRECTORY: ClassVar[str] = "payload"
     IDENTIFIER_COLUMN: ClassVar[str] = "global_id"
-    NAME_COLUMNS: ClassVar[List[str]] = ["title", "name"]
+    NAME_COLUMNS: ClassVar[List[str]] = ["title", "name", "date"]
     MULTIPLE_VALUES_SEPARATOR: ClassVar[str] = "|"
     ENCODING: ClassVar[str] = "utf-8"
 
@@ -147,7 +148,7 @@ class ContainerEntities:
         entities: List[Dict[str, Any]] = []
         default_type: str = cls._local_name(types[0]) if len(types) == 1 else ""
         facade: Optional[EntityFacade] = cls._facade(types)
-        entities.extend(cls._triple_entities(dataset_path, facade))
+        entities.extend(cls._triple_entities(dataset_path, facade, types))
         entities.extend(cls._csv_entities(dataset_path, default_type, facade))
         return entities
 
@@ -178,7 +179,13 @@ class ContainerEntities:
         cls,
         dataset_path: Path,
         facade: Optional[EntityFacade],
+        types: List[str],
     ) -> List[Dict[str, Any]]:
+        """
+        The entities the Turtle files hold: the subjects of a type the dataset
+        declares for its data entities. What else the files say (a comment, for
+        one) is not an entity, because nothing declares it one.
+        """
         directory: Path = dataset_path / cls.PAYLOAD_DIRECTORY / cls.TRIPLE_DIRECTORY
         entities: List[Dict[str, Any]] = []
         triple_file: Path
@@ -190,7 +197,13 @@ class ContainerEntities:
                 if not isinstance(subject, URIRef):
                     continue
 
-                entity_type: Optional[Any] = next(graph.objects(subject, RDF.type), None)
+                entity_type: Optional[Any] = next(
+                    (candidate for candidate in graph.objects(subject, RDF.type) if str(candidate) in types),
+                    None,
+                )
+                if entity_type is None:
+                    continue
+
                 fields: List[Dict[str, Any]] = cls._triple_fields(graph, subject, facade)
                 entities.append(
                     {
@@ -317,10 +330,23 @@ class ContainerEntities:
                     "",
                 ),
                 "type": entity_type,
-                "fields": cls._csv_fields(row, facade),
+                "fields": cls._with_geometries(cls._csv_fields(row, facade), dataset_path, identifier),
             }
             for identifier, row in rows_by_id.items()
         ]
+
+    @classmethod
+    def _with_geometries(cls, fields: List[Dict[str, Any]], dataset_path: Path, identifier: str) -> List[Dict[str, Any]]:
+        """
+        The fields, with the ``geometry`` one holding the geometries the entity keeps beside its row, one value for each.
+        """
+        kept = EntityGeometries.read(dataset_path, identifier)
+        # The values stay the text; the geometries tell, for each one, what the text cannot: how it is drawn, and what it was made as.
+        named: Dict[str, Any] = {
+            "values": [geometry.wkt for geometry in kept],
+            "geometries": [geometry._asdict() for geometry in kept],
+        }
+        return [{**field, **named} if field["name"] == "geometry" else field for field in fields]
 
     @classmethod
     def _attribute(cls, graph: Graph, subject: URIRef, attribute: str) -> str:

@@ -9,7 +9,7 @@ from ontobdc.ddock.domain.model.system_descriptor import PythonDependency, Syste
 
 class SystemDescriptors:
     """
-    Read and judge the ``system.obdc`` of a project: a YAML file with another
+    Read and judge the ``system.obdc`` of a container: a YAML file with another
     name that says what to install.
 
     .. code-block:: yaml
@@ -28,22 +28,22 @@ class SystemDescriptors:
     LOCK_FILE_NAME: ClassVar[str] = "system.obdc.lock"
 
     @classmethod
-    def path_in(cls, project_path: Path) -> Path:
-        return project_path / cls.FILE_NAME
+    def path_in(cls, container_path: Path) -> Path:
+        return container_path / cls.FILE_NAME
 
     @classmethod
-    def read(cls, project_path: Path) -> SystemDescriptor:
+    def read(cls, container_path: Path) -> SystemDescriptor:
         """
-        The descriptor of the project.
+        The descriptor of the container.
 
         Raises:
-            FileNotFoundError: the project has no ``system.obdc``.
+            FileNotFoundError: the container has no ``system.obdc``.
             ValueError: the file is not valid YAML, or says something a
                 descriptor cannot say, or lacks what it needs.
         """
-        path: Path = cls.path_in(project_path)
+        path: Path = cls.path_in(container_path)
         if not path.is_file():
-            raise FileNotFoundError(f"The project has no {cls.FILE_NAME}: {path}")
+            raise FileNotFoundError(f"The container has no {cls.FILE_NAME}: {path}")
 
         try:
             data: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -65,7 +65,7 @@ class SystemDescriptors:
 
         folder: PurePosixPath = PurePosixPath(value.strip())
         if folder.is_absolute() or ".." in folder.parts or folder == PurePosixPath("."):
-            raise ValueError(f"'source' must be a folder inside the project, not '{value}'.")
+            raise ValueError(f"'source' must be a folder inside the container, not '{value}'.")
 
         return str(folder)
 

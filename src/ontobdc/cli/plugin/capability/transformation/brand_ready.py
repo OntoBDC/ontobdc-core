@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, Dict
 
-from ontobdc.cli.adapter.init_config import InitProjectFiles
+from ontobdc.cli.adapter.init_config import InitContainerFiles
 from ontobdc.cli.adapter.repair import CheckedRepair
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.cli.plugin.check.is_brand_ready.check import main as check_brand_ready
@@ -17,7 +17,7 @@ class BrandReadyCapability(TransactionCapability):
         id="org.ontobdc.cli.plugin.capability.transformation.target.brand_ready",
         version="1.0.0",
         name="Brand Ready",
-        description="Ensure that the project config declares the brand.",
+        description="Ensure that the container config declares the brand.",
         author=["TRAE"],
         tags=['cli', 'init', 'brand'],
         supported_languages=["en", "pt-br"],
@@ -47,5 +47,5 @@ class BrandReadyCapability(TransactionCapability):
         )
         return {
             "resulting_state": CliInitProcessState.BRAND_READY,
-            "brand": dict(InitProjectFiles.read_config(str(root_path)).get("brand", {})),
+            "brand": dict(InitContainerFiles.read_config(str(root_path)).get("brand", {})),
         }

@@ -1,0 +1,50 @@
+statechart:
+  name: StandardAnnotationViewSave
+  label:
+    en: "Annotation View Save"
+    pt-br: "Gravacao da Visao da Anotacao"
+  description:
+    en: "Understand the request of a view, check the picture and keep it beside the annotation."
+    pt-br: "Entende o pedido de uma visao, confere a imagem e a guarda junto da anotacao."
+
+  root state:
+    name: standard_annotation_view_save
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the request is understood."
+          pt-br: "Estado inicial antes de o pedido ser entendido."
+        transitions:
+          - target: view_requested
+            guard: handler.can_transit_to(to_state = AnnotationViewSaveProcessStatePort.VIEW_REQUESTED)
+            action: handler.perform_state_transition(to_state = AnnotationViewSaveProcessStatePort.VIEW_REQUESTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationViewSaveProcessStatePort.UNDEFINED, to_state = AnnotationViewSaveProcessStatePort.VIEW_REQUESTED)
+
+      - name: view_requested
+        label:
+          en: "View Requested"
+          pt-br: "Visao Solicitada"
+        description:
+          en: "The annotation exists and the picture is one the application keeps."
+          pt-br: "A anotacao existe e a imagem e uma que a aplicacao guarda."
+        transitions:
+          - target: view_saved
+            guard: handler.can_transit_to(to_state = AnnotationViewSaveProcessStatePort.VIEW_SAVED)
+            action: handler.perform_state_transition(to_state = AnnotationViewSaveProcessStatePort.VIEW_SAVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationViewSaveProcessStatePort.VIEW_REQUESTED, to_state = AnnotationViewSaveProcessStatePort.VIEW_SAVED)
+
+      - name: view_saved
+        label:
+          en: "View Saved"
+          pt-br: "Visao Gravada"
+        description:
+          en: "The picture is kept beside the annotation, named by its global id."
+          pt-br: "A imagem esta guardada junto da anotacao, com o global id dela como nome."
+        type: final

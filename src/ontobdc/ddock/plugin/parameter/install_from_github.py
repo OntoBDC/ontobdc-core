@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import ClassVar, Optional
 
 from ontobdc.cli.domain.port.context import CliContextPort, CliContextStrategyPort
 from ontobdc.ddock.adapter.github_zip import GitHubZipAddress
@@ -7,27 +7,26 @@ from ontobdc.shared.domain.model.parameter import ParameterMetadata
 
 class InstallFromGitHubStrategy(CliContextStrategyPort):
     """
-    Resolve the address ``ddock --install`` is given to the zip it installs from.
+    Resolve the GitHub repository selected by ``ddock --install`` to its zip.
 
-    Whatever form of GitHub address the person typed, it becomes the address of
-    the zip of the ``master`` branch of the repository, or of its ``main``
-    branch when there is no ``master`` (GitHub is asked which exists). The
-    strategy does not judge the address: one that names no GitHub repository,
-    or a repository with neither branch, simply resolves to nothing, and it is
-    the command's check that refuses a command with no zip.
+    An omitted repository selects the official OntoBDC dDock. An explicit
+    repository takes precedence; in either case the first available branch
+    among master and main supplies the zip. An invalid or unreachable
+    repository is left unresolved for the command's check to reject.
     """
 
-    SELECTOR_FLAG: str = "--install"
-    SOURCE_KEY: str = "ddock_install_source"
-    ZIP_KEY: str = "ddock_install_zip"
+    SELECTOR_FLAG: ClassVar[str] = "--install"
+    SOURCE_KEY: ClassVar[str] = "ddock_install_source"
+    ZIP_KEY: ClassVar[str] = "ddock_install_zip"
+    DEFAULT_REPOSITORY: ClassVar[str] = "https://github.com/OntoBDC/ontobdc-ddock"
 
     METADATA: ParameterMetadata = ParameterMetadata(
         id="org.ontobdc.ddock.plugin.parameter.install_from_github",
         version="1.0.0",
         name="ddock_install_source",
         description=(
-            "Resolve the address given to ddock --install to the address of "
-            "the zip of the master branch of its GitHub repository."
+            "Resolve ddock --install to the GitHub zip of the selected "
+            "repository, defaulting to the official OntoBDC dDock."
         ),
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         python_type=str,
@@ -37,26 +36,33 @@ class InstallFromGitHubStrategy(CliContextStrategyPort):
 
     def execute(self, context: CliContextPort) -> CliContextPort:
         """
-        Bind the zip the address names, or clear a stale binding.
+        Bind the source and resolved zip. An omitted argument never reuses a
+        repository left in the context by an earlier command.
         """
         raw_args = context.raw_args
         if self.SELECTOR_FLAG not in raw_args:
             return context
 
         context.delete_parameter(self.ZIP_KEY)
-        address: Optional[str] = self._address(context)
-        zip_address: Optional[str] = GitHubZipAddress.resolve(address) if address is not None else None
+        address: Optional[str] = self._address(raw_args)
+        if address is None:
+            return context
+
+        context.set_parameter_value(self.SOURCE_KEY, address)
+        zip_address: Optional[str] = GitHubZipAddress.resolve(address)
         if zip_address is not None:
             context.set_parameter_value(self.ZIP_KEY, zip_address)
 
         return context
 
-    def _address(self, context: CliContextPort) -> Optional[str]:
-        """
-        Return the address the person typed, or None when they typed none.
-        """
-        value: Any = context.get_parameter_value(self.SOURCE_KEY)
-        if not isinstance(value, str) or not value.strip():
-            return None
+    @classmethod
+    def _address(cls, args: list[str]) -> Optional[str]:
+        """Choose the explicit repository, or the official one when absent."""
+        position = args.index(cls.SELECTOR_FLAG)
+        if position + 1 == len(args):
+            return cls.DEFAULT_REPOSITORY
 
-        return value.strip()
+        address = args[position + 1].strip()
+        if not address or address.startswith("--"):
+            return None
+        return address

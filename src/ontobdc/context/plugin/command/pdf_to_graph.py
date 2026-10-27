@@ -50,7 +50,7 @@ class ContextPdfToGraphCommand(CliCommandPort):
                     "Directory where the ETL payloads produced by the "
                     "pipeline will be written. When omitted, the "
                     "pipeline writes into the standard ETL directory "
-                    "contract resolved from the project container."
+                    "contract resolved from the container."
                 ),
                 "type": "Path",
             },

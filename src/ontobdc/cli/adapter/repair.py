@@ -6,7 +6,7 @@ CheckMain = Callable[..., int]
 
 class CheckedRepair:
     """
-    Bring one piece of the project to what its check observes.
+    Bring one piece of the container to what its check observes.
 
     The hotfix runs only when the check does not hold, and the check is asked
     again afterwards: a repair that leaves nothing the check can observe is a

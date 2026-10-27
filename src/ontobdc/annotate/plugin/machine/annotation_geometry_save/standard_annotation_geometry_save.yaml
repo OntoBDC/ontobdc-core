@@ -1,0 +1,64 @@
+statechart:
+  name: StandardAnnotationGeometrySave
+  label:
+    en: "Annotation Geometry Save"
+    pt-br: "Gravacao da Geometria da Anotacao"
+  description:
+    en: "Understand the request of a shape, make the shape into geometries and keep them on the annotation."
+    pt-br: "Entende o pedido de uma forma, transforma a forma em geometrias e as guarda na anotacao."
+
+  root state:
+    name: standard_annotation_geometry_save
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the request is understood."
+          pt-br: "Estado inicial antes de o pedido ser entendido."
+        transitions:
+          - target: geometry_requested
+            guard: handler.can_transit_to(to_state = AnnotationGeometrySaveProcessStatePort.GEOMETRY_REQUESTED)
+            action: handler.perform_state_transition(to_state = AnnotationGeometrySaveProcessStatePort.GEOMETRY_REQUESTED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationGeometrySaveProcessStatePort.UNDEFINED, to_state = AnnotationGeometrySaveProcessStatePort.GEOMETRY_REQUESTED)
+
+      - name: geometry_requested
+        label:
+          en: "Geometry Requested"
+          pt-br: "Geometria Solicitada"
+        description:
+          en: "The annotation, the shape, its arguments and how it is drawn are known and valid."
+          pt-br: "A anotacao, a forma, seus argumentos e como ela e desenhada sao conhecidos e validos."
+        transitions:
+          - target: geometry_generated
+            guard: handler.can_transit_to(to_state = AnnotationGeometrySaveProcessStatePort.GEOMETRY_GENERATED)
+            action: handler.perform_state_transition(to_state = AnnotationGeometrySaveProcessStatePort.GEOMETRY_GENERATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationGeometrySaveProcessStatePort.GEOMETRY_REQUESTED, to_state = AnnotationGeometrySaveProcessStatePort.GEOMETRY_GENERATED)
+
+      - name: geometry_generated
+        label:
+          en: "Geometry Generated"
+          pt-br: "Geometria Gerada"
+        description:
+          en: "The shape was made into the well-known text of its geometries."
+          pt-br: "A forma foi transformada no well-known text de suas geometrias."
+        transitions:
+          - target: geometry_saved
+            guard: handler.can_transit_to(to_state = AnnotationGeometrySaveProcessStatePort.GEOMETRY_SAVED)
+            action: handler.perform_state_transition(to_state = AnnotationGeometrySaveProcessStatePort.GEOMETRY_SAVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = AnnotationGeometrySaveProcessStatePort.GEOMETRY_GENERATED, to_state = AnnotationGeometrySaveProcessStatePort.GEOMETRY_SAVED)
+
+      - name: geometry_saved
+        label:
+          en: "Geometry Saved"
+          pt-br: "Geometria Gravada"
+        description:
+          en: "The geometries are kept on the annotation, after the ones it had."
+          pt-br: "As geometrias estao guardadas na anotacao, depois das que ela tinha."
+        type: final

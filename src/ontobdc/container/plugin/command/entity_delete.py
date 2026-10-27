@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any, ClassVar, List
 
+from ontobdc.container.adapter.entity_repository import ContainerEntityRepository
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
@@ -82,6 +83,7 @@ class ContainerEntityDeleteCommand(CliCommandPort):
     def run(self) -> CommandResponse:
         context: Any = self._request.context
         # Before anything is read of an entity that could not be removed.
+        ContainerEntityRepository.provide(context)
         repository: EntityRepositoryPort = EntityWriteRequest.repository(context)
 
         global_id: str = RequiredParameter.of(context, self.ENTITY_KEY)

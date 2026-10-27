@@ -339,7 +339,7 @@ class OntologyTermsMatchedCapability(TransactionCapability):
         name="Ontology Terms Matched",
         description=(
             "Match accepted semantic chunks against terms declared in the "
-            "project ontology vocabulary and persist the deterministic "
+            "container ontology vocabulary and persist the deterministic "
             "string-based matches for downstream category classification."
         ),
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
@@ -391,13 +391,13 @@ class OntologyTermsMatchedCapability(TransactionCapability):
         if normalized_language == "en":
             return (
                 "Accepted chunks have been compared against explicitly "
-                "declared terms in the project ontology vocabulary, and the "
+                "declared terms in the container ontology vocabulary, and the "
                 "deterministic string matches were persisted for the next stage."
             )
         if normalized_language == "pt-br":
             return (
                 "Os chunks aceitos foram comparados com termos explicitamente "
-                "declarados no vocabulário da ontologia do projeto, e os "
+                "declarados no vocabulário da ontologia do container, e os "
                 "casamentos determinísticos foram persistidos para a próxima etapa."
             )
         raise ValueError(f"Unsupported presentation language: '{lang}'.")

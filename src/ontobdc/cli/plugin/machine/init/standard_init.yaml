@@ -4,8 +4,8 @@ statechart:
     en: "CLI Init"
     pt-br: "Init da CLI"
   description:
-    en: "Bring a directory to a project OntoBDC can work in, from its .__ontobdc__ directory to its brand."
-    pt-br: "Leva um diretorio a um projeto em que o OntoBDC pode trabalhar, do seu diretorio .__ontobdc__ a sua marca."
+    en: "Bring a directory to a container OntoBDC can work in, from its .__ontobdc__ directory to its brand."
+    pt-br: "Leva um diretorio a um container em que o OntoBDC pode trabalhar, do seu diretorio .__ontobdc__ a sua marca."
 
   root state:
     name: standard_cli_init
@@ -45,8 +45,8 @@ statechart:
           en: "Engine Ready"
           pt-br: "Engine Pronto"
         description:
-          en: "The configured engine is available in the project configuration."
-          pt-br: "O engine configurado esta disponivel na configuracao do projeto."
+          en: "The configured engine is available in the container configuration."
+          pt-br: "O engine configurado esta disponivel na configuracao do container."
         transitions:
           - target: storage_index_healthy
             guard: handler.can_transit_to(to_state = CliInitProcessStatePort.STORAGE_INDEX_HEALTHY)
@@ -87,8 +87,8 @@ statechart:
           en: "Config Adapter Ready"
           pt-br: "Adapter de Config Pronto"
         description:
-          en: "The config.yaml file declares the project root and can be read by the config adapter."
-          pt-br: "O arquivo config.yaml declara a raiz do projeto e pode ser lido pelo adapter de config."
+          en: "The config.yaml file declares the container root and can be read by the config adapter."
+          pt-br: "O arquivo config.yaml declara a raiz do container e pode ser lido pelo adapter de config."
         transitions:
           - target: brand_ready
             guard: handler.can_transit_to(to_state = CliInitProcessStatePort.BRAND_READY)
@@ -101,6 +101,6 @@ statechart:
           en: "Brand Ready"
           pt-br: "Marca Pronta"
         description:
-          en: "The brand entry (name, mark_svg, logotype_svg, slogan) is available in the project configuration."
-          pt-br: "A entrada de marca (name, mark_svg, logotype_svg, slogan) esta disponivel na configuracao do projeto."
+          en: "The brand entry (name, mark_svg, logotype_svg, slogan) is available in the container configuration."
+          pt-br: "A entrada de marca (name, mark_svg, logotype_svg, slogan) esta disponivel na configuracao do container."
         type: final

@@ -65,7 +65,7 @@ class ExcelExportLabels:
             "photo_archive_note": "The photos keep the numbering of the export. A file can document several items.",
             "photo": "Photo",
             "original_file": "File",
-            "caption": "Path in the project",
+            "caption": "Path in the container",
             "items_of_photo": "Items",
             "image": "Image",
             "previous": "Previous",
@@ -74,7 +74,7 @@ class ExcelExportLabels:
             "back_to_list": "Back to the list",
             "next_item": "Next item",
             "photo_caption": "Photo {number} — {title}. File: {name}.",
-            "source": "Source: {project}, exported on {date}.",
+            "source": "Source: {container}, exported on {date}.",
             "no_photos": "—",
         },
         "pt-br": {
@@ -98,7 +98,7 @@ class ExcelExportLabels:
             "photo_archive_note": "As fotografias mantêm a numeração da exportação. Um mesmo arquivo pode documentar vários itens.",
             "photo": "Foto",
             "original_file": "Arquivo",
-            "caption": "Caminho no projeto",
+            "caption": "Caminho no container",
             "items_of_photo": "Itens associados",
             "image": "Imagem",
             "previous": "Anterior",
@@ -107,7 +107,7 @@ class ExcelExportLabels:
             "back_to_list": "Voltar à lista",
             "next_item": "Item seguinte",
             "photo_caption": "Foto {number} — {title}. Arquivo: {name}.",
-            "source": "Fonte: {project}, exportado em {date}.",
+            "source": "Fonte: {container}, exportado em {date}.",
             "no_photos": "—",
         },
         "es-es": {
@@ -131,7 +131,7 @@ class ExcelExportLabels:
             "photo_archive_note": "Las fotografías conservan la numeración de la exportación. Un mismo archivo puede documentar varios elementos.",
             "photo": "Foto",
             "original_file": "Archivo",
-            "caption": "Ruta en el proyecto",
+            "caption": "Ruta en el contenedor",
             "items_of_photo": "Elementos asociados",
             "image": "Imagen",
             "previous": "Anterior",
@@ -140,7 +140,7 @@ class ExcelExportLabels:
             "back_to_list": "Volver a la lista",
             "next_item": "Elemento siguiente",
             "photo_caption": "Foto {number} — {title}. Archivo: {name}.",
-            "source": "Fuente: {project}, exportado el {date}.",
+            "source": "Fuente: {container}, exportado el {date}.",
             "no_photos": "—",
         },
     }
@@ -195,14 +195,14 @@ class AnnotationWorkbook:
 
     def __init__(
         self,
-        project_name: str,
+        container_name: str,
         group_label: str,
         items: List[ExportedItem],
         photos: List[ExportedPhoto],
         language: str = "en",
         exported_at: Optional[datetime] = None,
     ) -> None:
-        self._project: str = project_name
+        self._container: str = container_name
         self._group: str = group_label
         self._items: List[ExportedItem] = items
         self._photos: List[ExportedPhoto] = photos
@@ -298,7 +298,7 @@ class AnnotationWorkbook:
             sheet.row_dimensions[row].height = height
 
         sheet.merge_cells("B2:G2")
-        sheet["B2"] = f"{self._project} — {self._group}"
+        sheet["B2"] = f"{self._container} — {self._group}"
         sheet["B2"].font = self._font(16, True)
         sheet["B2"].alignment = self._align()
 
@@ -409,7 +409,7 @@ class AnnotationWorkbook:
         self._link(sheet["F2"], f"'{self.INDEX_SHEET}'!B2", label("list_of_items"), self.LINK_FILL)
         sheet.merge_cells("B4:F4")
         sheet["B4"] = label(
-            "source", project=self._project, date=self._now.strftime("%d/%m/%Y")
+            "source", container=self._container, date=self._now.strftime("%d/%m/%Y")
         )
         sheet["B4"].font = self._font(color=self.ACCENT)
         sheet["B4"].alignment = self._align()

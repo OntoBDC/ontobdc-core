@@ -14,7 +14,7 @@ class CliInitProcessStatePort(str, Enum):
 
 class CliInitStateEvaluatorPort(ABC):
     """
-    Reads the project on disk and reports the state it is already in.
+    Reads the container on disk and reports the state it is already in.
     """
 
     @abstractmethod

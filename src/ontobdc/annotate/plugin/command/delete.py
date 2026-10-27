@@ -1,51 +1,54 @@
-from pathlib import Path
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, List
 
+from ontobdc.container.adapter.entity_repository import ContainerEntityRepository
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import CommandResponse
-from ontobdc.shared.adapter.parameter import RequiredParameter
-from ontobdc.container.domain.port.entity import EntityRepositoryPort
 from ontobdc.container.plugin.machine.entity_write.machine import EntityWriteRequest
-from ontobdc.annotate.adapter.store import AnnotationStore
+from ontobdc.annotate.plugin.machine.annotation_geometry_save.machine import (
+    AnnotationGeometrySaveStateTransitionHandler,
+)
+from ontobdc.annotate.plugin.machine.annotation_geometry_save.port import AnnotationGeometrySaveRequestPort as Request
 
 
-class AnnotationDeleteCommand(CliCommandPort):
+class AnnotationDeleteGeometryCommand(CliCommandPort):
     """
-    Remove an annotation the container keeps.
+    Take a geometry off an annotation the container already keeps.
 
-    The annotation is the one whose global id ``--guid`` gives. Its row is
-    removed from the data source through the entity repository the context
-    carries; OntoBDC has no default one, so without it this fails, before
-    anything is read. The documents it referred to are left alone.
+    The annotation is the one whose global id ``--guid`` gives and the geometry the one whose identifier
+    ``--delete-geometry`` gives (the entity tells it, as the identifier of each geometry). The rest of its geometries
+    stay as they were. It is written by the machine that changes the geometries of an annotation, through the entity
+    repository the context carries; OntoBDC has no default one, so without it this fails.
     """
 
     METADATA: CliCommandMetadata = CliCommandMetadata(
-        id="annotate_delete",
+        id="annotate_delete_geometry",
         logical_component="annotate",
-        description="Remove an annotation, by its global id.",
+        description="Take a geometry off an annotation, by its global id and the identifier of the geometry.",
         arguments=[
             {
                 "accepts": ["--guid"],
                 "valued": True,
-                "parameter": "annotation_guid",
-                "description": "Global id of the annotation to remove.",
+                "parameter": Request.GUID_KEY,
+                "description": "Global id of the annotation whose geometry is taken off.",
                 "type": "str",
-                "usage": "ontobdc annotation --guid <id> --delete [--container <id>]",
+                "usage": "ontobdc annotate --guid <id> --delete-geometry <geometry id> [--container <id>]",
             },
             {
-                "accepts": ["--delete"],
-                "description": "Remove the annotation.",
+                "accepts": ["--delete-geometry"],
+                "valued": True,
+                "parameter": Request.TARGET_KEY,
+                "description": "Identifier of the geometry to take off.",
+                "type": "str",
             },
             {
                 "accepts": ["--container"],
                 "valued": True,
-                "parameter": "container",
+                "parameter": Request.CONTAINER_KEY,
                 "description": (
-                    "Select the container that keeps the annotation, by "
-                    "storage identifier. When omitted, the container is "
-                    "resolved from the current working directory."
+                    "Select the container that keeps the annotation, by storage identifier. When omitted, the "
+                    "container is resolved from the current working directory."
                 ),
                 "type": "str",
             },
@@ -53,80 +56,46 @@ class AnnotationDeleteCommand(CliCommandPort):
     )
 
     COMPONENT: ClassVar[str] = "annotate"
-    GUID_FLAG: ClassVar[str] = "--guid"
-    DELETE_FLAG: ClassVar[str] = "--delete"
-    CONTAINER_FLAG: ClassVar[str] = "--container"
-    GUID_KEY: ClassVar[str] = "annotation_guid"
-    CONTAINER_KEY: ClassVar[str] = "container_path"
+    REQUIRED_FLAGS: ClassVar[List[str]] = ["--guid", "--delete-geometry"]
+    OPTIONAL_FLAGS: ClassVar[List[str]] = ["--container"]
 
     @staticmethod
     def accepts(args: List[str]) -> bool:
-        """
-        Match the annotation delete at the CLI routing stage.
-        """
-        if not args or args[0] != AnnotationDeleteCommand.COMPONENT:
+        if not args or args[0] != AnnotationDeleteGeometryCommand.COMPONENT:
             return False
 
-        return AnnotationDeleteCommand._matches(args[1:])
+        return AnnotationDeleteGeometryCommand._matches(args[1:])
 
     def __init__(self, request: CliCommandRequest) -> None:
         self._request: CliCommandRequest = request
 
     def check(self) -> bool:
-        """
-        Check if the command is valid.
-        Returns True if the command is valid, False otherwise.
-        """
         return self._matches(self._request.command_args)
 
     def run(self) -> CommandResponse:
         context: Any = self._request.context
-        # Before anything is read of an annotation that could not be removed.
-        repository: EntityRepositoryPort = EntityWriteRequest.repository(context)
+        # Before anything is changed for a geometry that could not be kept.
+        ContainerEntityRepository.provide(context)
+        EntityWriteRequest.repository(context)
+        context.set_parameter_value(Request.OPERATION_KEY, Request.DELETE_OPERATION)
 
-        guid: str = RequiredParameter.of(context, self.GUID_KEY)
-        container_path: Path = Path(
-            RequiredParameter.of(context, self.CONTAINER_KEY)
-        ).expanduser().resolve()
-
-        store: AnnotationStore = AnnotationStore(repository, container_path)
-        stored: Dict[str, str] = store.row(guid)
-        store.delete(guid)
-
-        return CommandResponse(
-            title="Annotation Deleted",
-            description=f"Removed the annotation {guid}.",
-            content={
-                "global_id": guid,
-                "annotation_type": stored.get("annotation_type", ""),
-                "title": stored.get("title", ""),
-            },
-        )
+        return AnnotationGeometrySaveStateTransitionHandler(context).execute()
 
     @staticmethod
     def _matches(scoped_args: List[str]) -> bool:
         """
-        Report whether these scoped args are --guid with a value, --delete
-        with none, and optionally --container with a value, in any order.
+        Report whether these scoped args are --guid and --delete-geometry, optionally --container, each with a value,
+        in any order and none repeated.
         """
-        if AnnotationDeleteCommand.DELETE_FLAG not in scoped_args:
+        if len(scoped_args) % 2 != 0:
             return False
 
-        remaining: List[str] = [
-            argument
-            for argument in scoped_args
-            if argument != AnnotationDeleteCommand.DELETE_FLAG
-        ]
-        if len(remaining) % 2 != 0 or len(remaining) != len(scoped_args) - 1:
+        flags: List[str] = scoped_args[0::2]
+        values: List[str] = scoped_args[1::2]
+        allowed: List[str] = AnnotationDeleteGeometryCommand.REQUIRED_FLAGS + AnnotationDeleteGeometryCommand.OPTIONAL_FLAGS
+        if len(set(flags)) != len(flags) or any(flag not in allowed for flag in flags):
             return False
-
-        flags: List[str] = remaining[0::2]
-        values: List[str] = remaining[1::2]
-        allowed: List[List[str]] = [
-            [AnnotationDeleteCommand.GUID_FLAG],
-            sorted([AnnotationDeleteCommand.GUID_FLAG, AnnotationDeleteCommand.CONTAINER_FLAG]),
-        ]
-        if sorted(flags) not in allowed:
+        if any(flag not in flags for flag in AnnotationDeleteGeometryCommand.REQUIRED_FLAGS):
             return False
 
         return all(value.strip() and not value.startswith("--") for value in values)

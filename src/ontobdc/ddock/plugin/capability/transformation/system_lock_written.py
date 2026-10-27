@@ -36,15 +36,15 @@ class SystemLockWrittenCapability(TransactionCapability):
         return self.metadata.description
 
     def is_satisfied(self, context: CliContextPort) -> bool:
-        project_path: Path = SystemInstallRequest.project_path(context)
-        descriptor: SystemDescriptor = SystemDescriptors.read(project_path)
-        return SystemLock.installed(project_path, descriptor)
+        container_path: Path = SystemInstallRequest.container_path(context)
+        descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
+        return SystemLock.installed(container_path, descriptor)
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-        project_path: Path = SystemInstallRequest.project_path(context)
-        descriptor: SystemDescriptor = SystemDescriptors.read(project_path)
+        container_path: Path = SystemInstallRequest.container_path(context)
+        descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
         lock_path: Path = SystemLock.write(
-            project_path,
+            container_path,
             descriptor,
             self._ddock(context, descriptor),
             SystemInstallRequest.packages(context, descriptor.packages),
@@ -65,8 +65,8 @@ class SystemLockWrittenCapability(TransactionCapability):
         if archive is not None:
             return LockedDdock(**archive.model_dump(), source=descriptor.source)
 
-        lock: Optional[SystemLockContent] = SystemLock.read(SystemInstallRequest.project_path(context))
+        lock: Optional[SystemLockContent] = SystemLock.read(SystemInstallRequest.container_path(context))
         if lock is None:
-            raise FileNotFoundError("ddock was not unpacked and the project has no lock that says what it put there.")
+            raise FileNotFoundError("ddock was not unpacked and the container has no lock that says what it put there.")
 
         return lock.ddock

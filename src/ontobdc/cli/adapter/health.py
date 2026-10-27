@@ -3,13 +3,13 @@ from pathlib import Path
 
 from ontobdc.shared.adapter.config import (
     ConfigDataAdapter,
-    UnsetProjectRootConfigDataAdapter,
+    UnsetContainerRootConfigDataAdapter,
 )
 from ontobdc.cli.domain.port.health import CliCommandHealthPort
 from ontobdc.cli.domain.port.logger import LogRepositoryPort
 from ontobdc.shared.domain.port.config import ConfigDataPort
 from ontobdc.shared.domain.exception.config import (
-    ProjectRootDirectoryNotSetError,
+    ContainerRootDirectoryNotSetError,
 )
 
 
@@ -22,33 +22,33 @@ class NoHealthCheckAdapter(CliCommandHealthPort):
 
 
 class CliBootstrapHealthAdapter(CliCommandHealthPort):
-    _PROJECT_ROOT_OPTIONAL_COMMANDS = frozenset({"dev"})
+    _CONTAINER_ROOT_OPTIONAL_COMMANDS = frozenset({"dev"})
 
     def __init__(self) -> None:
         self._config_adapter: Optional[ConfigDataPort] = None
 
     def check(self, args: List[str], logger: LogRepositoryPort) -> bool:
-        if self._is_project_root_optional(args):
+        if self._is_container_root_optional(args):
             return True
 
         self._config_adapter = self._make_config_data_adapter()
         try:
             if not self._check_data_config(logger):
                 return False
-        except ProjectRootDirectoryNotSetError as exception:
+        except ContainerRootDirectoryNotSetError as exception:
             logger.log_warning(
-                "Bootstrap health check skipped project-root validation "
-                "because no project root is initialized yet."
+                "Bootstrap health check skipped container-root validation "
+                "because no container root is initialized yet."
             )
             raise exception
 
         logger.log_info("The system is healthy for bootstrap.")
         return True
 
-    def _is_project_root_optional(self, args: List[str]) -> bool:
+    def _is_container_root_optional(self, args: List[str]) -> bool:
         return (
             len(args) > 0
-            and args[0] in self._PROJECT_ROOT_OPTIONAL_COMMANDS
+            and args[0] in self._CONTAINER_ROOT_OPTIONAL_COMMANDS
         )
 
     def _check_data_config(self, logger: LogRepositoryPort) -> bool:
@@ -114,5 +114,5 @@ class CliBootstrapHealthAdapter(CliCommandHealthPort):
     def _make_config_data_adapter(self) -> ConfigDataPort:
         try:
             return ConfigDataAdapter()
-        except ProjectRootDirectoryNotSetError:
-            return UnsetProjectRootConfigDataAdapter()
+        except ContainerRootDirectoryNotSetError:
+            return UnsetContainerRootConfigDataAdapter()

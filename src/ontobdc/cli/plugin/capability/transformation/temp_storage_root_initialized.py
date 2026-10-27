@@ -19,7 +19,7 @@ class TempStorageRootInitializedCapability(TransactionCapability):
 
     A fresh, isolated directory is created and bootstrapped by running the
     same ``--init`` machine a real storage root goes through, so the rest
-    of the machine can still run without an enclosing OntoBDC project.
+    of the machine can still run without an enclosing OntoBDC container.
     """
 
     STORAGE_ROOT_KEY: ClassVar[str] = "storage_root"

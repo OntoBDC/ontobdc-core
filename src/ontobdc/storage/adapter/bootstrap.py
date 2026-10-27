@@ -9,7 +9,7 @@ from rdflib.namespace import DCTERMS, OWL, PROV, RDF, XSD, Namespace
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.domain.vocabulary import CT, OBDC
 from ontobdc.shared.domain.exception.config import (
-    ProjectRootDirectoryNotSetError,
+    ContainerRootDirectoryNotSetError,
 )
 
 
@@ -143,7 +143,7 @@ class StorageBootstrap:
                 context_root_path: str = context.root_path
                 if isinstance(context_root_path, str) and context_root_path.strip():
                     return Path(context_root_path).expanduser().resolve()
-            except ProjectRootDirectoryNotSetError:
+            except ContainerRootDirectoryNotSetError:
                 pass
 
         return Path.cwd().resolve()
@@ -206,7 +206,7 @@ class StorageBootstrap:
         )
         title: Literal = Literal("The Main Storage Index", lang="en")
         description: Literal = Literal(
-            f"Main storage container for project at {root_path.name or root_path.as_posix()}",
+            f"Main storage container for the container at {root_path.name or root_path.as_posix()}",
             lang="en",
         )
 
@@ -263,7 +263,7 @@ class StorageBootstrap:
         graph.add(
             (
                 context_reference,
-                StorageNamespaceBootstrap.OBDC.projectRootLocation,
+                StorageNamespaceBootstrap.OBDC.containerRootLocation,
                 URIRef(root_path.as_uri()),
             )
         )

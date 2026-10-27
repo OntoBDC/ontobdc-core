@@ -231,7 +231,7 @@ class CliParameterValidationOrchestrator:
        matched to the required names is *configured* for this environment
        (logger, prompt callbacks) and then *executed* against the context
        (the "implicit parameter" stage that derives values from defaults,
-       env vars, project config, or resolved paths).
+       env vars, container config, or resolved paths).
     4. The command's own ``check()`` runs last -- if it returns False the
        orchestrator raises ``CliCommandArgumentException`` so the caller
        (``main``) can print the failure and exit.

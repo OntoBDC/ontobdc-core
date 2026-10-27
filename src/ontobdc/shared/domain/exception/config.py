@@ -1,8 +1,8 @@
-class ProjectRootDirectoryNotSetError(FileNotFoundError):
+class ContainerRootDirectoryNotSetError(FileNotFoundError):
     """
-    Raised when the project root directory cannot be resolved.
+    Raised when the container root directory cannot be resolved.
     """
-    default_message: str = "Project root directory not set."
+    default_message: str = "Container root directory not set."
 
-    def __init__(self, message: str = "Project root directory not set."):
+    def __init__(self, message: str = "Container root directory not set."):
         super().__init__(message)

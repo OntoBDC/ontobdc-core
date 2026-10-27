@@ -40,20 +40,20 @@ class SystemInstallRequest:
     The context keys the installation of a system reads and sets, and where
     it keeps what it downloads.
 
-    The caller hands over where the project is and the address of the zip of
+    The caller hands over where the container is and the address of the zip of
     ddock. What the installation downloads is unpacked into a work folder of
-    the project, and stays there until the installation ends, so that an
+    the container, and stays there until the installation ends, so that an
     interrupted one can go on from what is already there.
     """
 
-    PROJECT_PATH_KEY: str = "ddock_project_path"
+    CONTAINER_PATH_KEY: str = "ddock_container_path"
     DDOCK_ZIP_KEY: str = "ddock_install_zip"
     BUILT_KEY: str = "ddock_node_built"
     WORK_FOLDER_NAME: str = ".ddock-install"
 
     @classmethod
-    def project_path(cls, context: CliContextPort) -> Path:
-        return Path(cls._text(context, cls.PROJECT_PATH_KEY)).expanduser().resolve()
+    def container_path(cls, context: CliContextPort) -> Path:
+        return Path(cls._text(context, cls.CONTAINER_PATH_KEY)).expanduser().resolve()
 
     @classmethod
     def ddock_zip(cls, context: CliContextPort) -> str:
@@ -61,7 +61,7 @@ class SystemInstallRequest:
 
     @classmethod
     def work_path(cls, context: CliContextPort) -> Path:
-        return cls.project_path(context) / cls.WORK_FOLDER_NAME
+        return cls.container_path(context) / cls.WORK_FOLDER_NAME
 
     @classmethod
     def ddock_path(cls, context: CliContextPort) -> Path:
@@ -78,7 +78,7 @@ class SystemInstallRequest:
     def record_fetch(cls, folder: Path, archive: ArchiveFiles) -> None:
         """
         Note down which zip was unpacked into the folder, and the files of it
-        that go into the project. It is written after the unpacking, so a
+        that go into the container. It is written after the unpacking, so a
         folder that has it was unpacked entirely.
         """
         cls._record_path(folder).write_text(archive.model_dump_json(), encoding="utf-8")
@@ -182,8 +182,8 @@ class SystemInstallStateTransitionHandler(SystemInstallStateTransitionHandlerPor
         context: CliContextPort,
         logger: Optional[LogRepositoryPort] = None,
     ) -> None:
-        # Fails before anything runs when the project or the zip is not there.
-        SystemInstallRequest.project_path(context)
+        # Fails before anything runs when the container or the zip is not there.
+        SystemInstallRequest.container_path(context)
         SystemInstallRequest.ddock_zip(context)
 
         self._context: CliContextPort = context
@@ -274,10 +274,10 @@ class SystemInstallStateTransitionHandler(SystemInstallStateTransitionHandlerPor
 
     def execute(self) -> CommandResponse:
         """
-        Run the installation from the state the project is in to its last.
-        What is downloaded is kept in a work folder of the project so that an
+        Run the installation from the state the container is in to its last.
+        What is downloaded is kept in a work folder of the container so that an
         installation that failed goes on from there. The folder is removed as
-        soon as the project has everything it lists, whether or not the
+        soon as the container has everything it lists, whether or not the
         installation went on to the end.
         """
         worker: StateWorkerAdapter = StateWorkerAdapter(
@@ -300,9 +300,9 @@ class SystemInstallStateTransitionHandler(SystemInstallStateTransitionHandlerPor
 
         return CommandResponse(
             title="System Installed",
-            description="The system was installed in the project and its node application was compiled.",
+            description="The system was installed in the container and its node application was compiled.",
             content={
-                "project_path": str(SystemInstallRequest.project_path(self._context)),
+                "container_path": str(SystemInstallRequest.container_path(self._context)),
                 "current_state": self.current_state.value,
                 "visited_states": visited_states,
             },
@@ -310,16 +310,16 @@ class SystemInstallStateTransitionHandler(SystemInstallStateTransitionHandlerPor
 
     def _remove_work_folder_when_installed(self) -> None:
         """
-        Remove the work folder once the project has all the files the lock
+        Remove the work folder once the container has all the files the lock
         lists: nothing in it is needed to go on from there.
         """
-        project_path: Path = SystemInstallRequest.project_path(self._context)
+        container_path: Path = SystemInstallRequest.container_path(self._context)
         try:
-            descriptor: SystemDescriptor = SystemDescriptors.read(project_path)
+            descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
         except (FileNotFoundError, ValueError):
             return
 
-        if SystemLock.installed(project_path, descriptor):
+        if SystemLock.installed(container_path, descriptor):
             shutil.rmtree(SystemInstallRequest.work_path(self._context), ignore_errors=True)
 
     def bind_active_state(self, state: SystemInstallProcessStatePort) -> None:

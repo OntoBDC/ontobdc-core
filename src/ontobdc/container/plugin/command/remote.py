@@ -17,7 +17,7 @@ class RemoteContainerCommand(CliCommandPort, LoggerAwarePort):
     """
     Command for connecting to a remote OntoBDC Container by its URL.
 
-    The URL points to the project's ``.obdc`` file. The command runs the
+    The URL points to the container's ``.obdc`` file. The command runs the
     remote connection machine, which downloads the file into the current
     directory. An address that is not an http or https URL is refused when
     the command is checked, and a download that fails raises.

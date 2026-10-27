@@ -25,7 +25,7 @@ class SystemDescriptor(BaseModel):
     What ``system.obdc`` says about the system to install.
 
     ``source`` is the folder of the ddock zip that becomes the application:
-    it is moved to the same place under the project, and the host of each
+    it is moved to the same place under the container, and the host of each
     package is merged into it. ``packages`` are the GitHub addresses of the
     features to add.
     """

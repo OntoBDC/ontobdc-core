@@ -1,5 +1,7 @@
 from pathlib import Path
-from typing import ClassVar, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
+
+from ontobdc.annotate.adapter.geometry_drawing import GeometryDrawing
 
 
 class PhotoDownsampler:
@@ -22,10 +24,11 @@ class PhotoDownsampler:
         target: Path,
         long_side: int = LONG_SIDE,
         quality: int = QUALITY,
+        geometries: Optional[List[Dict[str, Any]]] = None,
     ) -> Tuple[int, int]:
         """
         Write the reduced photograph to ``target`` and return its size in
-        pixels (width, height).
+        pixels (width, height). The geometries of an annotation, when given, are drawn on it before it is reduced.
 
         Raises:
             ImportError: Pillow is not installed.
@@ -42,6 +45,8 @@ class PhotoDownsampler:
                 image = flattened
             elif image.mode != "RGB":
                 image = image.convert("RGB")
+            if geometries:
+                GeometryDrawing.draw(image, geometries)
             image.thumbnail((long_side, long_side), Image.LANCZOS)
             target.parent.mkdir(parents=True, exist_ok=True)
             image.save(target, "JPEG", quality=quality, optimize=True, progressive=True)

@@ -69,13 +69,14 @@ class PhotosDownsampledCapability(TransactionCapability):
             image: Path = directory / f"{photo['number']:03d}.jpg"
             thumbnail: Path = directory / f"{photo['number']:03d}_thumbnail.jpg"
             try:
-                photo["image_size"] = list(PhotoDownsampler.reduce(source, image))
+                photo["image_size"] = list(PhotoDownsampler.reduce(source, image, geometries=photo.get("geometries")))
                 photo["thumbnail_size"] = list(
                     PhotoDownsampler.reduce(
                         source,
                         thumbnail,
                         PhotoDownsampler.THUMBNAIL_LONG_SIDE,
                         PhotoDownsampler.THUMBNAIL_QUALITY,
+                        geometries=photo.get("geometries"),
                     )
                 )
             except OSError as error:

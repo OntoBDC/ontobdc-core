@@ -10,9 +10,9 @@ from ontobdc.storage.domain.port.obdc import StorageObdcRemoteModelPort
 
 class StorageObdcRemoteModel(StorageObdcRemoteModelPort):
     """
-    How the project is reached over the web, as its ``remote.ttl`` says.
+    How the container is reached over the web, as its ``remote.ttl`` says.
 
-    The ``remote.ttl`` publishes the project as a Linked Data Platform
+    The ``remote.ttl`` publishes the container as a Linked Data Platform
     container: an ``ldp:BasicContainer`` whose ``foaf:primaryTopic`` is the
     ``obdc:DataContainer`` that keeps its own persistent identifier.
     """

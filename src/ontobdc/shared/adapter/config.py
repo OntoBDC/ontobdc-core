@@ -10,21 +10,21 @@ import yaml
 from ontobdc.shared.domain.port.config import ConfigDataPort
 from ontobdc.shared.domain.model.language import LanguageResource
 from ontobdc.shared.domain.exception.config import (
-    ProjectRootDirectoryNotSetError,
+    ContainerRootDirectoryNotSetError,
 )
 
 
 class ConfigDataAdapter(ConfigDataPort):
     """
     Adapter for retrieving and managing configuration data for the OntoBDC application.
-    It reads settings from the `.__ontobdc__/config.yaml` file located in the project root.
+    It reads settings from the `.__ontobdc__/config.yaml` file located in the container root.
     """
     def __init__(self, root_dir: str = None):
         self._root_dir: str = root_dir
         if not isinstance(self._root_dir, str):
             try:
                 self._root_dir = self._get_root_dir()
-            except ProjectRootDirectoryNotSetError as e:
+            except ContainerRootDirectoryNotSetError as e:
                 raise e
 
         self._config_dir: str = os.path.join(self._root_dir, ".__ontobdc__")
@@ -37,7 +37,7 @@ class ConfigDataAdapter(ConfigDataPort):
     @property
     def path(self) -> Path:
         """
-        Gets the absolute path to the project's config.yaml file.
+        Gets the absolute path to the container's config.yaml file.
         """
         return Path(self._config_file)
 
@@ -54,7 +54,7 @@ class ConfigDataAdapter(ConfigDataPort):
     @property
     def root_dir(self) -> Path:
         """
-        Gets the absolute path to the project's root directory.
+        Gets the absolute path to the container's root directory.
         """
         return Path(self._root_dir)
 
@@ -148,9 +148,9 @@ class ConfigDataAdapter(ConfigDataPort):
 
         return os.path.join(config_dir, "config.yaml")
 
-    def find_project_root(self, current_dir: Path) -> Optional[Path]:
+    def find_container_root(self, current_dir: Path) -> Optional[Path]:
         """
-        Recursively search for the project root, stopping safely at any
+        Recursively search for the container root, stopping safely at any
         filesystem root, by looking for ``.__ontobdc__/config.yaml``.
         """
         config_file: Path = current_dir / ".__ontobdc__" / "config.yaml"
@@ -161,26 +161,26 @@ class ConfigDataAdapter(ConfigDataPort):
         if parent_dir == current_dir:
             return None
 
-        return self.find_project_root(parent_dir)
+        return self.find_container_root(parent_dir)
 
     def _get_root_dir(self) -> str:
         """
-        Get the directory where the project root is stored.
+        Get the directory where the container root is stored.
 
         Returns:
-            The path to the project root directory
+            The path to the container root directory
         """
-        project_root: Optional[str] = os.environ.get("ONTOBDC_PROJECT_ROOT")
-        if project_root and os.path.exists(project_root):
-            return project_root
+        container_root: Optional[str] = os.environ.get("ONTOBDC_CONTAINER_ROOT")
+        if container_root and os.path.exists(container_root):
+            return container_root
 
-        discovered_root: Optional[Path] = self.find_project_root(
+        discovered_root: Optional[Path] = self.find_container_root(
             Path.cwd().expanduser().resolve()
         )
         if discovered_root is not None and discovered_root.exists():
             return str(discovered_root)
 
-        raise ProjectRootDirectoryNotSetError("Project root directory not set.")
+        raise ContainerRootDirectoryNotSetError("Container root directory not set.")
 
     def _get_script_dir(self) -> str:
         return ConfigDataAdapter.get_script_dir()
@@ -224,7 +224,7 @@ class ConfigDataAdapter(ConfigDataPort):
 
     def _get_config_data(self) -> Optional[Dict[str, Any]]:
         """
-        Load and validate the project configuration from .__ontobdc__/config.yaml.
+        Load and validate the container configuration from .__ontobdc__/config.yaml.
         
         Returns:
             The validated configuration dictionary, or None if invalid or missing.
@@ -255,9 +255,9 @@ class ConfigDataAdapter(ConfigDataPort):
             return None
 
 
-class UnsetProjectRootConfigDataAdapter(ConfigDataAdapter):
+class UnsetContainerRootConfigDataAdapter(ConfigDataAdapter):
     """
-    Adapter for contexts where the project root directory
+    Adapter for contexts where the container root directory
     is intentionally unavailable.
     """
     def __init__(self):
@@ -273,47 +273,47 @@ class UnsetProjectRootConfigDataAdapter(ConfigDataAdapter):
         """
         Gets the absolute path to the config.yaml file.
         """
-        self._raise_project_root_not_set()
+        self._raise_container_root_not_set()
 
     @property
     def all(self) -> Optional[Dict[str, Any]]:
         """
         Get all config data.
         """
-        self._raise_project_root_not_set()
+        self._raise_container_root_not_set()
 
     @property
     def root_dir(self) -> Path:
         """
-        Gets the absolute path to the project's root directory.
+        Gets the absolute path to the container's root directory.
         """
-        self._raise_project_root_not_set()
+        self._raise_container_root_not_set()
 
     @property
     def config_dir(self) -> Path:
         """
         Gets the absolute path to the configuration directory (.__ontobdc__).
         """
-        self._raise_project_root_not_set()
+        self._raise_container_root_not_set()
 
     @property
     def config_file(self) -> Path:
         """
         Gets the absolute path to the config.yaml file.
         """
-        self._raise_project_root_not_set()
+        self._raise_container_root_not_set()
 
     def get_config_file(self, config_dir: str = None) -> str:
         """
         Get the configuration file path (config.yaml) inside the configuration directory.
         """
-        self._raise_project_root_not_set()
+        self._raise_container_root_not_set()
 
-    def find_project_root(self, current_dir: Path) -> Optional[Path]:
+    def find_container_root(self, current_dir: Path) -> Optional[Path]:
         """
-        Recursively search for project root by looking for .__ontobdc__/config.yaml.
+        Recursively search for container root by looking for .__ontobdc__/config.yaml.
         """
-        self._raise_project_root_not_set()
+        self._raise_container_root_not_set()
 
-    def _raise_project_root_not_set(self) -> None:
-        raise ProjectRootDirectoryNotSetError()
+    def _raise_container_root_not_set(self) -> None:
+        raise ContainerRootDirectoryNotSetError()

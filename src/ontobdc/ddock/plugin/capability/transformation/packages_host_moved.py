@@ -19,7 +19,7 @@ class PackagesHostMovedCapability(TransactionCapability):
         id="org.ontobdc.ddock.plugin.capability.transformation.target.packages_host_moved",
         version="1.0.0",
         name="Packages Host Moved",
-        description="Move the contents of src/host of each package into the source folder of the project.",
+        description="Move the contents of src/host of each package into the source folder of the container.",
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["ddock", "install", "system"],
         supported_languages=["en", "pt-br"],
@@ -45,9 +45,9 @@ class PackagesHostMovedCapability(TransactionCapability):
         )
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-        project_path: Path = SystemInstallRequest.project_path(context)
-        descriptor: SystemDescriptor = SystemDescriptors.read(project_path)
-        destination: Path = project_path / descriptor.source
+        container_path: Path = SystemInstallRequest.container_path(context)
+        descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
+        destination: Path = container_path / descriptor.source
         without_host: List[str] = []
         moved: int = 0
         package: UnpackedPackage
@@ -70,9 +70,9 @@ class PackagesHostMovedCapability(TransactionCapability):
         """
         The packages unpacked in the work folder that the lock does not have yet.
         """
-        project_path: Path = SystemInstallRequest.project_path(context)
-        descriptor: SystemDescriptor = SystemDescriptors.read(project_path)
-        pending: List[str] = SystemLock.pending_packages(project_path, descriptor)
+        container_path: Path = SystemInstallRequest.container_path(context)
+        descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
+        pending: List[str] = SystemLock.pending_packages(container_path, descriptor)
         return [
             package
             for package in SystemInstallRequest.packages(context, descriptor.packages)

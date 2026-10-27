@@ -26,10 +26,10 @@ from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 
 class CliInitStateEvaluatorAdapter(CliInitStateEvaluatorPort):
     """
-    Reads the project on disk and reports the state it is already in.
+    Reads the container on disk and reports the state it is already in.
 
     The states come from the statechart, in order, and each one resolves its
-    check by the ``is_<state>.check.main`` convention. The project is in the
+    check by the ``is_<state>.check.main`` convention. The container is in the
     last state whose check holds, provided that every state before it holds
     too.
     """
@@ -64,8 +64,8 @@ class CliInitStateTransitionHandler(CliInitStateTransitionHandlerPort):
     Drive the CLI init statechart.
 
     Each transition resolves the capability of its target state, executes it,
-    and counts only if the project, read again from disk, is in that state or
-    beyond it. When a ``next_handler`` is given it runs once the project has
+    and counts only if the container, read again from disk, is in that state or
+    beyond it. When a ``next_handler`` is given it runs once the container has
     genuinely reached the final state, and never otherwise.
     """
 
@@ -103,7 +103,7 @@ class CliInitStateTransitionHandler(CliInitStateTransitionHandlerPort):
     @property
     def observed_state(self) -> CliInitProcessStatePort:
         """
-        The state the project is in on disk, read again after every capability.
+        The state the container is in on disk, read again after every capability.
         """
         if self._observed_state is None:
             self._observed_state = self._state_evaluator.evaluate(self._context)

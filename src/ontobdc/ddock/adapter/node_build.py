@@ -5,7 +5,7 @@ from typing import ClassVar, List
 
 class NodeBuild:
     """
-    Compile the node application in a folder of a project: install its dependencies with
+    Compile the node application in a folder of a container: install its dependencies with
     ``npm install``, then build it with ``npm run build``.
     """
 

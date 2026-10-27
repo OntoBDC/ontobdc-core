@@ -7,7 +7,7 @@ from ontobdc.shared.domain.model.language import LanguageResource
 
 class ConfigDataPort(ABC):
     """
-    Port interface defining the contract for accessing project configuration data.
+    Port interface defining the contract for accessing container configuration data.
     """
     @property
     @abstractmethod
@@ -37,7 +37,7 @@ class ConfigDataPort(ABC):
     @abstractmethod
     def root_dir(self) -> Path:
         """
-        Gets the absolute path to the project's root directory.
+        Gets the absolute path to the container's root directory.
         """
         ...
 
@@ -106,8 +106,8 @@ class ConfigDataPort(ABC):
         ...
 
     @abstractmethod
-    def find_project_root(self, current_dir: Path) -> Optional[Path]:
+    def find_container_root(self, current_dir: Path) -> Optional[Path]:
         """
-        Recursively search for project root by looking for .__ontobdc__/config.yaml.
+        Recursively search for container root by looking for .__ontobdc__/config.yaml.
         """
         ...

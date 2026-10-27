@@ -90,7 +90,7 @@ class WorkbookBuiltCapability(TransactionCapability):
             for item in items
         ]
         workbook: Any = AnnotationWorkbook(
-            project_name=group["project"],
+            container_name=group["container"],
             group_label=group["label"],
             items=exported,
             photos=list(photos.values()),

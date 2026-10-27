@@ -31,6 +31,7 @@ class EntityFacade(BaseModel):
     name: str
     entity_iri: str
     creatable: bool = False
+    commentable: bool = False
     fields: List[EntityFacadeField] = Field(default_factory=list)
 
     def field(self, identifier: str) -> Optional[EntityFacadeField]:

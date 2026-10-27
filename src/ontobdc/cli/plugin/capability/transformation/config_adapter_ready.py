@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any, Dict
 
-from ontobdc.cli.adapter.init_config import InitProjectFiles
+from ontobdc.cli.adapter.init_config import InitContainerFiles
 from ontobdc.cli.adapter.repair import CheckedRepair
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.cli.plugin.check.is_config_adapter_ready.check import main as check_config_adapter_ready
@@ -17,7 +17,7 @@ class ConfigAdapterReadyCapability(TransactionCapability):
         id="org.ontobdc.cli.plugin.capability.transformation.target.config_adapter_ready",
         version="1.0.0",
         name="Config Adapter Ready",
-        description="Ensure that config.yaml declares the project root.",
+        description="Ensure that config.yaml declares the container root.",
         author=["TRAE"],
         tags=['cli', 'init', 'config'],
         supported_languages=["en", "pt-br"],
@@ -47,5 +47,5 @@ class ConfigAdapterReadyCapability(TransactionCapability):
         )
         return {
             "resulting_state": CliInitProcessState.CONFIG_ADAPTER_READY,
-            "config_file": str(InitProjectFiles.config_file(str(root_path))),
+            "config_file": str(InitContainerFiles.config_file(str(root_path))),
         }

@@ -18,7 +18,7 @@ class DdockSourceMovedCapability(TransactionCapability):
         id="org.ontobdc.ddock.plugin.capability.transformation.target.ddock_source_moved",
         version="1.0.0",
         name="DDock Source Moved",
-        description="Move the folder of ddock that system.obdc names as source into the project.",
+        description="Move the folder of ddock that system.obdc names as source into the container.",
         author=["http://kb.elias.eng.br/nid/elias.ttl#Elias"],
         tags=["ddock", "install", "system"],
         supported_languages=["en", "pt-br"],
@@ -28,11 +28,11 @@ class DdockSourceMovedCapability(TransactionCapability):
         },
     )
 
-    # What of the source folder of the zip goes into the project; the rest of it
+    # What of the source folder of the zip goes into the container; the rest of it
     # (tests, tooling of development) is not needed to build or to run.
     INCLUDE: ClassVar[List[str]] = [
         "asset",
-        "infobim",
+        "ontobdc",
         "python",
         "scripts",
         "index.html",
@@ -52,9 +52,9 @@ class DdockSourceMovedCapability(TransactionCapability):
 
     def is_satisfied(self, context: CliContextPort) -> bool:
         # What is still in the source folder of the zip was not moved; what left it was.
-        project_path: Path = SystemInstallRequest.project_path(context)
-        descriptor: SystemDescriptor = SystemDescriptors.read(project_path)
-        if SystemLock.ddock_complete(project_path, descriptor):
+        container_path: Path = SystemInstallRequest.container_path(context)
+        descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
+        if SystemLock.ddock_complete(container_path, descriptor):
             return True
 
         origin: Path = SystemInstallRequest.ddock_path(context) / descriptor.source
@@ -63,13 +63,13 @@ class DdockSourceMovedCapability(TransactionCapability):
         )
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
-        project_path: Path = SystemInstallRequest.project_path(context)
-        descriptor: SystemDescriptor = SystemDescriptors.read(project_path)
+        container_path: Path = SystemInstallRequest.container_path(context)
+        descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
         origin: Path = SystemInstallRequest.ddock_path(context) / descriptor.source
-        destination: Path = project_path / descriptor.source
+        destination: Path = container_path / descriptor.source
         archive: Optional[ArchiveFiles] = SystemInstallRequest.fetched(SystemInstallRequest.ddock_path(context))
         if archive is not None:
-            # The lock lists what ddock put in the project, which is what is moved.
+            # The lock lists what ddock put in the container, which is what is moved.
             SystemInstallRequest.record_fetch(
                 SystemInstallRequest.ddock_path(context),
                 archive.model_copy(update={"files": [name for name in archive.files if FolderMerge.covers(self.INCLUDE, name)]}),

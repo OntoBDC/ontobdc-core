@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from ontobdc.container.adapter.dataset import RegisteredDatasets
+from ontobdc.container.adapter.entity_geometry import EntityGeometries
 from ontobdc.container.adapter.entity_listing import ContainerEntities
 from ontobdc.container.adapter.entity_rules import EntityFieldRules
 from ontobdc.container.domain.model.entity_facade import EntityFacade
@@ -101,6 +102,7 @@ class ContainerEntityStore:
         """
         dataset_path, _, _ = self.locate(global_id)
         self._repository.delete_rows(dataset_path, [global_id])
+        EntityGeometries.delete(dataset_path, global_id)
 
     def _datasets(self) -> List[Path]:
         return [
