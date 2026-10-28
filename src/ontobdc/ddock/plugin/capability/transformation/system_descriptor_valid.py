@@ -47,7 +47,8 @@ class SystemDescriptorValidCapability(TransactionCapability):
 
         return {
             "resulting_state": SystemInstallProcessState.SYSTEM_DESCRIPTOR_VALID,
-            "source": descriptor.source,
+            "source": descriptor.source.local,
+            "remote": descriptor.source.remote,
             "python_dependencies": [dependency.requirement() for dependency in descriptor.python_dependencies],
             "packages": descriptor.packages,
         }

@@ -48,6 +48,7 @@ class SystemInstallRequest:
 
     CONTAINER_PATH_KEY: str = "ddock_container_path"
     DDOCK_ZIP_KEY: str = "ddock_install_zip"
+    DDOCK_SOURCE_KEY: str = "ddock_install_source"
     BUILT_KEY: str = "ddock_node_built"
     WORK_FOLDER_NAME: str = ".ddock-install"
 
@@ -58,6 +59,18 @@ class SystemInstallRequest:
     @classmethod
     def ddock_zip(cls, context: CliContextPort) -> str:
         return cls._text(context, cls.DDOCK_ZIP_KEY)
+
+    @classmethod
+    def ddock_source(cls, context: CliContextPort) -> Optional[str]:
+        """
+        The address of the GitHub repository of ddock the install names, or
+        nothing when it names none.
+        """
+        value: Any = context.get_parameter_value(cls.DDOCK_SOURCE_KEY)
+        if not isinstance(value, str) or not value.strip():
+            return None
+
+        return value.strip()
 
     @classmethod
     def work_path(cls, context: CliContextPort) -> Path:

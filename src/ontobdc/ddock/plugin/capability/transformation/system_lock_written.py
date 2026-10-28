@@ -63,7 +63,7 @@ class SystemLockWrittenCapability(TransactionCapability):
         """
         archive: Optional[ArchiveFiles] = SystemInstallRequest.fetched(SystemInstallRequest.ddock_path(context))
         if archive is not None:
-            return LockedDdock(**archive.model_dump(), source=descriptor.source)
+            return LockedDdock(**archive.model_dump(), source=descriptor.source.local)
 
         lock: Optional[SystemLockContent] = SystemLock.read(SystemInstallRequest.container_path(context))
         if lock is None:

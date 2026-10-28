@@ -1,0 +1,87 @@
+statechart:
+  name: StandardSystemUpdate
+  description: "Statechart for updating a system: the ddock, its packages and its node application."
+
+  root state:
+    name: standard_system_update
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the update has a valid system.obdc."
+          pt-br: "Estado inicial antes de a atualização ter um system.obdc válido."
+        transitions:
+          - target: system_descriptor_valid
+            guard: handler.can_transit_to(to_state = SystemUpdateProcessStatePort.SYSTEM_DESCRIPTOR_VALID)
+            action: handler.perform_state_transition(to_state = SystemUpdateProcessStatePort.SYSTEM_DESCRIPTOR_VALID)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemUpdateProcessStatePort.UNDEFINED, to_state = SystemUpdateProcessStatePort.SYSTEM_DESCRIPTOR_VALID)
+
+      - name: system_descriptor_valid
+        label:
+          en: "System Descriptor Valid"
+          pt-br: "Descritor do Sistema Válido"
+        description:
+          en: "The container has a system.obdc and it is valid."
+          pt-br: "O container tem um system.obdc e ele é válido."
+        transitions:
+          - target: ddock_source_refreshed
+            guard: handler.can_transit_to(to_state = SystemUpdateProcessStatePort.DDOCK_SOURCE_REFRESHED)
+            action: handler.perform_state_transition(to_state = SystemUpdateProcessStatePort.DDOCK_SOURCE_REFRESHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemUpdateProcessStatePort.SYSTEM_DESCRIPTOR_VALID, to_state = SystemUpdateProcessStatePort.DDOCK_SOURCE_REFRESHED)
+
+      - name: ddock_source_refreshed
+        label:
+          en: "DDock Source Refreshed"
+          pt-br: "Fonte do DDock Atualizada"
+        description:
+          en: "The source folder of the container was replaced by the ddock of the repository system.obdc names."
+          pt-br: "A pasta source do container foi substituída pelo ddock do repositório que o system.obdc nomeia."
+        transitions:
+          - target: packages_refreshed
+            guard: handler.can_transit_to(to_state = SystemUpdateProcessStatePort.PACKAGES_REFRESHED)
+            action: handler.perform_state_transition(to_state = SystemUpdateProcessStatePort.PACKAGES_REFRESHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemUpdateProcessStatePort.DDOCK_SOURCE_REFRESHED, to_state = SystemUpdateProcessStatePort.PACKAGES_REFRESHED)
+
+      - name: packages_refreshed
+        label:
+          en: "Packages Refreshed"
+          pt-br: "Pacotes Atualizados"
+        description:
+          en: "The host of each package of system.obdc was fetched again and put into the source folder of the container."
+          pt-br: "O host de cada pacote do system.obdc foi baixado de novo e posto na pasta source do container."
+        transitions:
+          - target: system_lock_written
+            guard: handler.can_transit_to(to_state = SystemUpdateProcessStatePort.SYSTEM_LOCK_WRITTEN)
+            action: handler.perform_state_transition(to_state = SystemUpdateProcessStatePort.SYSTEM_LOCK_WRITTEN)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemUpdateProcessStatePort.PACKAGES_REFRESHED, to_state = SystemUpdateProcessStatePort.SYSTEM_LOCK_WRITTEN)
+
+      - name: system_lock_written
+        label:
+          en: "System Lock Written"
+          pt-br: "Lock do Sistema Gravado"
+        description:
+          en: "The system.obdc.lock says what was installed."
+          pt-br: "O system.obdc.lock diz o que foi instalado."
+        transitions:
+          - target: node_built
+            guard: handler.can_transit_to(to_state = SystemUpdateProcessStatePort.NODE_BUILT)
+            action: handler.perform_state_transition(to_state = SystemUpdateProcessStatePort.NODE_BUILT)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemUpdateProcessStatePort.SYSTEM_LOCK_WRITTEN, to_state = SystemUpdateProcessStatePort.NODE_BUILT)
+
+      - name: node_built
+        label:
+          en: "Node Built"
+          pt-br: "Node Compilado"
+        description:
+          en: "The node application was compiled with npm run build."
+          pt-br: "A aplicação node foi compilada com npm run build."
+        type: final

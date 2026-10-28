@@ -54,9 +54,9 @@ class DdockZipExtractedCapability(TransactionCapability):
         SystemInstallRequest.discard_fetch(target)
         sha256: str = ZipArchive.fetch(zip_address, target)
         descriptor: SystemDescriptor = SystemDescriptors.read(SystemInstallRequest.container_path(context))
-        origin: Path = target / descriptor.source
+        origin: Path = target / descriptor.source.local
         if not origin.is_dir():
-            raise FileNotFoundError(f"The zip of ddock has no folder '{descriptor.source}', the source of system.obdc.")
+            raise FileNotFoundError(f"The zip of ddock has no folder '{descriptor.source.local}', the source of system.obdc.")
 
         SystemInstallRequest.record_fetch(target, ArchiveFiles(zip=zip_address, sha256=sha256, files=FolderMerge.files(origin)))
 

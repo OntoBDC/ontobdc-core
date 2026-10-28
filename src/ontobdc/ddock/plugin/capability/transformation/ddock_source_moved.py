@@ -1,9 +1,10 @@
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
+from ontobdc.ddock.adapter.ddock_source import DdockSource
 from ontobdc.ddock.adapter.system_descriptor import SystemDescriptors
 from ontobdc.ddock.domain.model.system_descriptor import SystemDescriptor
 from ontobdc.ddock.plugin.machine.system_install.machine import SystemInstallRequest
@@ -28,20 +29,6 @@ class DdockSourceMovedCapability(TransactionCapability):
         },
     )
 
-    # What of the source folder of the zip goes into the container; the rest of it
-    # (tests, tooling of development) is not needed to build or to run.
-    INCLUDE: ClassVar[List[str]] = [
-        "asset",
-        "ontobdc",
-        "python",
-        "scripts",
-        "index.html",
-        "package.json",
-        "package-lock.json",
-        "tsconfig.json",
-        "vite.config.ts",
-    ]
-
     def label(self, lang: str = "en") -> str:
         if lang.lower() == "pt-br":
             return "Fonte do DDock Movida"
@@ -57,25 +44,27 @@ class DdockSourceMovedCapability(TransactionCapability):
         if SystemLock.ddock_complete(container_path, descriptor):
             return True
 
-        origin: Path = SystemInstallRequest.ddock_path(context) / descriptor.source
+        origin: Path = SystemInstallRequest.ddock_path(context) / descriptor.source.local
         return SystemInstallRequest.fetched(SystemInstallRequest.ddock_path(context)) is not None and not any(
-            FolderMerge.covers(self.INCLUDE, name) for name in FolderMerge.files(origin)
+            FolderMerge.covers(DdockSource.INCLUDE, name) for name in FolderMerge.files(origin)
         )
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         container_path: Path = SystemInstallRequest.container_path(context)
         descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
-        origin: Path = SystemInstallRequest.ddock_path(context) / descriptor.source
-        destination: Path = container_path / descriptor.source
+        origin: Path = SystemInstallRequest.ddock_path(context) / descriptor.source.local
+        destination: Path = container_path / descriptor.source.local
         archive: Optional[ArchiveFiles] = SystemInstallRequest.fetched(SystemInstallRequest.ddock_path(context))
         if archive is not None:
             # The lock lists what ddock put in the container, which is what is moved.
             SystemInstallRequest.record_fetch(
                 SystemInstallRequest.ddock_path(context),
-                archive.model_copy(update={"files": [name for name in archive.files if FolderMerge.covers(self.INCLUDE, name)]}),
+                archive.model_copy(
+                    update={"files": [name for name in archive.files if FolderMerge.covers(DdockSource.INCLUDE, name)]}
+                ),
             )
 
-        moved: List[Path] = FolderMerge.merge(origin, destination, self.INCLUDE)
+        moved: List[Path] = FolderMerge.merge(origin, destination, DdockSource.INCLUDE)
 
         return {
             "resulting_state": SystemInstallProcessState.DDOCK_SOURCE_MOVED,

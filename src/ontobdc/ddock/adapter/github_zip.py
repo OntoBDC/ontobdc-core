@@ -20,6 +20,9 @@ class GitHubZipAddress:
     # The branches whose zip is looked for, in this order.
     BRANCHES: ClassVar[Tuple[str, ...]] = ("master", "main")
     TIMEOUT_SECONDS: ClassVar[int] = 10
+    # The repository of the official OntoBDC dDock: what a system that names
+    # no remote of its own installs from.
+    DEFAULT_REPOSITORY: ClassVar[str] = "https://github.com/OntoBDC/ontobdc-ddock"
 
     OWNER: ClassVar[str] = r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
     REPOSITORY: ClassVar[str] = r"[A-Za-z0-9._-]+"
@@ -64,11 +67,30 @@ class GitHubZipAddress:
         return None
 
     @classmethod
+    def page_of(cls, owner: str, name: str) -> str:
+        """
+        The address of the page of the repository.
+        """
+        return f"https://github.com/{owner}/{name}"
+
+    @classmethod
     def zip_of(cls, owner: str, name: str, branch: str) -> str:
         """
         The address of the zip of the branch of the repository.
         """
-        return f"https://github.com/{owner}/{name}/archive/refs/heads/{branch}.zip"
+        return f"{cls.page_of(owner, name)}/archive/refs/heads/{branch}.zip"
+
+    @classmethod
+    def repository_address(cls, address: str) -> Optional[str]:
+        """
+        The address of the page of the repository the address names, whatever
+        the form it names it in, or None when it names no GitHub repository.
+        """
+        repository: Optional[Tuple[str, str]] = cls.repository(address)
+        if repository is None:
+            return None
+
+        return cls.page_of(*repository)
 
     @classmethod
     def resolve(

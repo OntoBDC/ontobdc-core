@@ -11,14 +11,16 @@ class InstallFromGitHubStrategy(CliContextStrategyPort):
 
     An omitted repository selects the official OntoBDC dDock. An explicit
     repository takes precedence; in either case the first available branch
-    among master and main supplies the zip. An invalid or unreachable
-    repository is left unresolved for the command's check to reject.
+    among master and main supplies the zip, and the address of the repository
+    the install comes from is bound so that system.obdc can record it. An
+    invalid or unreachable repository is left unresolved for the command's
+    check to reject.
     """
 
     SELECTOR_FLAG: ClassVar[str] = "--install"
     SOURCE_KEY: ClassVar[str] = "ddock_install_source"
     ZIP_KEY: ClassVar[str] = "ddock_install_zip"
-    DEFAULT_REPOSITORY: ClassVar[str] = "https://github.com/OntoBDC/ontobdc-ddock"
+    DEFAULT_REPOSITORY: ClassVar[str] = GitHubZipAddress.DEFAULT_REPOSITORY
 
     METADATA: ParameterMetadata = ParameterMetadata(
         id="org.ontobdc.ddock.plugin.parameter.install_from_github",
@@ -36,8 +38,9 @@ class InstallFromGitHubStrategy(CliContextStrategyPort):
 
     def execute(self, context: CliContextPort) -> CliContextPort:
         """
-        Bind the source and resolved zip. An omitted argument never reuses a
-        repository left in the context by an earlier command.
+        Bind the repository the install comes from and its resolved zip. An
+        omitted argument never reuses a repository left in the context by an
+        earlier command.
         """
         raw_args = context.raw_args
         if self.SELECTOR_FLAG not in raw_args:
@@ -48,7 +51,11 @@ class InstallFromGitHubStrategy(CliContextStrategyPort):
         if address is None:
             return context
 
-        context.set_parameter_value(self.SOURCE_KEY, address)
+        repository: Optional[str] = GitHubZipAddress.repository_address(address)
+        if repository is None:
+            return context
+
+        context.set_parameter_value(self.SOURCE_KEY, repository)
         zip_address: Optional[str] = GitHubZipAddress.resolve(address)
         if zip_address is not None:
             context.set_parameter_value(self.ZIP_KEY, zip_address)

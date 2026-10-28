@@ -47,7 +47,7 @@ class PackagesHostMovedCapability(TransactionCapability):
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         container_path: Path = SystemInstallRequest.container_path(context)
         descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
-        destination: Path = container_path / descriptor.source
+        destination: Path = container_path / descriptor.source.local
         without_host: List[str] = []
         moved: int = 0
         package: UnpackedPackage

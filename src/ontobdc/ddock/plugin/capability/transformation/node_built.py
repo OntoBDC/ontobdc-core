@@ -42,7 +42,7 @@ class NodeBuiltCapability(TransactionCapability):
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         container_path: Path = SystemInstallRequest.container_path(context)
         descriptor: SystemDescriptor = SystemDescriptors.read(container_path)
-        NodeBuild.run(container_path / descriptor.source)
+        NodeBuild.run(container_path / descriptor.source.local)
         context.set_parameter_value(SystemInstallRequest.BUILT_KEY, True)
 
         return {

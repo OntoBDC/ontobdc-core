@@ -43,10 +43,10 @@ class SystemLock:
         Whether the lock has the files of ddock and the container has all of them.
         """
         lock: Optional[SystemLockContent] = cls.read(container_path)
-        if lock is None or lock.ddock.source != descriptor.source:
+        if lock is None or lock.ddock.source != descriptor.source.local:
             return False
 
-        return lock.ddock.present_in(container_path / descriptor.source)
+        return lock.ddock.present_in(container_path / descriptor.source.local)
 
     @classmethod
     def pending_packages(cls, container_path: Path, descriptor: SystemDescriptor) -> List[str]:
@@ -55,7 +55,7 @@ class SystemLock:
         does not have, and those that miss a file the lock says they put there.
         """
         lock: Optional[SystemLockContent] = cls.read(container_path)
-        destination: Path = container_path / descriptor.source
+        destination: Path = container_path / descriptor.source.local
         pending: List[str] = []
         address: str
         for address in descriptor.packages:

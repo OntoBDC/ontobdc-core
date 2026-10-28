@@ -15,6 +15,7 @@ class SystemInstallProcessState(SystemInstallProcessStatePort):
     DDOCK_SOURCE_MOVED = "__ddock_source_moved__"
     PACKAGES_EXTRACTED = "__packages_extracted__"
     PACKAGES_HOST_MOVED = "__packages_host_moved__"
+    SOURCE_REMOTE_RECORDED = "__source_remote_recorded__"
     SYSTEM_LOCK_WRITTEN = "__system_lock_written__"
     NODE_BUILT = "__node_built__"
 
@@ -28,6 +29,7 @@ class SystemInstallProcessState(SystemInstallProcessStatePort):
                 self.DDOCK_SOURCE_MOVED: "DDock Source Moved",
                 self.PACKAGES_EXTRACTED: "Packages Extracted",
                 self.PACKAGES_HOST_MOVED: "Packages Host Moved",
+                self.SOURCE_REMOTE_RECORDED: "Source Remote Recorded",
                 self.SYSTEM_LOCK_WRITTEN: "System Lock Written",
                 self.NODE_BUILT: "Node Built",
             },
@@ -39,6 +41,7 @@ class SystemInstallProcessState(SystemInstallProcessStatePort):
                 self.DDOCK_SOURCE_MOVED: "Fonte do DDock Movida",
                 self.PACKAGES_EXTRACTED: "Pacotes Descompactados",
                 self.PACKAGES_HOST_MOVED: "Host dos Pacotes Movido",
+                self.SOURCE_REMOTE_RECORDED: "Remote do Fonte Gravado",
                 self.SYSTEM_LOCK_WRITTEN: "Lock do Sistema Gravado",
                 self.NODE_BUILT: "Node Compilado",
             },
@@ -55,6 +58,7 @@ class SystemInstallProcessState(SystemInstallProcessStatePort):
                 self.DDOCK_SOURCE_MOVED: "The folder of ddock that system.obdc names as source is in the container.",
                 self.PACKAGES_EXTRACTED: "The zip of each package of system.obdc was downloaded and unpacked.",
                 self.PACKAGES_HOST_MOVED: "The contents of src/host of each package are in the source folder of the container.",
+                self.SOURCE_REMOTE_RECORDED: "The system.obdc says the GitHub repository the ddock was installed from.",
                 self.SYSTEM_LOCK_WRITTEN: "The system.obdc.lock says what was installed.",
                 self.NODE_BUILT: "The node application was compiled with npm run build.",
             },
@@ -66,6 +70,7 @@ class SystemInstallProcessState(SystemInstallProcessStatePort):
                 self.DDOCK_SOURCE_MOVED: "A pasta do ddock que o system.obdc nomeia como source está no container.",
                 self.PACKAGES_EXTRACTED: "O zip de cada pacote do system.obdc foi baixado e descompactado.",
                 self.PACKAGES_HOST_MOVED: "O conteúdo de src/host de cada pacote está na pasta source do container.",
+                self.SOURCE_REMOTE_RECORDED: "O system.obdc diz o repositório GitHub de onde o ddock foi instalado.",
                 self.SYSTEM_LOCK_WRITTEN: "O system.obdc.lock diz o que foi instalado.",
                 self.NODE_BUILT: "A aplicação node foi compilada com npm run build.",
             },
