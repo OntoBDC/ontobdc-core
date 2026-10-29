@@ -30,7 +30,7 @@ dependencies = [
     "Jinja2",
     "rocrate",
     "openpyxl",
-    "brasidatacenter>=0.13.0",
+    "brasidatacenter>=0.14.0",
 ]
 
 [project.optional-dependencies]
