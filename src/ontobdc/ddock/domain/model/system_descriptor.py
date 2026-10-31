@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -40,9 +40,14 @@ class SystemDescriptor(BaseModel):
 
     ``source`` names the folder that receives the ddock and the repository it
     comes from; the host of each package is merged into it. ``packages`` are
-    the GitHub addresses of the features to add.
+    the GitHub addresses of the features to add. ``override`` is what is
+    copied to the ``override`` of the configuration of the application
+    (``asset/config.yaml`` of the source folder), empty when there is none;
+    ``server`` is copied the same way, to the ``server`` of that file.
     """
 
     python_dependencies: List[PythonDependency] = Field(default_factory=list)
     source: SystemSource
     packages: List[str] = Field(default_factory=list)
+    override: Dict[str, Any] = Field(default_factory=dict)
+    server: Dict[str, Any] = Field(default_factory=dict)

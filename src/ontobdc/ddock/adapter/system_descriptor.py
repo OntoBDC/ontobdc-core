@@ -4,6 +4,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 import yaml
 
 from ontobdc.ddock.adapter.github_zip import GitHubZipAddress
+from ontobdc.ddock.adapter.local_package import LocalPackage
 from ontobdc.ddock.domain.model.system_descriptor import (
     PythonDependency,
     SystemDescriptor,
@@ -30,6 +31,10 @@ class SystemDescriptors:
             remote: ""          # the GitHub repository of the ddock; empty is the official one
           package:              # the GitHub address of each feature to add
             - https://github.com/usuario/feature-viewer
+            - addon/annotation  # or a folder, by its path from the folder of system.obdc
+        override:               # copied to the override of asset/config.yaml of the source folder, when present
+          server:
+            url: https://api.example.com
     """
 
     FILE_NAME: ClassVar[str] = "system.obdc"
@@ -61,6 +66,15 @@ class SystemDescriptors:
         return isinstance(data, dict) and data.get("scope") == cls.ADDON_SCOPE
 
     @classmethod
+    def is_local_addon(cls, folder: Path) -> bool:
+        """
+        Whether a folder a person names by its path is an addon: it says so
+        in a system.obdc of the scope of an addon, or it is what the
+        application loads as one, a folder with a package.json.
+        """
+        return cls.is_addon(folder) or (folder / "package.json").is_file()
+
+    @classmethod
     def read(cls, container_path: Path) -> SystemDescriptor:
         """
         The descriptor of the container.
@@ -89,6 +103,8 @@ class SystemDescriptors:
             python_dependencies=cls._dependencies(data.get("python")),
             source=cls._main_source(source.get("main")),
             packages=cls._packages(source.get("package")),
+            override=cls._section("override", data.get("override")),
+            server=cls._section("server", data.get("server")),
         )
 
     @classmethod
@@ -180,19 +196,28 @@ class SystemDescriptors:
 
         return PythonDependency(name=name.strip(), version=None if version is None else str(version).strip())
 
+    @staticmethod
+    def _section(name: str, value: Any) -> Dict[str, Any]:
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError(f"'{name}' must be a mapping: what is copied to the {name} of asset/config.yaml.")
+
+        return value
+
     @classmethod
     def _packages(cls, entries: Any) -> List[str]:
         if entries is None:
             return []
         if not isinstance(entries, list):
-            raise ValueError("'package' must be a list of GitHub addresses.")
+            raise ValueError("'package' must be a list of GitHub addresses or relative paths.")
 
         addresses: List[str] = []
         entry: Any
         for entry in entries:
             address: Optional[str] = entry.get("url") if isinstance(entry, dict) else entry
-            if not isinstance(address, str) or GitHubZipAddress.repository(address) is None:
-                raise ValueError(f"A package must be the address of a GitHub repository: {entry!r}")
+            if not isinstance(address, str) or (GitHubZipAddress.repository(address) is None and not LocalPackage.is_path(address)):
+                raise ValueError(f"A package must be the address of a GitHub repository or a relative path: {entry!r}")
             addresses.append(address.strip())
 
         return addresses

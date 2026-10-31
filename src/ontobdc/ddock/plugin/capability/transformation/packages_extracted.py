@@ -10,6 +10,7 @@ from ontobdc.ddock.plugin.machine.system_install.machine import SystemInstallReq
 from ontobdc.ddock.plugin.machine.system_install.state import SystemInstallProcessState
 from ontobdc.ddock.adapter.github_zip import GitHubZipAddress
 from ontobdc.ddock.adapter.zip_archive import ZipArchive
+from ontobdc.ddock.adapter.local_package import LocalPackage
 
 from ontobdc.ddock.adapter.system_lock import SystemLock
 
@@ -60,13 +61,16 @@ class PackagesExtractedCapability(TransactionCapability):
             if address not in pending or address in extracted:
                 continue
 
-            zip_address = GitHubZipAddress.resolve(address)
-            if zip_address is None:
-                raise ValueError(f"The package {address} has no zip of its master or its main branch.")
-
             target: Path = SystemInstallRequest.package_path(context, index)
             SystemInstallRequest.discard_fetch(target)
-            sha256: str = ZipArchive.fetch(zip_address, target)
+            if LocalPackage.is_path(address):
+                zip_address = address
+                sha256: str = LocalPackage.copy(container_path, address, target)
+            else:
+                zip_address = GitHubZipAddress.resolve(address)
+                if zip_address is None:
+                    raise ValueError(f"The package {address} has no zip of its master or its main branch.")
+                sha256 = ZipArchive.fetch(zip_address, target)
             SystemInstallRequest.record_fetch(
                 target,
                 ArchiveFiles(zip=zip_address, sha256=sha256, files=FolderMerge.files(target / "src" / "host")),

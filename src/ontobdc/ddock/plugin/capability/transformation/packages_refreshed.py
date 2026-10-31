@@ -8,6 +8,7 @@ from ontobdc.ddock.adapter.folder_merge import FolderMerge
 from ontobdc.ddock.adapter.github_zip import GitHubZipAddress
 from ontobdc.ddock.adapter.system_descriptor import SystemDescriptors
 from ontobdc.ddock.adapter.zip_archive import ZipArchive
+from ontobdc.ddock.adapter.local_package import LocalPackage
 from ontobdc.ddock.domain.model.system_descriptor import SystemDescriptor
 from ontobdc.ddock.domain.model.system_install import ArchiveFiles
 from ontobdc.ddock.plugin.machine.system_update.machine import SystemUpdateRequest
@@ -50,13 +51,17 @@ class PackagesRefreshedCapability(TransactionCapability):
         index: int
         address: str
         for index, address in enumerate(descriptor.packages):
-            zip_address: Optional[str] = GitHubZipAddress.resolve(address)
-            if zip_address is None:
-                raise ValueError(f"The package {address} has no zip of its master or its main branch.")
-
             target: Path = SystemUpdateRequest.package_path(context, index)
             SystemUpdateRequest.discard_fetch(target)
-            sha256: str = ZipArchive.fetch(zip_address, target)
+            zip_address: Optional[str]
+            if LocalPackage.is_path(address):
+                zip_address = address
+                sha256: str = LocalPackage.copy(container_path, address, target)
+            else:
+                zip_address = GitHubZipAddress.resolve(address)
+                if zip_address is None:
+                    raise ValueError(f"The package {address} has no zip of its master or its main branch.")
+                sha256 = ZipArchive.fetch(zip_address, target)
             host: Path = target / "src" / "host"
             SystemUpdateRequest.record_fetch(
                 target,

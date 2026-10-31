@@ -9,6 +9,7 @@ from ontobdc.ddock.adapter.folder_merge import FolderMerge
 from ontobdc.ddock.adapter.github_zip import GitHubZipAddress
 from ontobdc.ddock.adapter.system_descriptor import SystemDescriptors
 from ontobdc.ddock.adapter.zip_archive import ZipArchive
+from ontobdc.ddock.adapter.local_package import LocalPackage
 from ontobdc.ddock.domain.model.system_descriptor import SystemDescriptor
 from ontobdc.ddock.plugin.machine.system_install.machine import SystemInstallRequest
 from ontobdc.ddock.plugin.machine.system_install.state import SystemInstallProcessState
@@ -53,7 +54,7 @@ class AddonsMovedCapability(TransactionCapability):
         index: int
         address: str
         for index, address in enumerate(descriptor.packages):
-            addon: Optional[Path] = self._addon_of(context, index, address)
+            addon: Optional[Path] = self._addon_of(context, container_path, index, address)
             if addon is None:
                 without_addon.append(address)
                 continue
@@ -72,12 +73,29 @@ class AddonsMovedCapability(TransactionCapability):
         }
 
     @classmethod
-    def _addon_of(cls, context: CliContextPort, index: int, address: str) -> Optional[Path]:
+    def _addon_of(cls, context: CliContextPort, container_path: Path, index: int, address: str) -> Optional[Path]:
         """
         The folder of the addon the package at ``index`` names, downloaded
         into the work folder, or nothing when the address names no folder of
-        the repository or the folder it names is not an addon.
+        the repository or the folder it names is not an addon. A relative path
+        is the folder of the addon itself, and it is copied to the work folder,
+        because what is merged is moved from there.
         """
+        if LocalPackage.is_path(address):
+            # The addon is known by the name of its folder, so the copy goes into a folder of that name.
+            holder: Path = SystemInstallRequest.addon_path(context, index)
+            copied: Path = holder / LocalPackage.folder(container_path, address).name
+            SystemInstallRequest.discard_fetch(holder)
+            LocalPackage.copy(container_path, address, copied)
+            if SystemDescriptors.is_local_addon(copied):
+                return copied
+            if not (copied / "src" / "host").is_dir():
+                raise ValueError(
+                    f"The package {address} is neither an addon (a system.obdc of scope 'addon', or a package.json) "
+                    "nor holds a src/host."
+                )
+            return None
+
         folder: Optional[str] = GitHubZipAddress.folder(address)
         if folder is None:
             return None
