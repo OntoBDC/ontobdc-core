@@ -16,11 +16,7 @@ class StorageBaseCommand(CliCommandPort, LoggerAwarePort):
     Entry-point command shown when running ``ontobdc storage``.
 
     Single responsibility: list the commands registered under the
-    ``storage`` logical component of OntoBDC. Storage itself contributes no
-    other CLI command yet -- it ships capabilities, a machine and a
-    parameter strategy that ``ontobdc run`` and the parameter pipeline
-    consume instead -- so until one exists, this is the only entry the
-    component's tree has.
+    ``storage`` logical component of OntoBDC.
     """
 
     METADATA: CliCommandMetadata = CliCommandMetadata(

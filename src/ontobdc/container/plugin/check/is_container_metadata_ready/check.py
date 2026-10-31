@@ -62,13 +62,13 @@ def _has_required_value(container_graph: Graph, subject: URIRef, predicate: URIR
     return len(values) > 0
 
 
-def _has_valid_location(container_graph: Graph, subject: URIRef, container_path: Path) -> bool:
-    location_values: List[str] = [
-        str(location).strip()
-        for location in container_graph.objects(subject, PROV.atLocation)
-        if str(location).strip()
-    ]
-    return container_path.as_uri() in location_values
+def _states_no_location(container_graph: Graph) -> bool:
+    """
+    The container metadata does not say where the container is, nor where its datasets are on a disk: it lives
+    inside the container, which can be moved or copied. A dataset is stated by where it is in the container,
+    relative to it; where the container is on a disk is the storage index's alone.
+    """
+    return not any(container_graph.triples((None, PROV.atLocation, None)))
 
 
 def _has_valid_identifier(
@@ -127,7 +127,7 @@ def main(
     if not _has_required_value(container_graph, container_subject, CT.creationDate):
         return 1
 
-    if not _has_valid_location(container_graph, container_subject, resolved_container_path):
+    if not _states_no_location(container_graph):
         return 1
 
     return 0

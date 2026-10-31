@@ -71,13 +71,13 @@ def _has_required_value(dataset_graph: Graph, subject: URIRef, predicate: URIRef
     return len(values) > 0
 
 
-def _has_valid_location(dataset_graph: Graph, subject: URIRef, dataset_path: Path) -> bool:
-    location_values: List[str] = [
-        str(location).strip()
-        for location in dataset_graph.objects(subject, PROV.atLocation)
-        if str(location).strip()
-    ]
-    return dataset_path.as_uri() in location_values
+def _states_no_location(dataset_graph: Graph, subject: URIRef) -> bool:
+    """
+    The metadata of a dataset does not say where the dataset is: it lives inside the dataset, which lives in a
+    container that can be moved or copied. Where the dataset is in its container is the container's metadata's
+    (relative to the container); where the container is on a disk is the storage index's.
+    """
+    return not any(dataset_graph.objects(subject, PROV.atLocation))
 
 
 def _resolve_expected_container_id_from_storage_index(
@@ -272,7 +272,7 @@ def main(
     if not _has_data_entity(dataset_graph, dataset_subject):
         return 1
 
-    if not _has_valid_location(dataset_graph, dataset_subject, resolved_dataset_path):
+    if not _states_no_location(dataset_graph, dataset_subject):
         return 1
 
     if entity_iri and not _has_entity_type(dataset_graph, dataset_subject, entity_iri):

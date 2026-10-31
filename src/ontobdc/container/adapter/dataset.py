@@ -6,6 +6,7 @@ from urllib.request import url2pathname
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF
 
+from ontobdc.container.adapter.dataset_metadata import DatasetMetadataFile
 from ontobdc.shared.domain.vocabulary import OBDC
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 
@@ -47,7 +48,7 @@ class DatasetTitleRepository:
 
         graph.add((subject, DCTERMS.title, Literal(title, lang=language)))
         self._metadata_path.write_bytes(
-            graph.serialize(format="turtle", encoding="utf-8")
+            DatasetMetadataFile.serialize(graph, self._metadata_path)
         )
 
     def _dataset_subject(self, graph: Graph) -> URIRef:
@@ -103,6 +104,15 @@ class RegisteredDatasets:
         dataset_paths: List[Path] = []
         dataset_subject: URIRef
         for dataset_subject in cls._dataset_subjects(graph, container_subjects[0]):
+            # Where the dataset is in the container is stated relative to the container, so the container can
+            # be moved. A container written by an older version states an absolute location instead.
+            relative: List[Any] = list(graph.objects(dataset_subject, OBDC.relativeLocation))
+            if len(relative) == 1 and str(relative[0]).strip():
+                stated: Path = container_path.expanduser().resolve() / str(relative[0]).strip()
+                if stated.is_dir():
+                    dataset_paths.append(stated.resolve())
+                continue
+
             locations: List[Any] = list(
                 graph.objects(dataset_subject, PROV.atLocation)
             )

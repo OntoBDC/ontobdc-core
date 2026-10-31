@@ -75,7 +75,15 @@ def _write_crate_manifest(marker_path: Path, container_path: Path, file_ids: Lis
         if file_id in written and written[file_id] != file_id:
             continue
         if file_id not in written:
-            histories[file_id] = CrateFileHistory.history_of(files, file_id, previous.get(file_id, FileHistory()))
+            history: FileHistory = CrateFileHistory.history_of(
+                files,
+                file_id,
+                previous.get(file_id, FileHistory()),
+            )
+            # A node still named by its path must end any other live path its
+            # history kept, or the validator will read stale copies as
+            # additional on-disk files.
+            histories[file_id] = CrateFileHistory.end_missing(history, {file_id})
         crate.add_file(
             source=None,
             dest_path=file_id,

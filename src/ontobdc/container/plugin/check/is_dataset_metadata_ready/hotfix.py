@@ -9,6 +9,7 @@ from rdflib.namespace import DCTERMS, OWL, PROV, RDF, XSD
 
 from ontobdc.storage.adapter.file import StorageFileLocator
 from ontobdc.shared.domain.vocabulary import CT, OBDC
+from ontobdc.container.adapter.dataset_metadata import DatasetMetadataFile
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 from ontobdc.storage.adapter.repository import LoadedStorageGraph
 
@@ -192,7 +193,7 @@ def _build_dataset_graph(
         datatype=XSD.dateTime,
     )
     dataset_title: Literal = existing_title or Literal(_build_dataset_title(dataset_path))
-    dataset_description: str = f"Storage dataset located at {dataset_path.as_uri()}"
+    dataset_description: str = f"Storage dataset {dataset_path.name}"
 
     dataset_graph.add((dataset_metadata_ref, RDF.type, OWL.Ontology))
     dataset_graph.add((dataset_ref, RDF.type, OBDC.EntityDataset))
@@ -208,7 +209,6 @@ def _build_dataset_graph(
     dataset_graph.add((dataset_ref, DCTERMS.title, dataset_title))
     dataset_graph.add((dataset_ref, DCTERMS.description, Literal(dataset_description)))
     dataset_graph.add((dataset_ref, CT.creationDate, created_at))
-    dataset_graph.add((dataset_ref, PROV.atLocation, URIRef(dataset_path.as_uri())))
 
     return dataset_graph
 
@@ -246,7 +246,7 @@ def main(
             parent_container[0],
             entity_iri,
         )
-        serialized_graph: bytes = dataset_graph.serialize(format="turtle", encoding="utf-8")
+        serialized_graph: bytes = DatasetMetadataFile.serialize(dataset_graph, dataset_storage_file_path)
         dataset_storage_file_path.write_bytes(serialized_graph)
         return 0
     except Exception:

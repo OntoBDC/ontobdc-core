@@ -18,24 +18,47 @@ class SystemDescriptors:
 
     .. code-block:: yaml
 
+        scope: ddock
         python:
           dep:
             - rdflib            # a name, or
             - name: pydantic    # a name with the version it must have
               version: 2.9.2
         source:
-          local: src            # the folder of the ddock zip that becomes the application
-          remote: ""            # the GitHub repository of the ddock; empty is the official one
-        package:                # the GitHub address of each feature to add
-          - https://github.com/usuario/feature-viewer
+          main:
+            local: src          # the folder of the ddock zip that becomes the application
+            remote: ""          # the GitHub repository of the ddock; empty is the official one
+          package:              # the GitHub address of each feature to add
+            - https://github.com/usuario/feature-viewer
     """
 
     FILE_NAME: ClassVar[str] = "system.obdc"
     LOCK_FILE_NAME: ClassVar[str] = "system.obdc.lock"
+    SCOPE: ClassVar[str] = "ddock"
+    ADDON_SCOPE: ClassVar[str] = "addon"
+    ADDON_FOLDER_NAME: ClassVar[str] = "addon"
 
     @classmethod
     def path_in(cls, container_path: Path) -> Path:
         return container_path / cls.FILE_NAME
+
+    @classmethod
+    def is_addon(cls, folder: Path) -> bool:
+        """
+        Whether the folder holds a system.obdc that says the scope of an
+        addon. A folder with no system.obdc, with one that is not valid YAML,
+        or with one of another scope, is not an addon.
+        """
+        path: Path = cls.path_in(folder)
+        if not path.is_file():
+            return False
+
+        try:
+            data: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError:
+            return False
+
+        return isinstance(data, dict) and data.get("scope") == cls.ADDON_SCOPE
 
     @classmethod
     def read(cls, container_path: Path) -> SystemDescriptor:
@@ -44,8 +67,9 @@ class SystemDescriptors:
 
         Raises:
             FileNotFoundError: the container has no ``system.obdc``.
-            ValueError: the file is not valid YAML, or says something a
-                descriptor cannot say, or lacks what it needs.
+            ValueError: the file is not valid YAML, says something a
+                descriptor cannot say, lacks what it needs, or is not the
+                descriptor of this scope.
         """
         path: Path = cls.path_in(container_path)
         if not path.is_file():
@@ -58,35 +82,51 @@ class SystemDescriptors:
         if not isinstance(data, dict):
             raise ValueError(f"{cls.FILE_NAME} must be a mapping.")
 
+        cls._scope(data.get("scope"))
+        source: Dict[str, Any] = cls._source(data.get("source"))
+
         return SystemDescriptor(
             python_dependencies=cls._dependencies(data.get("python")),
-            source=cls._source(data.get("source")),
-            packages=cls._packages(data.get("package")),
+            source=cls._main_source(source.get("main")),
+            packages=cls._packages(source.get("package")),
         )
 
     @classmethod
-    def _source(cls, value: Any) -> SystemSource:
-        # A descriptor that names the folder alone is one from before the
-        # source said where the ddock comes from.
-        if isinstance(value, str):
-            return SystemSource(local=cls._folder(value))
+    def _scope(cls, value: Any) -> None:
+        # The dDock installs the descriptor of its own scope and of no other
+        # one: a file that says something else is the descriptor of another
+        # system.
+        if value != cls.SCOPE:
+            raise ValueError(
+                f"{cls.FILE_NAME} must say the scope of the system in 'scope', "
+                f"and the dDock installs the '{cls.SCOPE}' one, not {value!r}."
+            )
+
+    @classmethod
+    def _source(cls, value: Any) -> Dict[str, Any]:
         if not isinstance(value, dict):
             raise ValueError(f"{cls.FILE_NAME} must say the source of the system in 'source'.")
 
-        local: Any = value.get("local")
-        if local is None:
-            raise ValueError("'source' must say the folder to install, in 'source.local'.")
+        return value
 
-        return SystemSource(local=cls._folder(local), remote=cls._remote(value.get("remote")))
+    @classmethod
+    def _main_source(cls, value: Any) -> SystemSource:
+        if not isinstance(value, dict) or value.get("local") is None:
+            raise ValueError("'source.main' must say the folder to install, in 'source.main.local'.")
+
+        return SystemSource(
+            local=cls._folder(value["local"]),
+            remote=cls._remote(value.get("remote")),
+        )
 
     @classmethod
     def _folder(cls, value: Any) -> str:
         if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"{cls.FILE_NAME} must say the folder to install in 'source'.")
+            raise ValueError(f"{cls.FILE_NAME} must say the folder to install in 'source.main.local'.")
 
         folder: PurePosixPath = PurePosixPath(value.strip())
         if folder.is_absolute() or ".." in folder.parts or folder == PurePosixPath("."):
-            raise ValueError(f"'source' must be a folder inside the container, not '{value}'.")
+            raise ValueError(f"'source.main.local' must be a folder inside the container, not '{value}'.")
 
         return str(folder)
 
@@ -95,13 +135,13 @@ class SystemDescriptors:
         if value is None:
             return ""
         if not isinstance(value, str):
-            raise ValueError("'source.remote' must be the address of a GitHub repository.")
+            raise ValueError("'source.main.remote' must be the address of a GitHub repository.")
 
         remote: str = value.strip()
         if not remote:
             return ""
         if GitHubZipAddress.repository(remote) is None:
-            raise ValueError(f"'source.remote' must be the address of a GitHub repository: {value!r}")
+            raise ValueError(f"'source.main.remote' must be the address of a GitHub repository: {value!r}")
 
         return remote
 
@@ -163,16 +203,20 @@ class SystemDescriptors:
         Record in ``system.obdc`` the address of the GitHub repository the
         ddock comes from, and return the file it was written to.
 
-        Everything else the file says is kept as it is, so that the keys of a
-        descriptor this reader does not know are not lost.
+        Only the remote of the main source changes: everything else the file
+        says is kept as it is, so that the folder to install, the packages and
+        the keys of a descriptor this reader does not know are not lost.
         """
         path: Path = cls.path_in(container_path)
         data: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             raise ValueError(f"{cls.FILE_NAME} must be a mapping.")
 
-        descriptor: SystemDescriptor = cls.read(container_path)
-        data["source"] = {"local": descriptor.source.local, "remote": remote}
+        # Reading it is what says the file is one this reader knows, and
+        # therefore that the remote has a main source to go into.
+        cls.read(container_path)
+        main: Dict[str, Any] = data["source"]["main"]
+        main["remote"] = remote
         path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
         return path

@@ -57,12 +57,19 @@ def _get_single_object(container_graph: Graph, subject: URIRef, predicate: URIRe
     return value
 
 
-def _extract_required_triples(container_graph: Graph, subject: URIRef) -> Optional[Dict[URIRef, object]]:
+def _extract_required_triples(
+    container_graph: Graph,
+    subject: URIRef,
+    container_path: Path,
+) -> Optional[Dict[URIRef, object]]:
+    """
+    What the storage index states of the container: what the container's metadata says of it, and where it is
+    now. The metadata does not say where it is (the container can be moved); the index is where that is kept.
+    """
     identifier_obj: Optional[object] = _get_single_object(container_graph, subject, DCTERMS.identifier)
     title_obj: Optional[object] = _get_single_object(container_graph, subject, DCTERMS.title)
     created_obj: Optional[object] = _get_single_object(container_graph, subject, CT.creationDate)
     description_obj: Optional[object] = _get_single_object(container_graph, subject, CT.description)
-    location_obj: Optional[object] = _get_single_object(container_graph, subject, PROV.atLocation)
 
     if not isinstance(identifier_obj, Literal):
         return None
@@ -72,15 +79,13 @@ def _extract_required_triples(container_graph: Graph, subject: URIRef) -> Option
         return None
     if not isinstance(description_obj, Literal):
         return None
-    if not isinstance(location_obj, URIRef):
-        return None
 
     return {
         DCTERMS.identifier: identifier_obj,
         DCTERMS.title: title_obj,
         CT.creationDate: created_obj,
         CT.description: description_obj,
-        PROV.atLocation: location_obj,
+        PROV.atLocation: URIRef(container_path.as_uri()),
     }
 
 
@@ -136,7 +141,7 @@ def main(
     if container_subject is None:
         return 1
 
-    expected_triples: Optional[Dict[URIRef, object]] = _extract_required_triples(container_graph, container_subject)
+    expected_triples: Optional[Dict[URIRef, object]] = _extract_required_triples(container_graph, container_subject, resolved_container_path)
     if expected_triples is None:
         return 1
 

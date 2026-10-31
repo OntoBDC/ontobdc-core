@@ -73,10 +73,14 @@ def _extract_required_dataset_triples(
     dataset_graph: Graph,
     dataset_subject: URIRef,
     container_subject: URIRef,
+    relative_location: str,
 ) -> Optional[Dict[URIRef, object]]:
+    """
+    What the container's metadata states of the dataset: what the dataset's metadata says of it, and where it is
+    in the container, relative to the container (the container can be moved, so no absolute location is kept).
+    """
     title_obj: Optional[object] = _get_single_object(dataset_graph, dataset_subject, DCTERMS.title)
     description_obj: Optional[object] = _get_single_object(dataset_graph, dataset_subject, DCTERMS.description)
-    location_obj: Optional[object] = _get_single_object(dataset_graph, dataset_subject, PROV.atLocation)
     declared_owner: Optional[object] = _get_single_object(
         dataset_graph,
         dataset_subject,
@@ -86,8 +90,6 @@ def _extract_required_dataset_triples(
     if not isinstance(title_obj, Literal):
         return None
     if not isinstance(description_obj, Literal):
-        return None
-    if not isinstance(location_obj, URIRef):
         return None
     # Same reasoning as check.py: the dataset.ttl may identify its owning
     # container by a logical URN (e.g. urn:ontobdc:storage/<name>) rather
@@ -102,7 +104,7 @@ def _extract_required_dataset_triples(
     return {
         DCTERMS.title: title_obj,
         DCTERMS.description: description_obj,
-        PROV.atLocation: location_obj,
+        OBDC.relativeLocation: Literal(relative_location),
         OBDC.belongsToDataContainer: container_subject,
     }
 
@@ -167,6 +169,7 @@ def main(
         dataset_graph=dataset_graph,
         dataset_subject=dataset_subject,
         container_subject=container_subject,
+        relative_location=resolved_dataset_path.relative_to(resolved_container_path).as_posix(),
     )
     if expected_triples is None:
         return 1

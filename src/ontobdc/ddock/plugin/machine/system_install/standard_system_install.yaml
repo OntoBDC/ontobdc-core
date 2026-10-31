@@ -99,11 +99,25 @@ statechart:
           en: "The contents of src/host of each package are in the source folder of the container."
           pt-br: "O conteúdo de src/host de cada pacote está na pasta source do container."
         transitions:
+          - target: addons_moved
+            guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.ADDONS_MOVED)
+            action: handler.perform_state_transition(to_state = SystemInstallProcessStatePort.ADDONS_MOVED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemInstallProcessStatePort.PACKAGES_HOST_MOVED, to_state = SystemInstallProcessStatePort.ADDONS_MOVED)
+
+      - name: addons_moved
+        label:
+          en: "Addons Moved"
+          pt-br: "Addons Movidos"
+        description:
+          en: "The folder each package of system.obdc names was downloaded, and the one that holds an addon was copied into the addon folder of the container."
+          pt-br: "A pasta que cada pacote do system.obdc nomeia foi baixada, e a que tem um addon foi copiada para a pasta addon do container."
+        transitions:
           - target: source_remote_recorded
             guard: handler.can_transit_to(to_state = SystemInstallProcessStatePort.SOURCE_REMOTE_RECORDED)
             action: handler.perform_state_transition(to_state = SystemInstallProcessStatePort.SOURCE_REMOTE_RECORDED)
             contract:
-              - after: handler.validate_state_transition(from_state = SystemInstallProcessStatePort.PACKAGES_HOST_MOVED, to_state = SystemInstallProcessStatePort.SOURCE_REMOTE_RECORDED)
+              - after: handler.validate_state_transition(from_state = SystemInstallProcessStatePort.ADDONS_MOVED, to_state = SystemInstallProcessStatePort.SOURCE_REMOTE_RECORDED)
 
       - name: source_remote_recorded
         label:

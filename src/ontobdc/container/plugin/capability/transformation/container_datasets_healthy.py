@@ -24,6 +24,9 @@ from ontobdc.container.adapter.dataset import RegisteredDatasets
 from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
+from ontobdc.container.plugin.check.is_dataset_facade_valid.check import (
+    problem as facade_problem,
+)
 from ontobdc.container.plugin.check.is_dataset_healthy.check import (
     evaluate as evaluate_dataset_healthy,
 )
@@ -133,18 +136,8 @@ class ContainerDatasetsHealthyCapability(TransactionCapability):
         ]
         if unhealthy:
             raise ValueError(
-                "Unhealthy datasets after repair: "
-                + "; ".join(
-                    f"{result['dataset_path']} fails "
-                    + ", ".join(
-                        sorted(
-                            name
-                            for name, value in result["evaluation"].items()
-                            if value != 0
-                        )
-                    )
-                    for result in unhealthy
-                )
+                "Unhealthy datasets after repair:\n"
+                + "\n".join(self._unhealthy_line(result) for result in unhealthy)
             )
 
         self._write_event(
@@ -163,6 +156,17 @@ class ContainerDatasetsHealthyCapability(TransactionCapability):
             "dataset_count": len(results),
             "datasets": results,
         }
+
+    @staticmethod
+    def _unhealthy_line(result: Dict[str, Any]) -> str:
+        """One line for a dataset that stays unhealthy: the checks it fails, and why the facade is not valid when it is one."""
+        failed: List[str] = sorted(name for name, value in result["evaluation"].items() if value != 0)
+        line: str = f"- {result['dataset_path']} fails {', '.join(failed)}"
+        if "dataset_facade_valid" in failed:
+            reason: Any = facade_problem(result["dataset_path"])
+            if reason:
+                line += f" ({reason})"
+        return line
 
     def _write_event(
         self,

@@ -50,6 +50,7 @@ class SystemInstallRequest:
     DDOCK_ZIP_KEY: str = "ddock_install_zip"
     DDOCK_SOURCE_KEY: str = "ddock_install_source"
     BUILT_KEY: str = "ddock_node_built"
+    ADDONS_MOVED_KEY: str = "ddock_addons_moved"
     WORK_FOLDER_NAME: str = ".ddock-install"
 
     @classmethod
@@ -73,6 +74,14 @@ class SystemInstallRequest:
         return value.strip()
 
     @classmethod
+    def addons_moved(cls, context: CliContextPort) -> bool:
+        """
+        Whether this run already put the addon of every package into the
+        addon folder of the container.
+        """
+        return context.get_parameter_value(cls.ADDONS_MOVED_KEY) is True
+
+    @classmethod
     def work_path(cls, context: CliContextPort) -> Path:
         return cls.container_path(context) / cls.WORK_FOLDER_NAME
 
@@ -86,6 +95,14 @@ class SystemInstallRequest:
         Where the package at ``index`` of system.obdc is unpacked.
         """
         return cls.work_path(context) / "packages" / f"{index}"
+
+    @classmethod
+    def addon_path(cls, context: CliContextPort, index: int) -> Path:
+        """
+        Where the package at ``index`` of system.obdc is unpacked to look for
+        the addon it names.
+        """
+        return cls.work_path(context) / "addons" / f"{index}"
 
     @classmethod
     def record_fetch(cls, folder: Path, archive: ArchiveFiles) -> None:

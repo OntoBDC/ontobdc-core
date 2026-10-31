@@ -12,6 +12,7 @@ class SystemUpdateProcessState(SystemUpdateProcessStatePort):
     SYSTEM_DESCRIPTOR_VALID = "__system_descriptor_valid__"
     DDOCK_SOURCE_REFRESHED = "__ddock_source_refreshed__"
     PACKAGES_REFRESHED = "__packages_refreshed__"
+    ADDONS_REFRESHED = "__addons_refreshed__"
     SYSTEM_LOCK_WRITTEN = "__system_lock_written__"
     NODE_BUILT = "__node_built__"
 
@@ -22,6 +23,7 @@ class SystemUpdateProcessState(SystemUpdateProcessStatePort):
                 self.SYSTEM_DESCRIPTOR_VALID: "System Descriptor Valid",
                 self.DDOCK_SOURCE_REFRESHED: "DDock Source Refreshed",
                 self.PACKAGES_REFRESHED: "Packages Refreshed",
+                self.ADDONS_REFRESHED: "Addons Refreshed",
                 self.SYSTEM_LOCK_WRITTEN: "System Lock Written",
                 self.NODE_BUILT: "Node Built",
             },
@@ -30,6 +32,7 @@ class SystemUpdateProcessState(SystemUpdateProcessStatePort):
                 self.SYSTEM_DESCRIPTOR_VALID: "Descritor do Sistema Válido",
                 self.DDOCK_SOURCE_REFRESHED: "Fonte do DDock Atualizada",
                 self.PACKAGES_REFRESHED: "Pacotes Atualizados",
+                self.ADDONS_REFRESHED: "Addons Atualizados",
                 self.SYSTEM_LOCK_WRITTEN: "Lock do Sistema Gravado",
                 self.NODE_BUILT: "Node Compilado",
             },
@@ -43,6 +46,7 @@ class SystemUpdateProcessState(SystemUpdateProcessStatePort):
                 self.SYSTEM_DESCRIPTOR_VALID: "The container has a system.obdc and it is valid.",
                 self.DDOCK_SOURCE_REFRESHED: "The source folder of the container was replaced by the ddock of the repository system.obdc names.",
                 self.PACKAGES_REFRESHED: "The host of each package of system.obdc was fetched again and put into the source folder of the container.",
+                self.ADDONS_REFRESHED: "The folder each package of system.obdc names was fetched again, and the one that holds an addon was copied into the addon folder of the container.",
                 self.SYSTEM_LOCK_WRITTEN: "The system.obdc.lock says what was installed.",
                 self.NODE_BUILT: "The node application was compiled with npm run build.",
             },
@@ -51,6 +55,7 @@ class SystemUpdateProcessState(SystemUpdateProcessStatePort):
                 self.SYSTEM_DESCRIPTOR_VALID: "O container tem um system.obdc e ele é válido.",
                 self.DDOCK_SOURCE_REFRESHED: "A pasta source do container foi substituída pelo ddock do repositório que o system.obdc nomeia.",
                 self.PACKAGES_REFRESHED: "O host de cada pacote do system.obdc foi baixado de novo e posto na pasta source do container.",
+                self.ADDONS_REFRESHED: "A pasta que cada pacote do system.obdc nomeia foi baixada de novo, e a que tem um addon foi copiada para a pasta addon do container.",
                 self.SYSTEM_LOCK_WRITTEN: "O system.obdc.lock diz o que foi instalado.",
                 self.NODE_BUILT: "A aplicação node foi compilada com npm run build.",
             },

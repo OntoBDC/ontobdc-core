@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Tuple
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 
 from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import DCTERMS, PROV, RDF, XSD
@@ -177,6 +179,50 @@ def _ensure_semantic_metadata(
         )
 
 
+def _relative_location(location: str, container_path: Path) -> Optional[str]:
+    """
+    Where a dataset an older version registered is in the container, relative to it: the location it stated, when
+    that is inside the container, else the directory of the container that is called as the one it stated (the
+    location is the one of another computer, or of the container before it was moved). None when there is none.
+    """
+    parsed = urlparse(location.strip())
+    stated: Path = Path(url2pathname(unquote(parsed.path if parsed.scheme else location.strip())))
+    try:
+        return stated.relative_to(container_path).as_posix()
+    except ValueError:
+        pass
+    name: str = stated.name
+    return name if name and (container_path / name).is_dir() else None
+
+
+def _migrate_legacy_datasets(graph: Graph, container_ref: URIRef, container_path: Path) -> None:
+    """
+    Brings the datasets an older version registered in the container metadata to the form it has now: each is
+    stated by where it is in the container, relative to it, and no location of a computer is left. An entry
+    for a dataset another entry states already (the registration was made again), or for one that is not in the
+    container any more, is taken out.
+    """
+    stated: dict = {str(path): subject for subject, path in graph.subject_objects(OBDC.relativeLocation)}
+    for subject, location in list(graph.subject_objects(PROV.atLocation)):
+        graph.remove((subject, PROV.atLocation, location))
+        if subject == container_ref or (subject, RDF.type, OBDC.EntityDataset) not in graph:
+            continue
+        if (subject, OBDC.relativeLocation, None) in graph:
+            continue
+        relative: Optional[str] = _relative_location(str(location), container_path)
+        if relative is None or relative in stated:
+            for predicate, obj in list(graph.predicate_objects(subject)):
+                graph.remove((subject, predicate, obj))
+            for owner, predicate in list(graph.subject_predicates(subject)):
+                graph.remove((owner, predicate, subject))
+            continue
+        graph.add((subject, OBDC.relativeLocation, Literal(relative)))
+        stated[relative] = subject
+        for description in list(graph.objects(subject, DCTERMS.description)):
+            graph.remove((subject, DCTERMS.description, description))
+        graph.add((subject, DCTERMS.description, Literal(f"Storage dataset {Path(relative).name}")))
+
+
 def _build_container_graph(
     container_id: str,
     container_path: Path,
@@ -202,14 +248,9 @@ def _build_container_graph(
     container_graph.add(
         (container_ref, DCTERMS.identifier, Literal(container_id))
     )
-    container_graph.remove((container_ref, PROV.atLocation, None))
-    container_graph.add(
-        (
-            container_ref,
-            PROV.atLocation,
-            URIRef(container_path.as_uri()),
-        )
-    )
+    # The metadata of a container does not say where the container is: it is inside it. The location is
+    # the storage index's. A location an older version wrote is taken out, with the ones of its datasets.
+    _migrate_legacy_datasets(container_graph, container_ref, container_path)
     _ensure_semantic_metadata(
         container_graph,
         container_ref,

@@ -1,6 +1,7 @@
 import re
 import urllib.error
 import urllib.request
+from pathlib import PurePosixPath
 from typing import Callable, ClassVar, Optional, Pattern, Tuple
 
 
@@ -65,6 +66,34 @@ class GitHubZipAddress:
             return match.group("owner"), name
 
         return None
+
+    @classmethod
+    def folder(cls, address: str) -> Optional[str]:
+        """
+        The folder inside the repository the address names, when it names one:
+        the part after the repository, as in
+        ``https://github.com/<owner>/<repo>/<folder>``. None when the address
+        names no GitHub repository or names no folder of it.
+        """
+        text: str = address.strip()
+        match: Optional["re.Match[str]"] = cls.PAGE.match(text)
+        if match is None:
+            return None
+
+        remainder: str = text[match.end("repo"):]
+        separator: str
+        for separator in ("#", "?"):
+            remainder = remainder.split(separator, 1)[0]
+
+        folder: str = remainder.strip("/")
+        if not folder:
+            return None
+
+        path: PurePosixPath = PurePosixPath(folder)
+        if path.is_absolute() or ".." in path.parts:
+            return None
+
+        return str(path)
 
     @classmethod
     def page_of(cls, owner: str, name: str) -> str:

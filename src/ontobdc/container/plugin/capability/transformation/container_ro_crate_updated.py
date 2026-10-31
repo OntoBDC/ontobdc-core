@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.parameter import RequiredParameter
@@ -9,6 +9,7 @@ from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 from ontobdc.container.plugin.machine.container_refresh.state import ContainerRefreshProcessState
 from ontobdc.container.plugin.check.is_container_manifest_synced.check import (
     main as check_container_manifest_synced,
+    problems as container_manifest_problems,
 )
 from ontobdc.container.plugin.check.is_container_manifest_synced.hotfix import (
     main as hotfix_container_manifest_synced,
@@ -81,8 +82,13 @@ class ContainerRoCrateUpdatedCapability(TransactionCapability):
             container_path=container_path_str,
             root_path=root_path_str,
         ) != 0:
+            reasons: List[str] = container_manifest_problems(container_path_str, root_path_str)
+            shown: int = 5
+            lines: List[str] = [f"- {reason}" for reason in reasons[:shown]]
+            if len(reasons) > shown:
+                lines.append(f"- and {len(reasons) - shown} more")
             raise ValueError(
-                "Container manifest is still invalid after the RO-Crate update hotfix."
+                "Container manifest is still invalid after the RO-Crate update hotfix:\n" + "\n".join(lines)
             )
 
         ro_crate_path: Path = StorageBootstrap.get_container_crate_metadata_file_path(

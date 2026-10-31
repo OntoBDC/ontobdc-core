@@ -57,11 +57,25 @@ statechart:
           en: "The host of each package of system.obdc was fetched again and put into the source folder of the container."
           pt-br: "O host de cada pacote do system.obdc foi baixado de novo e posto na pasta source do container."
         transitions:
+          - target: addons_refreshed
+            guard: handler.can_transit_to(to_state = SystemUpdateProcessStatePort.ADDONS_REFRESHED)
+            action: handler.perform_state_transition(to_state = SystemUpdateProcessStatePort.ADDONS_REFRESHED)
+            contract:
+              - after: handler.validate_state_transition(from_state = SystemUpdateProcessStatePort.PACKAGES_REFRESHED, to_state = SystemUpdateProcessStatePort.ADDONS_REFRESHED)
+
+      - name: addons_refreshed
+        label:
+          en: "Addons Refreshed"
+          pt-br: "Addons Atualizados"
+        description:
+          en: "The folder each package of system.obdc names was fetched again, and the one that holds an addon was copied into the addon folder of the container."
+          pt-br: "A pasta que cada pacote do system.obdc nomeia foi baixada de novo, e a que tem um addon foi copiada para a pasta addon do container."
+        transitions:
           - target: system_lock_written
             guard: handler.can_transit_to(to_state = SystemUpdateProcessStatePort.SYSTEM_LOCK_WRITTEN)
             action: handler.perform_state_transition(to_state = SystemUpdateProcessStatePort.SYSTEM_LOCK_WRITTEN)
             contract:
-              - after: handler.validate_state_transition(from_state = SystemUpdateProcessStatePort.PACKAGES_REFRESHED, to_state = SystemUpdateProcessStatePort.SYSTEM_LOCK_WRITTEN)
+              - after: handler.validate_state_transition(from_state = SystemUpdateProcessStatePort.ADDONS_REFRESHED, to_state = SystemUpdateProcessStatePort.SYSTEM_LOCK_WRITTEN)
 
       - name: system_lock_written
         label:

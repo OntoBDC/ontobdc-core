@@ -48,6 +48,7 @@ class SystemUpdateRequest(SystemInstallRequest):
 
     DDOCK_REFRESHED_KEY: str = "ddock_update_ddock_refreshed"
     PACKAGES_REFRESHED_KEY: str = "ddock_update_packages_refreshed"
+    ADDONS_REFRESHED_KEY: str = "ddock_update_addons_refreshed"
 
     @classmethod
     def ddock_refreshed(cls, context: CliContextPort) -> bool:
@@ -64,6 +65,14 @@ class SystemUpdateRequest(SystemInstallRequest):
         folder of the container.
         """
         return context.get_parameter_value(cls.PACKAGES_REFRESHED_KEY) is True
+
+    @classmethod
+    def addons_refreshed(cls, context: CliContextPort) -> bool:
+        """
+        Whether this run already put the addon of every package into the addon
+        folder of the container.
+        """
+        return context.get_parameter_value(cls.ADDONS_REFRESHED_KEY) is True
 
 
 class SystemUpdateStateEvaluatorAdapter(SystemUpdateStateEvaluatorPort):

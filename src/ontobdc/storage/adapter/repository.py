@@ -140,7 +140,7 @@ class StorageContainerRepository(StorageContainerRepositoryPort):
 
         container_storage_path: Path = Path(container_storage_file)
         if not container_storage_path.is_file():
-            raise FileNotFoundError(str(container_storage_path))
+            raise FileNotFoundError(self._missing_metadata_message(container_storage_path))
 
         graph: Graph = Graph()
         graph.parse(str(container_storage_path), format="turtle")
@@ -148,6 +148,17 @@ class StorageContainerRepository(StorageContainerRepositoryPort):
         self._container_path = Path(container_config_dir).parent
         self._metadata_path = container_storage_path
         return graph
+
+    def _missing_metadata_message(self, container_storage_path: Path) -> str:
+        """Says what is missing of the metadata of a container the index lists, in a line."""
+        directory: Path = container_storage_path.parent
+        container: Path = directory.parent
+        if directory.is_dir():
+            held: str = ", ".join(sorted(entry.name for entry in directory.iterdir())) or "nothing"
+            return f"No {container_storage_path.name} in {directory} (it holds {held})."
+        if container.is_dir():
+            return f"No {directory.name} directory in {container}."
+        return f"No directory {container}."
 
     def _graph_value(self, predicate: URIRef) -> str:
         if self._container_subject is None:
@@ -297,12 +308,12 @@ class LoadedStorageGraph:
                 root_triples: List[Tuple[str, str]] = sorted(
                     (str(predicate), str(obj))
                     for predicate, obj in self.graph.predicate_objects(subject)
-                    if predicate in [RDF.type, DCTERMS.identifier, PROV.atLocation, DCTERMS.title, DCTERMS.description]
+                    if predicate in [RDF.type, DCTERMS.identifier, DCTERMS.title, DCTERMS.description]
                 )
                 container_triples: List[Tuple[str, str]] = sorted(
                     (str(predicate), str(obj))
                     for predicate, obj in container_graph.predicate_objects(subject)
-                    if predicate in [RDF.type, DCTERMS.identifier, PROV.atLocation, DCTERMS.title, DCTERMS.description]
+                    if predicate in [RDF.type, DCTERMS.identifier, DCTERMS.title, DCTERMS.description]
                 )
 
                 if root_triples != container_triples:

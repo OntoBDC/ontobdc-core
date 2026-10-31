@@ -4,6 +4,7 @@ from typing import Optional
 from rdflib import Graph, URIRef
 from rdflib.namespace import RDF
 
+from ontobdc.container.adapter.dataset_metadata import DatasetMetadataFile
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
 from ontobdc.container.plugin.check.is_dataset_surfaceable_synced.check import (
     OBDC,
@@ -68,8 +69,8 @@ def main(
 
     dataset_graph.add((entity_type, RDF.type, OBDC.SurfaceableEntity))
     try:
-        dataset_graph.serialize(
-            destination=str(dataset_storage_file_path), format="turtle"
+        dataset_storage_file_path.write_bytes(
+            DatasetMetadataFile.serialize(dataset_graph, dataset_storage_file_path)
         )
     except Exception:
         return 1

@@ -80,6 +80,20 @@ class CrateFileHistory:
                 entries.append(FileHistoryEntry(*values, size=cls._size_of(item), missing_since=missing if isinstance(missing, str) and missing else None))
         return FileHistory(entries)
 
+    @staticmethod
+    def same_time(left: str, right: str) -> bool:
+        """
+        Whether two timestamps are the same instant to the millisecond. A file has the time it was modified at the
+        precision its system keeps: a browser tells only milliseconds (``File.lastModified``), a computer microseconds or
+        more, so the very file seen from either is the same file, and a history written on one knows it on the other.
+        """
+        try:
+            first: datetime = datetime.fromisoformat(left.replace("Z", "+00:00"))
+            second: datetime = datetime.fromisoformat(right.replace("Z", "+00:00"))
+        except ValueError:
+            return left == right
+        return first.replace(microsecond=first.microsecond // 1000 * 1000) == second.replace(microsecond=second.microsecond // 1000 * 1000)
+
     @classmethod
     def entry_of(cls, files: ContainerFileRepository, relative_path: str, previous: FileHistory) -> Optional[FileHistoryEntry]:
         """
@@ -94,7 +108,7 @@ class CrateFileHistory:
 
         size: Optional[int] = files.size(relative_path)
         known: Optional[FileHistoryEntry] = previous.last_at(relative_path)
-        if known is not None and known.missing_since is None and known.timestamp == timestamp:
+        if known is not None and known.missing_since is None and cls.same_time(known.timestamp, timestamp):
             # An entry written before the size was kept learns it; the content is not read again.
             return known if known.size is not None else FileHistoryEntry(relative_path, known.sha256, timestamp, size)
         return FileHistoryEntry(relative_path, files.sha256(relative_path), timestamp, size)
@@ -398,24 +412,31 @@ class CrateFileHistory:
         document["@context"] = declared
 
     @classmethod
-    def matches(cls, files: ContainerFileRepository, histories: Dict[str, FileHistory], relative_paths: Any) -> bool:
+    def mismatches(cls, files: ContainerFileRepository, histories: Dict[str, FileHistory], relative_paths: Any) -> List[str]:
         """
-        Whether the history knows every file as it is now: the last entry that names each path says the
-        file is there, with the timestamp the file has. The content is not read.
+        What keeps the history from knowing every file as it is now, one line for each path: the last entry that
+        names it says the file is there, with the timestamp the file has. The content is not read.
         """
-        for relative_path in relative_paths:
+        found: List[str] = []
+        for relative_path in sorted(relative_paths):
             modified: Optional[str] = files.modified(relative_path)
             if modified is None:
-                return False
+                found.append(f"{relative_path}: the file cannot be seen")
+                continue
             known: Optional[FileHistoryEntry] = histories.get(relative_path, FileHistory()).last_at(relative_path)
-            if (
-                known is None
-                or known.missing_since is not None
-                or known.timestamp != modified
-            ):
-                return False
+            if known is None:
+                found.append(f"{relative_path}: the history has no entry for it")
+            elif known.missing_since is not None:
+                found.append(f"{relative_path}: the history says it is missing since {known.missing_since}")
+            elif not cls.same_time(known.timestamp, modified):
+                found.append(f"{relative_path}: the history says {known.timestamp}, the file has {modified}")
 
-        return True
+        return found
+
+    @classmethod
+    def matches(cls, files: ContainerFileRepository, histories: Dict[str, FileHistory], relative_paths: Any) -> bool:
+        """Whether the history knows every file as it is now (see ``mismatches``)."""
+        return not cls.mismatches(files, histories, relative_paths)
 
     @classmethod
     def _is_file(cls, node: Dict[str, Any]) -> bool:
