@@ -33,6 +33,21 @@ class ContainerRefreshCommand(CliCommandPort, LoggerAwarePort):
         arguments=[
             {
                 "accepts": [
+                    "--config",
+                ],
+                "valued": True,
+                "parameter": "config",
+                "description": (
+                    "The config of the application, as text (YAML or "
+                    "JSON), whose constraints the refresh replicates into "
+                    "the config of the container, replacing what it held. "
+                    "When omitted, the config of the container is left as "
+                    "it is."
+                ),
+                "type": "str",
+            },
+            {
+                "accepts": [
                     "--container",
                 ],
                 "valued": True,
@@ -52,6 +67,7 @@ class ContainerRefreshCommand(CliCommandPort, LoggerAwarePort):
 
     REFRESH_FLAG: ClassVar[str] = "--refresh"
     CONTAINER_FLAG: ClassVar[str] = "--container"
+    CONFIG_FLAG: ClassVar[str] = "--config"
 
     @staticmethod
     def accepts(args: List[str]) -> bool:
@@ -94,7 +110,7 @@ class ContainerRefreshCommand(CliCommandPort, LoggerAwarePort):
     def _matches(scoped_args: List[str]) -> bool:
         """
         Report whether these scoped args are --refresh with an optional
-        --container <id-or-path>, in either order.
+        --container <id-or-path> and an optional --config <body>, in any order.
 
         The selector and the action are independent flags, not positions --
         a user (or an automated caller filling in --container on their
@@ -105,14 +121,21 @@ class ContainerRefreshCommand(CliCommandPort, LoggerAwarePort):
 
         remaining: List[str] = list(scoped_args)
         remaining.remove(ContainerRefreshCommand.REFRESH_FLAG)
-        if not remaining:
-            return True
+        seen: List[str] = []
+        while remaining:
+            flag: str = remaining[0]
+            if (
+                len(remaining) < 2
+                or flag not in (ContainerRefreshCommand.CONTAINER_FLAG, ContainerRefreshCommand.CONFIG_FLAG)
+                or flag in seen
+                or not remaining[1].strip()
+            ):
+                return False
 
-        return (
-            len(remaining) == 2
-            and remaining[0] == ContainerRefreshCommand.CONTAINER_FLAG
-            and bool(remaining[1].strip())
-        )
+            seen.append(flag)
+            del remaining[:2]
+
+        return True
 
     def run(self) -> CommandResponse:
         """

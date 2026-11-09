@@ -1,4 +1,4 @@
-from typing import Callable, ClassVar, List, Tuple
+from typing import Callable, ClassVar, List, Optional, Tuple
 from pathlib import Path
 from functools import partial
 
@@ -13,6 +13,9 @@ from ontobdc.container.plugin.check.is_dataset_healthy.check import (
 )
 from ontobdc.container.plugin.check.is_container_cleaned.check import (
     main as check_container_cleaned,
+)
+from ontobdc.container.plugin.check.is_container_constraint_replicated.check import (
+    main as check_container_constraint_replicated,
 )
 from ontobdc.container.plugin.check.is_dataset_facade_valid.check import (
     main as check_dataset_facade_valid,
@@ -195,6 +198,21 @@ class ContainerHealthCheckCapability(HealthCheckCapability):
         root_path: Path = Path(context.root_path).expanduser().resolve()
 
         checks: List[HealthCheck] = self._container_checks(container_path, root_path)
+        config: Optional[str] = RequiredParameter.optional(context, "config")
+        if config is not None:
+            # What the application declares and the container does not hold is worth saying, not an error.
+            checks.append(
+                HealthCheck(
+                    identifier="container_constraint_replicated",
+                    label="Constraints of the application",
+                    passed=check_container_constraint_replicated(
+                        container_path=str(container_path),
+                        root_path=str(root_path),
+                        config=config,
+                    ) == 0,
+                    warning=True,
+                )
+            )
         dataset_path: Path
         for dataset_path in RegisteredDatasets.of(container_path):
             checks.extend(self._dataset_checks(dataset_path, root_path))

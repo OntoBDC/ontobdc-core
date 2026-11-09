@@ -51,11 +51,25 @@ statechart:
           en: "The target container is structurally valid, registered, accessible, and ready for cleanup."
           pt-br: "O container alvo está estruturalmente válido, registrado, acessível e pronto para limpeza."
         transitions:
+          - target: container_constraint_replicated
+            guard: handler.can_transit_to(to_state = ContainerRefreshProcessStatePort.CONTAINER_CONSTRAINT_REPLICATED)
+            action: handler.perform_state_transition(to_state = ContainerRefreshProcessStatePort.CONTAINER_CONSTRAINT_REPLICATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ContainerRefreshProcessStatePort.CONTAINER_HEALTHY, to_state = ContainerRefreshProcessStatePort.CONTAINER_CONSTRAINT_REPLICATED)
+
+      - name: container_constraint_replicated
+        label:
+          en: "Constraints Replicated"
+          pt-br: "Constraints replicadas"
+        description:
+          en: "The constraints of the application, given with --config, are the ones the container config holds; nothing was given, nothing changes."
+          pt-br: "As constraints da aplicação, dadas com --config, são as que o config do container guarda; se nada foi dado, nada muda."
+        transitions:
           - target: container_datasets_healthy
             guard: handler.can_transit_to(to_state = ContainerRefreshProcessStatePort.CONTAINER_DATASETS_HEALTHY)
             action: handler.perform_state_transition(to_state = ContainerRefreshProcessStatePort.CONTAINER_DATASETS_HEALTHY)
             contract:
-              - after: handler.validate_state_transition(from_state = ContainerRefreshProcessStatePort.CONTAINER_HEALTHY, to_state = ContainerRefreshProcessStatePort.CONTAINER_DATASETS_HEALTHY)
+              - after: handler.validate_state_transition(from_state = ContainerRefreshProcessStatePort.CONTAINER_CONSTRAINT_REPLICATED, to_state = ContainerRefreshProcessStatePort.CONTAINER_DATASETS_HEALTHY)
 
       - name: container_datasets_healthy
         label:

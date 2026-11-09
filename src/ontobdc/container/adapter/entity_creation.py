@@ -15,7 +15,8 @@ class EntityCreation:
     @classmethod
     def record(cls, facade: EntityFacade, given: Dict[str, Any]) -> Dict[str, Any]:
         """
-        The given values, a default for every field of the facade that has one
+        The given values, a default (a generator's value, or the value the facade
+        declares) for every field of the facade that has one
         and was not given (a given value always prevails). Whether the row
         is complete is for the writing to judge.
 
@@ -39,6 +40,12 @@ class EntityCreation:
                 raise ValueError(f"The field {name} takes a text, not a structure.")
             record[name] = "" if value is None else str(value)
 
+        # A field that belongs to other types is not one this entity has: it takes no value.
+        had: List[str] = [declared.identifier for declared in facade.fields_of(record)]
+        foreign: List[str] = [name for name, text in record.items() if text.strip() and name not in had]
+        if foreign:
+            raise ValueError(f"The fields {foreign} do not belong to this type of {facade.name}.")
+
         for field in facade.fields:
             given_value: str = record.get(field.identifier, "")
             if field.options and given_value.strip() and given_value not in field.options:
@@ -47,7 +54,15 @@ class EntityCreation:
                 )
 
         for field in facade.fields:
-            if field.default is not None and not record.get(field.identifier, "").strip():
+            if field.default is not None and field.default_value is not None:
+                raise ValueError(f"The field {field.identifier} declares a default generator and a default value, not one of them.")
+
+            if record.get(field.identifier, "").strip():
+                continue
+
+            if field.default is not None:
                 record[field.identifier] = ValueGenerators.generate(field.default)
+            elif field.default_value is not None:
+                record[field.identifier] = field.default_value
 
         return record

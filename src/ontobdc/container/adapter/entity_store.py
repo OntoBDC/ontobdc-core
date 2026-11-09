@@ -69,7 +69,7 @@ class ContainerEntityStore:
                 changed or a required field would be left empty.
         """
         dataset_path, row, facade = self.locate(global_id)
-        fields: Dict[str, Any] = {field.identifier: field for field in facade.fields}
+        fields: Dict[str, Any] = {field.identifier: field for field in facade.fields_of(row)}
         changed: Dict[str, str] = {}
         name: str
         value: Any

@@ -65,6 +65,7 @@ class AnnotationListCommand(CliCommandPort):
         "author",
         "created_at",
         "completed_at",
+        "entity",
     ]
 
     @staticmethod

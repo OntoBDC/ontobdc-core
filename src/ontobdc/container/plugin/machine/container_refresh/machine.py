@@ -11,6 +11,7 @@ from ontobdc.shared.adapter.loader import (
 from ontobdc.shared.adapter.worker import StateWorkerAdapter
 from ontobdc.cli.domain.port.logger import LogRepositoryPort
 from ontobdc.cli.domain.port.context import CliContextPort
+from ontobdc.shared.adapter.parameter import RequiredParameter
 from ontobdc.shared.adapter.resolver import StrategyParamResolver
 from ontobdc.shared.adapter.capability import CapabilityExecutor
 from ontobdc.shared.adapter.statechart import StatechartLocator
@@ -30,6 +31,9 @@ from ontobdc.container.plugin.machine.container_refresh.state import (
 )
 from ontobdc.container.plugin.check.is_container_cleaned.check import (
     evaluate as evaluate_container_cleaned,
+)
+from ontobdc.container.plugin.check.is_container_constraint_replicated.check import (
+    main as check_container_constraint_replicated,
 )
 from ontobdc.container.plugin.check.is_container_metadata_ready.check import (
     main as check_container_metadata_ready,
@@ -105,6 +109,7 @@ class ContainerRefreshStateEvaluatorAdapter(ContainerRefreshStateEvaluatorPort):
                 root_path=root_path,
                 cleanup_capability=self._cleanup_capability,
                 events_directory=events_directory,
+                config=RequiredParameter.optional(context, "config"),
             ):
                 return reached_state
             reached_state = state_enum
@@ -120,6 +125,7 @@ class ContainerRefreshStateEvaluatorAdapter(ContainerRefreshStateEvaluatorPort):
         root_path: Path,
         cleanup_capability: ContainerCleanedCapability,
         events_directory: Path,
+        config: Optional[str] = None,
     ) -> bool:
         event_value: str = state_enum.value
         if not isinstance(event_value, str) or not event_value.strip():
@@ -130,6 +136,17 @@ class ContainerRefreshStateEvaluatorAdapter(ContainerRefreshStateEvaluatorPort):
         event_candidate: Path = events_directory / f"{event_value}.json"
         if state_name in {"container_datasets_healthy", "container_updated"}:
             return event_candidate.is_file()
+
+        if state_name == "container_constraint_replicated":
+            # What the application declared (the body of --config) is in the container, or nothing was declared.
+            return (
+                check_container_constraint_replicated(
+                    container_path=str(container_path),
+                    root_path=str(root_path),
+                    config=config,
+                )
+                == 0
+            )
 
         if state_name == "container_cleaned":
             return (

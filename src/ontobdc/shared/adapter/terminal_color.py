@@ -92,30 +92,36 @@ class CheckOutcomeBadge:
 
     Same layout as :class:`SeverityBadge` — background, knocked-out
     foreground, one space of breathing room on each side — but a check has
-    only two outcomes and neither of them is a severity: it held, or it
-    did not.
+    only three outcomes and none of them is a severity: it held, it did
+    not, or it did not hold and is a warning, not an error.
     """
 
     PASSED_LABEL: ClassVar[str] = "OK"
     FAILED_LABEL: ClassVar[str] = "ERROR"
+    WARNING_LABEL: ClassVar[str] = "WARNING"
+    WARNING: ClassVar[str] = "warning"
 
     _PASSED_BACKGROUND: ClassVar[Tuple[int, int, int]] = (22, 163, 74)
     _FAILED_BACKGROUND: ClassVar[Tuple[int, int, int]] = (153, 27, 27)
+    _WARNING_BACKGROUND: ClassVar[Tuple[int, int, int]] = (180, 83, 9)
     _FOREGROUND: ClassVar[Tuple[int, int, int]] = (255, 255, 255)
 
     @classmethod
-    def render(cls, passed: bool) -> str:
+    def render(cls, passed: "bool | str") -> str:
         """
-        Return the badge for a check that held, or for one that did not.
+        Return the badge for a check that held, for one that did not, or for
+        one that is a warning (``CheckOutcomeBadge.WARNING``).
 
         The badge is followed by as many plain spaces as it is narrower
         than the widest one, so a listing of both outcomes lines its
         labels up in one column while each block keeps its own width.
         """
-        background: Tuple[int, int, int] = (
-            cls._PASSED_BACKGROUND if passed else cls._FAILED_BACKGROUND
-        )
-        label: str = cls.PASSED_LABEL if passed else cls.FAILED_LABEL
+        if passed == cls.WARNING:
+            background: Tuple[int, int, int] = cls._WARNING_BACKGROUND
+            label: str = cls.WARNING_LABEL
+        else:
+            background = cls._PASSED_BACKGROUND if passed else cls._FAILED_BACKGROUND
+            label = cls.PASSED_LABEL if passed else cls.FAILED_LABEL
         alignment: str = " " * (cls.width() - len(label) - 2)
 
         return (
@@ -130,7 +136,7 @@ class CheckOutcomeBadge:
         """
         Return how many columns the widest badge occupies.
         """
-        return max(len(cls.PASSED_LABEL), len(cls.FAILED_LABEL)) + 2
+        return max(len(cls.PASSED_LABEL), len(cls.FAILED_LABEL), len(cls.WARNING_LABEL)) + 2
 
 
 class SeverityBadge:

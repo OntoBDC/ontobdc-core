@@ -156,7 +156,7 @@ class HealthCheckCapability(Capability, HealthCheckCapabilityPort):
 
         return {
             self.CHECKS_KEY: checks,
-            self.HEALTHY_KEY: all(check.passed for check in checks),
+            self.HEALTHY_KEY: all(check.passed or check.warning for check in checks),
         }
 
 

@@ -2,7 +2,7 @@ import csv
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
-from brasidatacenter.tool.adapter.entity_info import entity_info
+from brasidatacenter.tool.adapter.entity_info import entity_info, owned_entity_types
 from rdflib import Graph, URIRef
 from rdflib.namespace import DCTERMS, RDF
 
@@ -46,6 +46,8 @@ class ContainerEntities:
         entities its data sources hold.
         """
         container: Path = container_path.expanduser().resolve()
+        # The types that are made for another entity (the framework of a work stream): their datasets say so.
+        owned_types: set[str] = set(owned_entity_types())
         datasets: List[Dict[str, Any]] = []
         dataset_path: Path
         for dataset_path in cls.distinct_datasets(container):
@@ -59,6 +61,7 @@ class ContainerEntities:
                     "title": cls._title(metadata, dataset_path),
                     "path": cls._relative(dataset_path, container),
                     "entity_types": types,
+                    **({"owned": True} if all(entity_type in owned_types for entity_type in types) else {}),
                     "entities": cls._entities(dataset_path, types),
                 }
             )
@@ -246,23 +249,19 @@ class ContainerEntities:
         Only the facade's fields, in declared order. A missing CSV column
         is an empty field; an undeclared column is not part of the visual.
         """
-        declared: Dict[str, Dict[str, str]] = (
-            {field.identifier: field.labels for field in facade.fields}
-            if facade is not None
-            else {}
-        )
-        editable: List[str] = (
-            [field.identifier for field in facade.fields if EntityFieldRules.is_editable(field)]
-            if facade is not None
-            else []
-        )
+        # The fields the entity has: one that belongs to other types is not part of it.
+        had: List[Any] = facade.fields_of(row) if facade is not None else []
+        declared: Dict[str, Dict[str, str]] = {field.identifier: field.labels for field in had}
+        editable: List[str] = [field.identifier for field in had if EntityFieldRules.is_editable(field)]
         columns: List[str] = list(declared)
+        references: List[str] = [field.identifier for field in had if field.references_entities]
         return [
             {
                 "name": column,
                 "labels": declared.get(column, {}),
                 "editable": column in editable,
                 "values": [row[column]] if row.get(column) else [],
+                **({"references_entities": True} if column in references else {}),
             }
             for column in columns
         ]

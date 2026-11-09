@@ -10,6 +10,9 @@ class HealthCheck:
     carries no repair and no advice: what to do about a failing check is
     the caller's business, and reporting is the whole of this one's.
 
+    A check that did not hold and is a ``warning`` says something worth knowing
+    that is not an error: it does not make the subject unhealthy.
+
     ``scope`` names the subject a check is about when the capability
     reports on more than one — each dataset of a container, say. It is
     empty for a check about the subject the capability was asked about.
@@ -19,3 +22,4 @@ class HealthCheck:
     label: str
     passed: bool
     scope: str = ""
+    warning: bool = False

@@ -32,6 +32,20 @@ class ContainerHealthCommand(CliCommandPort):
         arguments=[
             {
                 "accepts": [
+                    "--config",
+                ],
+                "valued": True,
+                "parameter": "config",
+                "description": (
+                    "The config of the application, as text (YAML or "
+                    "JSON). When given, health says as a warning, not as an "
+                    "error, whether the container holds the constraints it "
+                    "declares. When omitted, there is nothing to compare."
+                ),
+                "type": "str",
+            },
+            {
+                "accepts": [
                     "--container",
                 ],
                 "valued": True,
@@ -52,9 +66,14 @@ class ContainerHealthCommand(CliCommandPort):
 
     HEALTH_FLAG: ClassVar[str] = "--health"
     CONTAINER_FLAG: ClassVar[str] = "--container"
+    CONFIG_FLAG: ClassVar[str] = "--config"
     HEALTHY_KEY: ClassVar[str] = "healthy"
 
     HEALTHY_DESCRIPTION: ClassVar[str] = "Every verification holds."
+    WARNED_DESCRIPTION: ClassVar[str] = (
+        "Every verification holds, but a warning says something is worth a look. "
+        "Run `ontobdc container --refresh` to bring the container back in line."
+    )
     UNHEALTHY_DESCRIPTION: ClassVar[str] = (
         "A verification did not hold. Run `ontobdc container --refresh` to "
         "bring the container back in line with the files it holds."
@@ -91,7 +110,7 @@ class ContainerHealthCommand(CliCommandPort):
     def _matches(scoped_args: List[str]) -> bool:
         """
         Report whether these scoped args are --health with an optional
-        --container <id-or-path>, in either order.
+        --container <id-or-path> and an optional --config <body>, in any order.
 
         The selector and the action are independent flags, not positions --
         a user (or an automated caller filling in --container on their
@@ -102,14 +121,21 @@ class ContainerHealthCommand(CliCommandPort):
 
         remaining: List[str] = list(scoped_args)
         remaining.remove(ContainerHealthCommand.HEALTH_FLAG)
-        if not remaining:
-            return True
+        seen: List[str] = []
+        while remaining:
+            flag: str = remaining[0]
+            if (
+                len(remaining) < 2
+                or flag not in (ContainerHealthCommand.CONTAINER_FLAG, ContainerHealthCommand.CONFIG_FLAG)
+                or flag in seen
+                or not remaining[1].strip()
+            ):
+                return False
 
-        return (
-            len(remaining) == 2
-            and remaining[0] == ContainerHealthCommand.CONTAINER_FLAG
-            and bool(remaining[1].strip())
-        )
+            seen.append(flag)
+            del remaining[:2]
+
+        return True
 
     def run(self) -> HealthCheckCommandResponse:
         """
@@ -120,14 +146,21 @@ class ContainerHealthCommand(CliCommandPort):
             self._request.context,
         )
         healthy: bool = bool(report.get(self.HEALTHY_KEY))
+        # A verification that did not hold and is only a warning leaves the container healthy, and says so.
+        warned: bool = any(
+            not check.passed and check.warning for check in report.get("checks", [])
+        )
+
+        if not healthy:
+            description, severity = self.UNHEALTHY_DESCRIPTION, "ERROR"
+        elif warned:
+            description, severity = self.WARNED_DESCRIPTION, "WARNING"
+        else:
+            description, severity = self.HEALTHY_DESCRIPTION, "SUCCESS"
 
         return HealthCheckCommandResponse(
             title="Container Health",
-            description=(
-                self.HEALTHY_DESCRIPTION
-                if healthy
-                else self.UNHEALTHY_DESCRIPTION
-            ),
+            description=description,
             content=report,
-            severity="SUCCESS" if healthy else "ERROR",
+            severity=severity,
         )

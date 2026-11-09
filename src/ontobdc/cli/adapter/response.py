@@ -383,7 +383,7 @@ class HealthCheckCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
     DETAIL_SEPARATOR: str = " — "
 
     @classmethod
-    def _check_of(cls, check: Any) -> Tuple[str, bool]:
+    def _check_of(cls, check: Any) -> Tuple[str, "bool | str"]:
         """
         Return the line a reported check reads as, and its outcome.
 
@@ -395,11 +395,13 @@ class HealthCheckCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
         passed: Any = getattr(check, "passed", None)
         scope: Any = getattr(check, "scope", None)
         details: Any = getattr(check, "details", None)
+        warning: Any = getattr(check, "warning", False)
         if isinstance(check, dict):
             label = check.get("label")
             passed = check.get("passed")
             scope = check.get("scope")
             details = check.get("details")
+            warning = check.get("warning", False)
 
         line: str = str(label).strip()
         if isinstance(scope, str) and scope.strip():
@@ -407,6 +409,10 @@ class HealthCheckCommandResponseWidgetAdapter(BaseResponseWidgetAdapter):
         # A check that did not hold says why, when it can.
         if not passed and isinstance(details, list) and details:
             line = f"{line}{cls.DETAIL_SEPARATOR}{str(details[0]).strip()}"
+
+        # A check that did not hold and is a warning is shown as one, not as an error.
+        if not passed and warning is True:
+            return line, "warning"
 
         return line, bool(passed)
 

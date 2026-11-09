@@ -195,7 +195,7 @@ class HealthCheckWidget:
     outcome as a background-coloured badge, then the label.
     """
 
-    checks: List[Tuple[str, bool]] = field(default_factory=list)
+    checks: List[Tuple[str, "bool | str"]] = field(default_factory=list)
 
 
 @dataclass

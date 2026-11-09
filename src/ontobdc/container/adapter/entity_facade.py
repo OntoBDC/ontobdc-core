@@ -23,6 +23,7 @@ class EntityFacadeLocator:
         "http://datacenter.app.br/ontology/tool/ontobdc/facade/ns.ttl#"
     )
     SCHEMA: ClassVar[Namespace] = Namespace("http://schema.org/")
+    CORE: ClassVar[Namespace] = Namespace("http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#")
 
     @classmethod
     def of(cls, entity_iri: str) -> EntityFacade:
@@ -99,7 +100,11 @@ class EntityFacadeLocator:
             ),
             editable=cls._declared_flag(graph, subject, cls.FACADE.isEditable),
             default=cls._generator(graph, subject),
+            default_value=cls._default_value(graph, subject),
             options=cls._options(graph, subject),
+            applies_to=cls._applies_to(graph, subject),
+            references_entities=cls._references_entities(graph, subject),
+            applies_to_iris=sorted(str(entity_type) for entity_type in graph.objects(subject, cls.FACADE.appliesToType) if isinstance(entity_type, URIRef)),
             labels=cls._labels(graph, subject),
         )
 
@@ -147,10 +152,63 @@ class EntityFacadeLocator:
         return sorted(identifiers)
 
     @classmethod
+    def _references_entities(cls, graph: Graph, subject: URIRef) -> bool:
+        """
+        Whether the field points to entities of the container: the facade of resources
+        it names is of ``DataEntity`` or of a class that some entity type is, or is a subclass of.
+        """
+        resource: Any = graph.value(subject, cls.FACADE.hasResourceFacade)
+        resource_class: Any = graph.value(resource, cls.FACADE.isFacadeOf) if resource is not None else None
+        if not isinstance(resource_class, URIRef):
+            return False
+
+        from ontobdc.container.adapter.entity_listing import ContainerEntities
+
+        published: List[str] = ContainerEntities._published_types()
+        if str(resource_class) in published or str(resource_class) == str(cls.CORE.DataEntity):
+            return True
+
+        library: BrasidataCenterOntologyLibrary = BrasidataCenterOntologyLibrary()
+        iri: str
+        for iri in library.iris():
+            ontology: Graph = library.graph(iri)
+            if any(URIRef(entity_type) in set(ontology.transitive_subjects(RDFS.subClassOf, resource_class)) for entity_type in published):
+                return True
+
+        return False
+
+    @classmethod
+    def _applies_to(cls, graph: Graph, subject: URIRef) -> List[str]:
+        """
+        The identifiers (``dcterms:identifier``) of the entity types the facade
+        says the field belongs to; none when it says none.
+        """
+        library: BrasidataCenterOntologyLibrary = BrasidataCenterOntologyLibrary()
+        identifiers: set[str] = set()
+        entity_type: Any
+        for entity_type in graph.objects(subject, cls.FACADE.appliesToType):
+            if not isinstance(entity_type, URIRef):
+                continue
+
+            iri: str
+            for iri in library.iris():
+                identifier: Any = library.graph(iri).value(entity_type, DCTERMS.identifier)
+                if isinstance(identifier, Literal):
+                    identifiers.add(str(identifier))
+
+        return sorted(identifiers)
+
+    @classmethod
     def _generator(cls, graph: Graph, subject: URIRef) -> Optional[str]:
         """The IRI of the value generator the facade gives the field as its default, if any."""
         generator: Any = graph.value(subject, cls.FACADE.hasDefault)
         return str(generator) if isinstance(generator, URIRef) else None
+
+    @classmethod
+    def _default_value(cls, graph: Graph, subject: URIRef) -> Optional[str]:
+        """The value the facade gives the field on every instance created without one, if any."""
+        value: Any = graph.value(subject, cls.FACADE.hasDefaultValue)
+        return str(value) if isinstance(value, Literal) else None
 
     @classmethod
     def _declared_flag(cls, graph: Graph, subject: URIRef, predicate: URIRef) -> bool:

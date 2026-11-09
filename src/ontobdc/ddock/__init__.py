@@ -1,7 +1,7 @@
 from typing import Dict
 
 DESCRIPTION: Dict[str, str] = {
-    "en": "Install features, as source code, into the application that runs on OntoBDC.",
-    "pt": "Instala funcionalidades, como código-fonte, na aplicação que roda sobre o OntoBDC.",
-    "es": "Instala funcionalidades, como código fuente, en la aplicación que corre sobre OntoBDC.",
+    "en": "Delegate system installation and update commands to the separate ontobdc-view workspace CLI.",
+    "pt": "Delega comandos de instalação e atualização de sistema para a CLI separada do workspace ontobdc-view.",
+    "es": "Delega comandos de instalación y actualización de sistema a la CLI independiente del workspace ontobdc-view.",
 }

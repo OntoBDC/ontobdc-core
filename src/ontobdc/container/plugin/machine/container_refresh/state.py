@@ -13,6 +13,7 @@ class ContainerRefreshProcessState(ContainerRefreshProcessStatePort):
     UNDEFINED = "__undefined__"
     CONTAINER_INVALID = "__container_invalid__"
     CONTAINER_HEALTHY = "__container_healthy__"
+    CONTAINER_CONSTRAINT_REPLICATED = "__container_constraint_replicated__"
     CONTAINER_DATASETS_HEALTHY = "__container_datasets_healthy__"
     CONTAINER_CLEANED = "__container_cleaned__"
     CONTAINER_DATAPACKAGE_UPDATED = "__container_datapackage_updated__"

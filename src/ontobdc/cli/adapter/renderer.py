@@ -302,24 +302,24 @@ class HealthCheckWidgetMarkdownStrategy(WidgetMarkdownStrategy):
 
         check: Any
         for check in checks:
-            label, passed = self._check_of(check)
+            label, outcome = self._check_of(check)
             if not label:
                 continue
 
             document.line(
-                f"{self.VERBATIM_PREFIX}{CheckOutcomeBadge.render(passed)}  {label}"
+                f"{self.VERBATIM_PREFIX}{CheckOutcomeBadge.render(outcome)}  {label}"
             )
             document.blank()
 
     @staticmethod
-    def _check_of(check: Any) -> Tuple[str, bool]:
+    def _check_of(check: Any) -> Tuple[str, "bool | str"]:
         values: List[Any] = (
             list(check) if isinstance(check, (list, tuple)) else [check]
         )
         label: str = str(values[0]).strip() if values else ""
-        passed: bool = bool(values[1]) if len(values) > 1 else False
+        outcome: Any = values[1] if len(values) > 1 else False
 
-        return label, passed
+        return label, (CheckOutcomeBadge.WARNING if outcome == CheckOutcomeBadge.WARNING else bool(outcome))
 
 
 class GridWidgetMarkdownStrategy(WidgetMarkdownStrategy):

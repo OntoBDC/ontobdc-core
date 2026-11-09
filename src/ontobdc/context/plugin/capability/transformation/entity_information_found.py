@@ -2,7 +2,10 @@ from typing import Any, ClassVar, Dict, Optional
 
 from brasidatacenter.tool.adapter.entity_info import entity_info
 from ontobdc.cli.domain.port.context import CliContextPort
+from ontobdc.context.adapter.entity_field_limits import EntityFieldLimits
 from ontobdc.shared.adapter.capability import TransformationCapability
+from ontobdc.shared.adapter.config import ConfigDataAdapter
+from ontobdc.shared.domain.exception.config import ContainerRootDirectoryNotSetError
 from ontobdc.shared.adapter.parameter import RequiredParameter
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 
@@ -38,6 +41,14 @@ class EntityInformationFoundCapability(TransformationCapability):
             return isinstance(information, list)
         return isinstance(information, dict) and information.get("entity_iri") == entity_id
 
+    @staticmethod
+    def _container_config(context: CliContextPort) -> Optional[Dict[str, Any]]:
+        """The config of the container the command runs in; none when it runs in no container, which has no config."""
+        try:
+            return ConfigDataAdapter(context.root_path).all
+        except ContainerRootDirectoryNotSetError:
+            return None
+
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         entity_id: Optional[str] = RequiredParameter.optional(context, self.INPUT_KEY)
         if entity_id is None:
@@ -46,5 +57,7 @@ class EntityInformationFoundCapability(TransformationCapability):
             information = entity_info(entity_id)
             if information is None:
                 raise LookupError(f"No ontology publishes a facade of the entity <{entity_id}>.")
+            # What the container's config narrows in the facade: the types a field of entities takes.
+            information = EntityFieldLimits.applied(information, self._container_config(context))
         context.set_parameter_value(self.OUTPUT_KEY, information)
         return {self.OUTPUT_KEY: information}
