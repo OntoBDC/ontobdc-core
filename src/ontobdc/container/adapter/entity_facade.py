@@ -158,6 +158,10 @@ class EntityFacadeLocator:
         it names is of ``DataEntity`` or of a class that some entity type is, or is a subclass of.
         """
         resource: Any = graph.value(subject, cls.FACADE.hasResourceFacade)
+        if isinstance(resource, URIRef) and graph.value(resource, cls.FACADE.isFacadeOf) is None:
+            # A facade of resources the file of the field does not describe is described in the ontology that names it.
+            graph += BrasidataCenterOntologyLibrary().graph(str(resource).split("#", 1)[0])
+
         resource_class: Any = graph.value(resource, cls.FACADE.isFacadeOf) if resource is not None else None
         if not isinstance(resource_class, URIRef):
             return False

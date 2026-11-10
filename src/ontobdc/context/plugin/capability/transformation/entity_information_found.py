@@ -1,3 +1,4 @@
+import os
 from typing import Any, ClassVar, Dict, Optional
 
 from brasidatacenter.tool.adapter.entity_info import entity_info
@@ -45,9 +46,15 @@ class EntityInformationFoundCapability(TransformationCapability):
     def _container_config(context: CliContextPort) -> Optional[Dict[str, Any]]:
         """The config of the container the command runs in; none when it runs in no container, which has no config."""
         try:
-            return ConfigDataAdapter(context.root_path).all
+            root: str = context.root_path
         except ContainerRootDirectoryNotSetError:
             return None
+
+        # A folder that is not a container yet (or has no config) has no limits to apply.
+        if not os.path.isfile(os.path.join(root, ".__ontobdc__", "config.yaml")):
+            return None
+
+        return ConfigDataAdapter(root).all
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         entity_id: Optional[str] = RequiredParameter.optional(context, self.INPUT_KEY)
