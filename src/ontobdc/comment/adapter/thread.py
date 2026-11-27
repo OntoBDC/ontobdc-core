@@ -40,9 +40,14 @@ class CommentThread:
     def path(self) -> Path:
         return self._dataset_path / self.DIRECTORY / f"{self.PREFIX}{self._entity_id}{self.SUFFIX}"
 
+    @staticmethod
+    def entity_iri(entity_id: str) -> URIRef:
+        """The IRI of an entity, by its global id: what a thread and what points to an entity, an author, say it with."""
+        return URIRef(f"urn:ontobdc:entity:{entity_id}")
+
     @property
     def entity(self) -> URIRef:
-        return URIRef(f"urn:ontobdc:entity:{self._entity_id}")
+        return self.entity_iri(self._entity_id)
 
     @property
     def thread(self) -> URIRef:
@@ -111,6 +116,73 @@ class CommentThread:
             "created_at": created_at,
             "reply_of": reply_of or "",
         }
+
+    def write_all(self, comments: List[Dict[str, Any]]) -> List[str]:
+        """
+        Writes the thread whole, with these comments in this order, in place of what it had: the way to bring in
+        a conversation that happened somewhere else, with its own moments and with the authors it has. Each comment
+        is given as ``global_id``, ``text``, ``created_at`` (ISO 8601) and, if it has one, ``author``: the IRI of the
+        entity that wrote it (an author that is a name goes in ``author_name``) and, if it has any, ``properties``: other
+        properties of the comment, as the IRI of each predicate and its text. Returns the ids, in order.
+
+        Raises:
+            ValueError: a comment has no ``global_id``, no ``text`` or no ``created_at``, or gives both an author
+                and the name of one.
+        """
+        graph: Graph = Graph()
+        self._bind(graph)
+        graph.add((self.entity, self.SIOC.has_discussion, self.thread))
+        graph.add((self.thread, RDF.type, self.SIOC.Thread))
+        ids: List[str] = []
+        comment: Dict[str, Any]
+        for comment in comments:
+            missing: List[str] = [key for key in ("global_id", "text", "created_at") if not comment.get(key)]
+            if missing:
+                raise ValueError(f"A comment has no {', '.join(missing)}.")
+            if comment.get("author") and comment.get("author_name"):
+                raise ValueError(f"The comment {comment['global_id']} gives an author and the name of one.")
+
+            subject: URIRef = self.comment_iri(str(comment["global_id"]))
+            graph.add((subject, RDF.type, self.SOCIAL.Comment))
+            graph.add((subject, DCTERMS.identifier, Literal(str(comment["global_id"]))))
+            graph.add((subject, self.SCHEMA.text, Literal(comment["text"])))
+            if comment.get("author"):
+                graph.add((subject, DCTERMS.creator, URIRef(comment["author"])))
+            elif comment.get("author_name"):
+                graph.add((subject, DCTERMS.creator, Literal(comment["author_name"])))
+            graph.add((subject, DCTERMS.created, Literal(comment["created_at"], datatype=XSD.dateTime)))
+            predicate: str
+            value: str
+            for predicate, value in (comment.get("properties") or {}).items():
+                graph.add((subject, URIRef(predicate), Literal(str(value))))
+            graph.add((subject, self.SIOC.has_container, self.thread))
+            graph.add((self.thread, self.SIOC.container_of, subject))
+            ids.append(str(comment["global_id"]))
+
+        self._write(graph)
+        return ids
+
+    def set_authors(self, authors: Dict[str, str]) -> None:
+        """
+        Gives each comment, by its id, the entity that wrote it, in place of the author it had: ``authors`` maps the id of
+        the comment to the IRI of the entity.
+
+        Raises:
+            LookupError: the thread has no such comment.
+        """
+        graph: Graph = self._read()
+        comment_id: str
+        for comment_id in authors:
+            if (self.comment_iri(comment_id), RDF.type, self.SOCIAL.Comment) not in graph:
+                raise LookupError(f"The thread has no comment {comment_id}.")
+
+        author: str
+        for comment_id, author in authors.items():
+            subject: URIRef = self.comment_iri(comment_id)
+            graph.remove((subject, DCTERMS.creator, None))
+            graph.add((subject, DCTERMS.creator, URIRef(author)))
+
+        self._write(graph)
 
     def delete(self, comment_id: str) -> List[str]:
         """

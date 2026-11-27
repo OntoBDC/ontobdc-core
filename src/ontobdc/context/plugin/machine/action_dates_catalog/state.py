@@ -1,48 +1,48 @@
 from typing import Any, Dict
 
-from ontobdc.context.plugin.machine.pdf_to_graph.port import (
-    PdfToGraphProcessStatePort,
-)
+from ontobdc.context.plugin.machine.action_dates_catalog.port import ActionDatesCatalogProcessStatePort
 
 
-class PdfToGraphProcessState(PdfToGraphProcessStatePort):
+class ActionDatesCatalogProcessState(ActionDatesCatalogProcessStatePort):
     """
-    Enum representing the states of the PDF-to-knowledge-graph process.
+    The states the cataloging of the dates of the actions in a container passes through.
+
+    A state is only valid while it makes sense to keep going. A container with no RO-Crate is not a state of
+    the cataloging: it is an exception, and ends the command.
     """
 
     UNDEFINED = "__undefined__"
-    TEXT_READINESS_CHECKED = "__text_readiness_checked__"
-    PDF_BLOCKS_EXTRACTED = "__pdf_blocks_extracted__"
+    DAYS_CATALOGED = "__days_cataloged__"
+
+    def __init__(self, _: str) -> None:
+        self._labels: Dict[str, str] = {}
+        self._descriptions: Dict[str, str] = {}
 
     def bind_presentation_metadata(
         self,
         label: Any = None,
         description: Any = None,
     ) -> None:
-        self._labels: Dict[str, str] = self._normalize_presentation_metadata(
-            label
-        )
-        self._descriptions: Dict[str, str] = (
-            self._normalize_presentation_metadata(description)
-        )
+        self._labels = self._normalize_presentation_metadata(label)
+        self._descriptions = self._normalize_presentation_metadata(description)
 
     def label(self, lang: str = "en") -> str:
         return self._localized_presentation_metadata(
-            values=getattr(self, "_labels", {}),
+            values=self._labels,
             lang=lang,
             default=self.value,
         )
 
     def description(self, lang: str = "en") -> str:
         return self._localized_presentation_metadata(
-            values=getattr(self, "_descriptions", {}),
+            values=self._descriptions,
             lang=lang,
             default="",
         )
 
     @staticmethod
-    def get_state(state: str) -> "PdfToGraphProcessState":
-        return getattr(PdfToGraphProcessState, state.upper())
+    def get_state(state: str) -> "ActionDatesCatalogProcessState":
+        return getattr(ActionDatesCatalogProcessState, state.upper())
 
     @staticmethod
     def _normalize_presentation_metadata(value: Any) -> Dict[str, str]:
@@ -64,5 +64,4 @@ class PdfToGraphProcessState(PdfToGraphProcessStatePort):
         default: str,
     ) -> str:
         normalized_lang: str = lang.strip().lower().replace("_", "-")
-
         return values.get(normalized_lang, values.get("en", default))

@@ -5,6 +5,13 @@ from rdflib.namespace import Namespace
 #: are written with (``obdc:DataStorage``, ``obdc:DataContainer``, ...).
 OBDC: Namespace = Namespace("http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#")
 
+#: The job model: a job, the run of a procedure it points to, the status of the
+#: run and the lists that separate the active status from the finished status.
+JOB: Namespace = Namespace("http://datacenter.app.br/ontology/tool/ontobdc/core/job.ttl#")
+
+#: The Procedural Knowledge Ontology, the one a procedure is written with.
+PKO: Namespace = Namespace("https://w3id.org/pko#")
+
 #: ISO 21597-1 (Information container for linked document delivery), the
 #: standard the containers follow.
 CT: Namespace = Namespace("http://standards.iso.org/iso/21597/-1/ed-1/en/Container#")

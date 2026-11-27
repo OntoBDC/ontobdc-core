@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional
 
 from brasidatacenter.tool.adapter.entity_info import entity_info
@@ -6,6 +7,7 @@ from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.context.adapter.entity_field_limits import EntityFieldLimits
 from ontobdc.shared.adapter.capability import TransformationCapability
 from ontobdc.shared.adapter.config import ConfigDataAdapter
+from ontobdc.container.adapter.dataset_ontology import DatasetOntologies
 from ontobdc.shared.domain.exception.config import ContainerRootDirectoryNotSetError
 from ontobdc.shared.adapter.parameter import RequiredParameter
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
@@ -43,6 +45,14 @@ class EntityInformationFoundCapability(TransformationCapability):
         return isinstance(information, dict) and information.get("entity_iri") == entity_id
 
     @staticmethod
+    def _container_root(context: CliContextPort) -> Optional[str]:
+        """The folder of the container the command runs in; none when it runs in no container."""
+        try:
+            return context.root_path
+        except ContainerRootDirectoryNotSetError:
+            return None
+
+    @staticmethod
     def _container_config(context: CliContextPort) -> Optional[Dict[str, Any]]:
         """The config of the container the command runs in; none when it runs in no container, which has no config."""
         try:
@@ -62,6 +72,12 @@ class EntityInformationFoundCapability(TransformationCapability):
             information: Any = entity_info()
         else:
             information = entity_info(entity_id)
+            if information is None:
+                # An entity of an addon is described by the ontology its dataset keeps, in the container the command runs in or any the storage registers.
+                container: Optional[str] = self._container_root(context)
+                information = DatasetOntologies.facade_info(
+                    DatasetOntologies.containers(None if container is None else Path(container)), entity_id
+                )
             if information is None:
                 raise LookupError(f"No ontology publishes a facade of the entity <{entity_id}>.")
             # What the container's config narrows in the facade: the types a field of entities takes.

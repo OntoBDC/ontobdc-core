@@ -1,0 +1,115 @@
+statechart:
+  name: StandardJobCreate
+  description: "Statechart for creating a job of an OntoBDC container: a procedure of an open graph, tested, with its target found, in the dataset of jobs."
+
+  root state:
+    name: standard_job_create
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before anything was checked."
+          pt-br: "Estado inicial antes de qualquer verificação."
+        transitions:
+          - target: graph_opened
+            guard: handler.can_transit_to(to_state = JobCreateProcessStatePort.GRAPH_OPENED)
+            action: handler.perform_state_transition(to_state = JobCreateProcessStatePort.GRAPH_OPENED)
+            contract:
+              - after: handler.validate_state_transition(from_state = JobCreateProcessStatePort.UNDEFINED, to_state = JobCreateProcessStatePort.GRAPH_OPENED)
+
+      - name: graph_opened
+        label:
+          en: "Graph Opened"
+          pt-br: "Grafo Aberto"
+        description:
+          en: "The address is an open graph, and it was read."
+          pt-br: "O endereço é um grafo aberto, e ele foi lido."
+        transitions:
+          - target: procedure_valid
+            guard: handler.can_transit_to(to_state = JobCreateProcessStatePort.PROCEDURE_VALID)
+            action: handler.perform_state_transition(to_state = JobCreateProcessStatePort.PROCEDURE_VALID)
+            contract:
+              - after: handler.validate_state_transition(from_state = JobCreateProcessStatePort.GRAPH_OPENED, to_state = JobCreateProcessStatePort.PROCEDURE_VALID)
+
+      - name: procedure_valid
+        label:
+          en: "Procedure Valid"
+          pt-br: "Procedimento Válido"
+        description:
+          en: "The procedure of the graph conforms to the shape of a procedure."
+          pt-br: "O procedimento do grafo está conforme o shape de um procedimento."
+        transitions:
+          - target: target_located
+            guard: handler.can_transit_to(to_state = JobCreateProcessStatePort.TARGET_LOCATED)
+            action: handler.perform_state_transition(to_state = JobCreateProcessStatePort.TARGET_LOCATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = JobCreateProcessStatePort.PROCEDURE_VALID, to_state = JobCreateProcessStatePort.TARGET_LOCATED)
+
+      - name: target_located
+        label:
+          en: "Target Located"
+          pt-br: "Alvo Localizado"
+        description:
+          en: "The machine or the capability the procedure targets was found by its id."
+          pt-br: "A máquina ou a capability que o procedimento tem como alvo foi encontrada pelo id."
+        transitions:
+          - target: storage_hotfixed
+            guard: handler.can_transit_to(to_state = JobCreateProcessStatePort.STORAGE_HOTFIXED)
+            action: handler.perform_state_transition(to_state = JobCreateProcessStatePort.STORAGE_HOTFIXED)
+            contract:
+              - after: handler.validate_state_transition(from_state = JobCreateProcessStatePort.TARGET_LOCATED, to_state = JobCreateProcessStatePort.STORAGE_HOTFIXED)
+
+      - name: storage_hotfixed
+        label:
+          en: "Storage Hotfixed"
+          pt-br: "Storage Corrigido"
+        description:
+          en: "The storage index is healthy, and it was repaired when it was not."
+          pt-br: "O índice do storage está saudável, e foi reparado quando não estava."
+        transitions:
+          - target: container_hotfixed
+            guard: handler.can_transit_to(to_state = JobCreateProcessStatePort.CONTAINER_HOTFIXED)
+            action: handler.perform_state_transition(to_state = JobCreateProcessStatePort.CONTAINER_HOTFIXED)
+            contract:
+              - after: handler.validate_state_transition(from_state = JobCreateProcessStatePort.STORAGE_HOTFIXED, to_state = JobCreateProcessStatePort.CONTAINER_HOTFIXED)
+
+      - name: container_hotfixed
+        label:
+          en: "Container Hotfixed"
+          pt-br: "Container Corrigido"
+        description:
+          en: "The container is healthy, and it was repaired when it was not."
+          pt-br: "O container está saudável, e foi reparado quando não estava."
+        transitions:
+          - target: job_dataset_ready
+            guard: handler.can_transit_to(to_state = JobCreateProcessStatePort.JOB_DATASET_READY)
+            action: handler.perform_state_transition(to_state = JobCreateProcessStatePort.JOB_DATASET_READY)
+            contract:
+              - after: handler.validate_state_transition(from_state = JobCreateProcessStatePort.CONTAINER_HOTFIXED, to_state = JobCreateProcessStatePort.JOB_DATASET_READY)
+
+      - name: job_dataset_ready
+        label:
+          en: "Job Dataset Ready"
+          pt-br: "Dataset de Job Pronto"
+        description:
+          en: "The container has a dataset for jobs."
+          pt-br: "O container tem um dataset para jobs."
+        transitions:
+          - target: job_created
+            guard: handler.can_transit_to(to_state = JobCreateProcessStatePort.JOB_CREATED)
+            action: handler.perform_state_transition(to_state = JobCreateProcessStatePort.JOB_CREATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = JobCreateProcessStatePort.JOB_DATASET_READY, to_state = JobCreateProcessStatePort.JOB_CREATED)
+
+      - name: job_created
+        label:
+          en: "Job Created"
+          pt-br: "Job Criado"
+        description:
+          en: "The job was created, with its run waiting to start."
+          pt-br: "O job foi criado, com a execução aguardando para começar."
+        type: final

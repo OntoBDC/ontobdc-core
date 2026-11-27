@@ -1,0 +1,50 @@
+statechart:
+  name: StandardCliInitAddon
+  label:
+    en: "CLI Init Addon"
+    pt-br: "Init de Addon da CLI"
+  description:
+    en: "Add an addon: its folder is located, from the folder or the address it was given as, and the addon is added."
+    pt-br: "Adiciona um addon: a sua pasta e localizada, a partir da pasta ou do endereco com que foi dado, e o addon e adicionado."
+
+  root state:
+    name: standard_cli_init_addon
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before the folder of the addon is located."
+          pt-br: "Estado inicial antes de a pasta do addon ser localizada."
+        transitions:
+          - target: addon_located
+            guard: handler.can_transit_to(to_state = CliInitAddonProcessStatePort.ADDON_LOCATED)
+            action: handler.perform_state_transition(to_state = CliInitAddonProcessStatePort.ADDON_LOCATED)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitAddonProcessStatePort.UNDEFINED, to_state = CliInitAddonProcessStatePort.ADDON_LOCATED)
+
+      - name: addon_located
+        label:
+          en: "Addon Located"
+          pt-br: "Addon Localizado"
+        description:
+          en: "The folder of the addon was located on this machine, brought from its address when it was given as one."
+          pt-br: "A pasta do addon foi localizada nesta maquina, trazida do seu endereco quando foi dado como um."
+        transitions:
+          - target: addon_added
+            guard: handler.can_transit_to(to_state = CliInitAddonProcessStatePort.ADDON_ADDED)
+            action: handler.perform_state_transition(to_state = CliInitAddonProcessStatePort.ADDON_ADDED)
+            contract:
+              - after: handler.validate_state_transition(from_state = CliInitAddonProcessStatePort.ADDON_LOCATED, to_state = CliInitAddonProcessStatePort.ADDON_ADDED)
+
+      - name: addon_added
+        label:
+          en: "Addon Added"
+          pt-br: "Addon Adicionado"
+        description:
+          en: "The addon was added."
+          pt-br: "O addon foi adicionado."
+        type: final

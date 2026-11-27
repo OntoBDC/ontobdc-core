@@ -1,8 +1,11 @@
+from pathlib import Path
 from typing import Any, ClassVar, Dict, Optional
 from urllib.parse import urlsplit
 
 from brasidatacenter.tool.adapter.entity_mapping import entity_iri
 from ontobdc.cli.domain.port.context import CliContextPort
+from ontobdc.container.adapter.dataset_ontology import DatasetOntologies
+from ontobdc.shared.domain.exception.config import ContainerRootDirectoryNotSetError
 from ontobdc.shared.adapter.capability import TransformationCapability
 from ontobdc.shared.adapter.parameter import RequiredParameter
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
@@ -29,28 +32,40 @@ class EntityUriResolvedCapability(TransformationCapability):
         return self.METADATA.description
 
     @classmethod
-    def resolve(cls, entity: Optional[str]) -> Optional[str]:
+    def resolve(cls, entity: Optional[str], container_path: Optional[Path] = None) -> Optional[str]:
         if entity is None:
             return None  # No selector: the next state lists all entity facades.
         known: Optional[str] = entity_iri(entity)
         if known is not None:
             return known
+        # An entity of an addon is described by the ontology its dataset keeps, in the container the command runs in or any the storage registers.
+        kept: Optional[str] = DatasetOntologies.entity_iri(DatasetOntologies.containers(container_path), entity)
+        if kept is not None:
+            return kept
         if urlsplit(entity).scheme and not any(char.isspace() for char in entity):
             return entity
         raise LookupError(f"No URI is registered for the entity name <{entity}>.")
+
+    @staticmethod
+    def _container(context: CliContextPort) -> Optional[Path]:
+        """The container the command runs in; none when it runs in no container."""
+        try:
+            return Path(context.root_path)
+        except ContainerRootDirectoryNotSetError:
+            return None
 
     def is_satisfied(self, context: CliContextPort) -> bool:
         entity = RequiredParameter.optional(context, self.INPUT_KEY)
         if context.get_parameter_value(self.SOURCE_KEY) != (entity or ""):
             return False
         try:
-            return context.get_parameter_value(self.OUTPUT_KEY) == self.resolve(entity)
+            return context.get_parameter_value(self.OUTPUT_KEY) == self.resolve(entity, self._container(context))
         except LookupError:
             return False
 
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         entity = RequiredParameter.optional(context, self.INPUT_KEY)
-        uri = self.resolve(entity)
+        uri = self.resolve(entity, self._container(context))
         context.set_parameter_value(self.OUTPUT_KEY, uri)
         context.set_parameter_value(self.SOURCE_KEY, entity or "")
         return {self.OUTPUT_KEY: uri}

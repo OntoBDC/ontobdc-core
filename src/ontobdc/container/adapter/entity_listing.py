@@ -14,6 +14,7 @@ from ontobdc.container.domain.exception.entity import EntityFacadeNotFoundError
 from ontobdc.container.domain.model.entity_facade import EntityFacade
 from ontobdc.shared.domain.vocabulary import OBDC
 from ontobdc.storage.adapter.bootstrap import StorageBootstrap
+from ontobdc.container.adapter.csv_fields import CsvFields
 
 
 class ContainerEntities:
@@ -52,7 +53,7 @@ class ContainerEntities:
         dataset_path: Path
         for dataset_path in cls.distinct_datasets(container):
             metadata: Graph = cls._metadata(dataset_path)
-            types: List[str] = cls._entity_types(metadata)
+            types: List[str] = cls._entity_types(metadata, dataset_path)
             if not types:
                 continue
 
@@ -78,7 +79,7 @@ class ContainerEntities:
         merged: Graph = Graph()
         dataset_path: Path
         for dataset_path in cls.distinct_datasets(container_path.expanduser().resolve()):
-            if not cls._entity_types(cls._metadata(dataset_path)):
+            if not cls._entity_types(cls._metadata(dataset_path), dataset_path):
                 continue
 
             triple_file: Path
@@ -128,11 +129,21 @@ class ContainerEntities:
         """
         return [str(entity["entity_iri"]) for entity in entity_info() or []]
 
+    @staticmethod
+    def _published_by_dataset(dataset_path: Path, entity_type: str) -> bool:
+        try:
+            EntityFacadeLocator.in_dataset(dataset_path, entity_type)
+        except EntityFacadeNotFoundError:
+            return False
+
+        return True
+
     @classmethod
-    def _entity_types(cls, metadata: Graph) -> List[str]:
+    def _entity_types(cls, metadata: Graph, dataset_path: Path) -> List[str]:
         """
         The types of the data entities the dataset declares, as far as they
-        are published ones.
+        are published ones: by BrasidataCenter, or by an ontology the dataset
+        keeps in its own ``ontology/resource`` (the one of an addon).
         """
         published: List[str] = cls._published_types()
         types: List[str] = []
@@ -141,7 +152,9 @@ class ContainerEntities:
         for subject in metadata.subjects(RDF.type, OBDC.EntityDataset):
             for data_entity in metadata.objects(subject, OBDC.hasDataEntity):
                 for entity_type in metadata.objects(data_entity, RDF.type):
-                    if str(entity_type) in published and str(entity_type) not in types:
+                    if str(entity_type) not in types and (
+                        str(entity_type) in published or cls._published_by_dataset(dataset_path, str(entity_type))
+                    ):
                         types.append(str(entity_type))
 
         return sorted(types)
@@ -150,7 +163,7 @@ class ContainerEntities:
     def _entities(cls, dataset_path: Path, types: List[str]) -> List[Dict[str, Any]]:
         entities: List[Dict[str, Any]] = []
         default_type: str = cls._local_name(types[0]) if len(types) == 1 else ""
-        facade: Optional[EntityFacade] = cls._facade(types)
+        facade: Optional[EntityFacade] = cls._facade(dataset_path, types)
         entities.extend(cls._triple_entities(dataset_path, facade, types))
         entities.extend(cls._csv_entities(dataset_path, default_type, facade))
         return entities
@@ -161,19 +174,26 @@ class ContainerEntities:
         The facade of the entity the dataset holds, when it holds one entity
         type and an ontology publishes a facade of it.
         """
-        return cls._facade(cls._entity_types(cls._metadata(dataset_path)))
+        return cls._facade(dataset_path, cls._entity_types(cls._metadata(dataset_path), dataset_path))
 
     @staticmethod
-    def _facade(types: List[str]) -> Optional[EntityFacade]:
+    def _facade(dataset_path: Path, types: List[str]) -> Optional[EntityFacade]:
         """
         The facade the ontologies publish for the entity the dataset holds, if
-        it holds one entity type and there is a facade of it.
+        it holds one entity type and there is a facade of it: in the ontologies
+        BrasidataCenter ships, or else in the ones the dataset keeps in its own
+        ``ontology/resource``.
         """
         if len(types) != 1:
             return None
 
         try:
             return EntityFacadeLocator.of(types[0])
+        except EntityFacadeNotFoundError:
+            pass
+
+        try:
+            return EntityFacadeLocator.in_dataset(dataset_path, types[0])
         except EntityFacadeNotFoundError:
             return None
 
@@ -316,6 +336,7 @@ class ContainerEntities:
         for csv_file in sorted(directory.glob("*.csv")):
             with csv_file.open(encoding=cls.ENCODING, newline="") as handle:
                 row: Dict[str, str]
+                CsvFields.allow_large()
                 for row in csv.DictReader(handle):
                     identifier: str = (row.get(cls.IDENTIFIER_COLUMN) or "").strip()
                     if identifier:

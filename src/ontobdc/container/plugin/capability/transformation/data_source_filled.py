@@ -6,6 +6,7 @@ from ontobdc.shared.adapter.capability import TransactionCapability
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.container.plugin.machine.entity_write.machine import EntityWriteRequest
 from ontobdc.container.plugin.machine.entity_write.state import EntityWriteProcessState
+from ontobdc.container.adapter.entity_creation import EntityCreation
 from ontobdc.container.adapter.entity_facade import EntityFacadeLocator
 from ontobdc.container.domain.model.entity_facade import EntityFacade
 from ontobdc.container.domain.port.entity import EntityRepositoryPort
@@ -63,13 +64,7 @@ class DataSourceFilledCapability(TransactionCapability):
                 f"<{facade.entity_iri}> does not declare: {undeclared}."
             )
 
-        missing: List[str] = [
-            declared.identifier
-            for declared in facade.fields
-            if declared.required
-            and (record.get(declared.identifier) is None
-                 or not str(record.get(declared.identifier)).strip())
-        ]
+        missing: List[str] = EntityCreation.missing(facade, record)
         if missing:
             raise ValueError(
                 f"The row {record.get('global_id')!r} lacks the required "

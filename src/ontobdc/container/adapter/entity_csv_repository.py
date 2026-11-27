@@ -5,23 +5,25 @@ from pathlib import Path
 from typing import Any, ClassVar, Dict, List
 
 from ontobdc.container.domain.port.entity import EntityRepositoryPort
+from ontobdc.container.adapter.csv_fields import CsvFields
 
 
 class EntityCsvRepository(EntityRepositoryPort):
     """
-    Keep the annotations of a dataset as a CSV spreadsheet.
+    Keep the entities of a dataset as a CSV spreadsheet.
 
     The database of entities is made of spreadsheets: the data source
-    of the annotations is ``payload/document/Annotation_Dataset_<timestamp>.csv``
-    of the dataset. It is created with the ``global_id`` column only; the
-    other columns are added as the annotation facade declares them. A
+    of the entities is ``payload/document/<Name>_Dataset_<timestamp>.csv``
+    of the dataset, where ``<Name>`` is the name of the dataset folder (``Day``
+    for the folder ``day``). It is created with the ``global_id`` column only;
+    the other columns are added as the facade of the entity declares them. A
     dataset that holds several of them is read and written in the newest,
     the one whose timestamp is the latest.
     """
 
     PAYLOAD_DIRECTORY_NAME: ClassVar[str] = "payload"
     DOCUMENT_DIRECTORY_NAME: ClassVar[str] = "document"
-    FILE_PREFIX: ClassVar[str] = "Annotation_Dataset_"
+    FILE_INFIX: ClassVar[str] = "_Dataset_"
     FILE_SUFFIX: ClassVar[str] = ".csv"
     TIMESTAMP_FORMAT: ClassVar[str] = "%Y%m%d%H%M%S"
     ENCODING: ClassVar[str] = "utf-8"
@@ -33,7 +35,7 @@ class EntityCsvRepository(EntityRepositoryPort):
     def create_data_source(self, dataset_path: Path) -> Path:
         timestamp: str = datetime.now().strftime(self.TIMESTAMP_FORMAT)
         path: Path = self._directory(dataset_path) / (
-            f"{self.FILE_PREFIX}{timestamp}{self.FILE_SUFFIX}"
+            f"{self._name(dataset_path)}{self.FILE_INFIX}{timestamp}{self.FILE_SUFFIX}"
         )
         path.parent.mkdir(parents=True, exist_ok=True)
         # "x": a data source that is already there is never overwritten.
@@ -46,7 +48,7 @@ class EntityCsvRepository(EntityRepositoryPort):
         path: Path | None = self._newest(dataset_path)
         if path is None:
             raise FileNotFoundError(
-                f"The dataset at {dataset_path} has no annotation data source."
+                f"The dataset at {dataset_path} has no data source."
             )
 
         return path
@@ -114,11 +116,17 @@ class EntityCsvRepository(EntityRepositoryPort):
             / self.DOCUMENT_DIRECTORY_NAME
         )
 
+    @staticmethod
+    def _name(dataset_path: Path) -> str:
+        """
+        The name the data source of the dataset carries: the name of its folder, in capitals (``day`` is ``Day``).
+        """
+        return f"{dataset_path.name[:1].upper()}{dataset_path.name[1:]}"
+
     def _newest(self, dataset_path: Path) -> Path | None:
         sources: List[Path] = sorted(
-            self._directory(dataset_path).glob(
-                f"{self.FILE_PREFIX}*{self.FILE_SUFFIX}"
-            )
+            self._directory(dataset_path).glob(f"*{self.FILE_INFIX}*{self.FILE_SUFFIX}"),
+            key=lambda source: source.name.rsplit(self.FILE_INFIX, 1)[-1],
         )
         return sources[-1] if sources else None
 
@@ -126,11 +134,12 @@ class EntityCsvRepository(EntityRepositoryPort):
         with self.data_source_path(dataset_path).open(
             encoding=self.ENCODING, newline=""
         ) as handle:
+            CsvFields.allow_large()
             reader: csv.DictReader = csv.DictReader(handle)
             columns: List[str] = list(reader.fieldnames or [])
             if self.IDENTIFIER_COLUMN not in columns:
                 raise ValueError(
-                    f"The annotation data source has no {self.IDENTIFIER_COLUMN} column."
+                    f"The data source has no {self.IDENTIFIER_COLUMN} column."
                 )
             return columns, [dict(row) for row in reader]
 

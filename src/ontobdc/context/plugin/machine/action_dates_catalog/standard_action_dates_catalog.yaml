@@ -1,0 +1,31 @@
+statechart:
+  name: StandardActionDatesCatalog
+  description: "Statechart for cataloging the dates of the actions in an OntoBDC container: a day for each date of the timestamps its RO-Crate records for its files."
+
+  root state:
+    name: standard_action_dates_catalog
+    initial: undefined
+
+    states:
+      - name: undefined
+        label:
+          en: "Undefined"
+          pt-br: "Indefinido"
+        description:
+          en: "Initial state before any day was created."
+          pt-br: "Estado inicial antes de qualquer dia ser criado."
+        transitions:
+          - target: days_cataloged
+            guard: handler.can_transit_to(to_state = ActionDatesCatalogProcessStatePort.DAYS_CATALOGED)
+            action: handler.perform_state_transition(to_state = ActionDatesCatalogProcessStatePort.DAYS_CATALOGED)
+            contract:
+              - after: handler.validate_state_transition(from_state = ActionDatesCatalogProcessStatePort.UNDEFINED, to_state = ActionDatesCatalogProcessStatePort.DAYS_CATALOGED)
+
+      - name: days_cataloged
+        label:
+          en: "Days Cataloged"
+          pt-br: "Dias Catalogados"
+        description:
+          en: "Each date of the timestamps the RO-Crate records for the files has its day, and each file is a related document of the day of its date."
+          pt-br: "Cada data dos timestamps que o RO-Crate registra para os arquivos tem o seu dia, e cada arquivo é documento relacionado do dia de sua data."
+        type: final

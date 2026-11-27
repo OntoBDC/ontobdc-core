@@ -13,6 +13,7 @@ from ontobdc.cli.domain.exception.command import CliCommandArgumentException
 from ontobdc.container.plugin.check.is_container_storage_index_ready.hotfix import (
     main as synchronize_container_storage_index,
 )
+from ontobdc.container.adapter.csv_fields import CsvFields
 from ontobdc.container.plugin.capability.persister.container import (
     StorageContainerMetadataPersisterCapability,
 )
@@ -113,6 +114,7 @@ class ContainerUpdateSourceParser:
             )
 
         with source_path.open(encoding="utf-8", newline="") as source_file:
+            CsvFields.allow_large()
             reader: csv.DictReader = csv.DictReader(source_file)
             rows: List[Dict[Optional[str], Any]] = list(reader)
 

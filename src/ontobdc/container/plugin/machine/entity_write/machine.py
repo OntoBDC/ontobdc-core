@@ -52,6 +52,10 @@ class EntityWriteRequest:
     RECORDS_KEY: str = "entity_records"
     SOURCE_DOCUMENTS_KEY: str = "entity_source_documents"
     DATASET_PATH_KEY: str = "dataset_path"
+    # The dataset the caller wants the entities written in, when it is not the first one that holds them.
+    TARGET_DATASET_KEY: str = "entity_target_dataset"
+    # The title of the dataset created for the entities, when it is not the name of their facade.
+    DATASET_TITLE_KEY: str = "entity_dataset_title"
 
     @classmethod
     def repository(cls, context: CliContextPort) -> EntityRepositoryPort:
@@ -128,6 +132,24 @@ class EntityWriteRequest:
 
         return True
 
+    @classmethod
+    def target_dataset(cls, context: CliContextPort) -> Optional[Path]:
+        """
+        The dataset the caller asked the entities to be written in, none when it did not ask.
+
+        Raises:
+            LookupError: the dataset does not hold the entity.
+        """
+        target: Any = context.get_parameter_value(cls.TARGET_DATASET_KEY)
+        if target is None:
+            return None
+
+        dataset_path: Path = Path(cls._text(context, cls.TARGET_DATASET_KEY)).expanduser().resolve()
+        if dataset_path not in EntityDatasets.of(cls.container_path(context), cls.entity_iri(context)):
+            raise LookupError(f"{dataset_path} is no dataset of the container that holds <{cls.entity_iri(context)}>.")
+
+        return dataset_path
+
     @staticmethod
     def _text(context: CliContextPort, key: str) -> str:
         value: Any = context.get_parameter_value(key)
@@ -151,10 +173,12 @@ class EntityWriteStateEvaluatorAdapter(EntityWriteStateEvaluatorPort):
         context: CliContextPort,
     ) -> EntityWriteProcessStatePort:
         repository: EntityRepositoryPort = EntityWriteRequest.repository(context)
-        dataset_path: Optional[Path] = EntityDatasets.first(
-            EntityWriteRequest.container_path(context),
-            EntityWriteRequest.entity_iri(context),
-        )
+        dataset_path: Optional[Path] = EntityWriteRequest.target_dataset(context)
+        if dataset_path is None:
+            dataset_path = EntityDatasets.first(
+                EntityWriteRequest.container_path(context),
+                EntityWriteRequest.entity_iri(context),
+            )
         if dataset_path is None:
             return EntityWriteProcessState.UNDEFINED
         context.set_parameter_value(

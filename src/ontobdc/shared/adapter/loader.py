@@ -17,6 +17,7 @@ from ontobdc.shared.adapter.config import (
 from ontobdc.cli.domain.port.logger import LogRepositoryPort
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.port.context import CliContextStrategyPort
+from ontobdc.shared.adapter.addon_package import AddonPackage
 from ontobdc.shared.adapter.capability import Capability
 from ontobdc.shared.domain.port.config import ConfigDataPort
 from ontobdc.shared.domain.port.loader import (
@@ -185,14 +186,37 @@ class CapabilityLoader(PluginLoader):
                     if suffix[-1] == '__init__':
                         suffix = suffix[:-1]
                     name = '.'.join((plugin_package, 'capability', *suffix))
-                    # Import failures of a requested capability must propagate.
-                    module = importlib.import_module(name)
-                    for _, candidate in inspect.getmembers(module, inspect.isclass):
-                        if not issubclass(candidate, Capability):
-                            continue
-                        metadata = getattr(candidate, 'METADATA', None)
-                        if isinstance(metadata, CapabilityMetadata) and metadata.id == id:
-                            return candidate
+                    found = self._declared_in(name, id)
+                    if found is not None:
+                        return found
+        # The addons registered by whoever runs their code: their capabilities are looked for the same way.
+        for module_name, folder in AddonPackage.registered().items():
+            directory = folder / 'plugin' / 'capability'
+            for source in sorted(directory.rglob('*.py')):
+                if '__pycache__' in source.parts:
+                    continue
+                tree = ast.parse(source.read_text(encoding='utf-8'), filename=str(source))
+                if not any(isinstance(node, ast.Constant) and node.value == id for node in ast.walk(tree)):
+                    continue
+                suffix = source.relative_to(directory).with_suffix('').parts
+                if suffix[-1] == '__init__':
+                    suffix = suffix[:-1]
+                found = self._declared_in('.'.join((module_name, 'plugin', 'capability', *suffix)), id)
+                if found is not None:
+                    return found
+        return None
+
+    @staticmethod
+    def _declared_in(module_name, id):
+        """The capability class the module declares with the id, or none."""
+        # Import failures of a requested capability must propagate.
+        module = importlib.import_module(module_name)
+        for _, candidate in inspect.getmembers(module, inspect.isclass):
+            if not issubclass(candidate, Capability):
+                continue
+            metadata = getattr(candidate, 'METADATA', None)
+            if isinstance(metadata, CapabilityMetadata) and metadata.id == id:
+                return candidate
         return None
 
     def get_all(self, resource: str = "capability") -> List[Type[CapabilityPort]]:

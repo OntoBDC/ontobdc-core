@@ -5,6 +5,7 @@ from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import CommandResponse
+from ontobdc.comment.adapter.comment_authors import CommentAuthors
 from ontobdc.comment.adapter.thread import CommentThread
 from ontobdc.container.adapter.entity_repository import ContainerEntityRepository
 from ontobdc.container.adapter.entity_store import ContainerEntityStore
@@ -19,7 +20,7 @@ class CommentListCommand(CliCommandPort):
 
     The entity is the one whose global id ``--guid`` gives. The comments are
     the ones of its thread, the oldest first, each with the comment it
-    answers, if it answers one. An entity that nobody commented on has an
+    answers, if it answers one, and with the name of its author when the author is an entity of the container. An entity that nobody commented on has an
     empty thread.
     """
 
@@ -88,7 +89,9 @@ class CommentListCommand(CliCommandPort):
         ).expanduser().resolve()
         dataset_path: Path
         dataset_path, _, _ = ContainerEntityStore(repository, container_path).locate(guid)
-        comments: List[Dict[str, Any]] = CommentThread(dataset_path, guid).comments()
+        comments: List[Dict[str, Any]] = CommentAuthors.resolved(
+            CommentThread(dataset_path, guid).comments(), CommentAuthors.names(container_path)
+        )
 
         return CommandResponse(
             title="Comments",

@@ -12,6 +12,16 @@ class EntityCreation:
 
     IDENTIFIER_FIELD: str = "global_id"
 
+    @staticmethod
+    def missing(facade: EntityFacade, record: Dict[str, Any]) -> List[str]:
+        """The identifiers of the required fields of the facade that the row has no value for."""
+        return [
+            declared.identifier
+            for declared in facade.fields
+            if declared.required
+            and (record.get(declared.identifier) is None or not str(record.get(declared.identifier)).strip())
+        ]
+
     @classmethod
     def record(cls, facade: EntityFacade, given: Dict[str, Any]) -> Dict[str, Any]:
         """

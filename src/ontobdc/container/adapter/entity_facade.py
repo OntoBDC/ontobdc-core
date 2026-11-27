@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional
 
 from rdflib import Graph, Literal, URIRef
@@ -23,6 +24,7 @@ class EntityFacadeLocator:
         "http://datacenter.app.br/ontology/tool/ontobdc/facade/ns.ttl#"
     )
     SCHEMA: ClassVar[Namespace] = Namespace("http://schema.org/")
+    DATASET_ONTOLOGY: ClassVar[Path] = Path("ontology") / "resource"
     CORE: ClassVar[Namespace] = Namespace("http://datacenter.app.br/ontology/tool/ontobdc/core/ns.ttl#")
 
     @classmethod
@@ -44,6 +46,41 @@ class EntityFacadeLocator:
         raise EntityFacadeNotFoundError(
             f"No ontology publishes a facade of the entity <{entity_iri}>."
         )
+
+    @classmethod
+    def in_graph(cls, graph: Graph, entity_iri: str) -> EntityFacade:
+        """
+        The facade of the entity that the given graph publishes, for an entity whose ontology is not one of the ones
+        BrasidataCenter ships (an addon's). The fields the facade lists but the graph does not describe are described
+        by the ontologies that name them, as for any facade. Nothing looks for it: whoever has the graph asks.
+
+        Raises:
+            EntityFacadeNotFoundError: the graph publishes no facade of ``entity_iri``.
+        """
+        subject: Optional[URIRef] = cls._facade_of(graph, entity_iri)
+        if subject is None:
+            raise EntityFacadeNotFoundError(f"The graph publishes no facade of the entity <{entity_iri}>.")
+
+        return cls._read(graph, subject, entity_iri)
+
+    @classmethod
+    def in_dataset(cls, dataset_path: Path, entity_iri: str) -> EntityFacade:
+        """
+        The facade of the entity that an ontology the dataset keeps in its own ``ontology/resource`` publishes: where an
+        addon puts the ontology of the entity it makes, so that the facade is found with the data.
+
+        Raises:
+            EntityFacadeNotFoundError: no ontology of the dataset publishes a facade of ``entity_iri``.
+        """
+        resource: Path = dataset_path / cls.DATASET_ONTOLOGY
+        file: Path
+        for file in sorted(resource.glob("*.ttl")) if resource.is_dir() else []:
+            graph: Graph = Graph()
+            graph.parse(str(file), format="turtle")
+            if cls._facade_of(graph, entity_iri) is not None:
+                return cls.in_graph(graph, entity_iri)
+
+        raise EntityFacadeNotFoundError(f"No ontology in {resource} publishes a facade of the entity <{entity_iri}>.")
 
     @classmethod
     def _facade_of(cls, graph: Graph, entity_iri: str) -> Optional[URIRef]:

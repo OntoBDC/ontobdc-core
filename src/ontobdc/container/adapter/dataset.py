@@ -132,6 +132,68 @@ class RegisteredDatasets:
         return dataset_paths
 
     @classmethod
+    def named(cls, container_path: Path, name: str) -> Path:
+        """
+        The registered dataset of the container that the name says: the name of its folder or its title, exactly.
+
+        Raises:
+            LookupError: the container registers no dataset by that name.
+            ValueError: the name is the one of more than one dataset.
+        """
+        container: Path = container_path.expanduser().resolve()
+        found: List[Path] = []
+        dataset_path: Path
+        for dataset_path in cls.of(container):
+            metadata_file: Path = StorageBootstrap.get_dataset_storage_file_path(dataset_path)
+            titles: List[str] = []
+            if metadata_file.is_file():
+                metadata: Graph = Graph()
+                metadata.parse(str(metadata_file), format="turtle")
+                titles = [str(title) for title in metadata.objects(None, DCTERMS.title)]
+            if name == dataset_path.name or name in titles:
+                if dataset_path not in found:
+                    found.append(dataset_path)
+
+        if not found:
+            raise LookupError(f"The container {container} registers no dataset named {name}.")
+        if len(found) > 1:
+            raise ValueError(f"More than one dataset of the container {container} is named {name}: {', '.join(str(path) for path in found)}.")
+
+        return found[0]
+
+    @classmethod
+    def unregister(cls, container_path: Path, dataset_path: Path) -> None:
+        """
+        Takes the dataset out of the register of the container: the container no longer points at it. Nothing is
+        deleted from the disk.
+
+        Raises:
+            LookupError: the container does not register the dataset.
+        """
+        container: Path = container_path.expanduser().resolve()
+        container_storage_file_path: Path = StorageBootstrap.get_container_storage_file_path(container)
+        graph: Graph = Graph()
+        graph.parse(str(container_storage_file_path), format="turtle")
+
+        relative: str = dataset_path.resolve().relative_to(container).as_posix()
+        subjects: List[URIRef] = [
+            subject
+            for subject, location in graph.subject_objects(OBDC.relativeLocation)
+            if isinstance(subject, URIRef) and str(location).strip() == relative
+        ]
+        if not subjects:
+            raise LookupError(f"The container {container} does not register the dataset at {dataset_path}.")
+
+        subject: URIRef
+        for subject in subjects:
+            for owner in list(graph.subjects(OBDC.hasEntityDataset, subject)):
+                graph.remove((owner, OBDC.hasEntityDataset, subject))
+            for predicate, obj in list(graph.predicate_objects(subject)):
+                graph.remove((subject, predicate, obj))
+
+        container_storage_file_path.write_bytes(graph.serialize(format="turtle", encoding="utf-8"))
+
+    @classmethod
     def _dataset_subjects(
         cls,
         graph: Graph,

@@ -42,6 +42,15 @@ class CliContextAdapter(CliContextPort):
         "target_capability",
         "container_title",
         "raw_args",
+        "job_graph_url",
+        "procedure_iri",
+        "job_procedure",
+        "job_parameters",
+        "job_graph",
+        "job_procedure_node",
+        "job_target",
+        "job_dataset_path",
+        "job_id",
     })
 
     def __init__(self, argv: List[str] = [], root_dir: str = None):

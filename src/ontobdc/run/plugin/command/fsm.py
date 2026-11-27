@@ -6,6 +6,7 @@ from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.cli.domain.request.command import CliCommandRequest
 from ontobdc.cli.domain.response.command import RunCommandResponse
 from ontobdc.run.adapter.fsm import FsmHandlerLocator
+from ontobdc.shared.adapter.addon_package import AddonPackage
 
 
 class RunFsmCommand(CliCommandPort):
@@ -88,6 +89,8 @@ class RunFsmCommand(CliCommandPort):
     def run(self) -> RunCommandResponse:
         context: Any = self._request.context
         fsm: str = str(context.get_parameter_value(self.FSM_KEY) or "").strip()
+        # The addons the process was started with are made importable here, for the machine that is run: nowhere else does.
+        AddonPackage.from_environment()
         statechart, handler_type = FsmHandlerLocator.locate(fsm)
 
         for flag, value in self._parameters(self._request.command_args).items():

@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 
 from ontobdc.cli.domain.port.context import CliContextPort
 from ontobdc.shared.adapter.capability import TransactionCapability
+from ontobdc.shared.adapter.parameter import RequiredParameter
 from ontobdc.shared.domain.model.capability import CapabilityMetadata
 from ontobdc.container.plugin.machine.entity_write.machine import EntityWriteRequest
 from ontobdc.container.plugin.machine.entity_write.state import EntityWriteProcessState
@@ -43,21 +44,22 @@ class DatasetFoundCapability(TransactionCapability):
     def execute(self, context: CliContextPort) -> Dict[str, Any]:
         """
         The first dataset of the container that holds the entity is the one
-        used. When there is none, one is created for the entity, named after
-        its facade.
+        used. When there is none, one is created for the entity, titled with
+        the title the caller asked for when it did, else named after its facade.
         """
         container_path: Path = EntityWriteRequest.container_path(context)
         entity_iri: str = EntityWriteRequest.entity_iri(context)
         facade: EntityFacade = EntityFacadeLocator.of(entity_iri)
 
-        dataset_path: Path = container_path / TitleSlug.of(facade.name)
+        dataset_title: str = RequiredParameter.optional(context, EntityWriteRequest.DATASET_TITLE_KEY) or facade.name
+        dataset_path: Path = container_path / TitleSlug.of(dataset_title)
         if dataset_path.exists():
             raise FileExistsError(
                 f"{dataset_path} exists but is not a dataset that holds <{entity_iri}>."
             )
 
         context.set_parameter_value(EntityWriteRequest.DATASET_PATH_KEY, str(dataset_path))
-        context.set_parameter_value("dataset_title", facade.name)
+        context.set_parameter_value("dataset_title", dataset_title)
         DatasetCreateStateTransitionHandler(context).execute()
         if make_dataset_structure(dataset_path=str(dataset_path)) != 0:
             raise RuntimeError(

@@ -1,5 +1,7 @@
+import os
 from typing import Any, ClassVar, Dict, List
 
+from ontobdc.cli.domain.exception.command import CliCommandArgumentException
 from ontobdc.cli.domain.port.command import CliCommandPort
 from ontobdc.cli.domain.model.command import CliCommandMetadata
 from ontobdc.shared.adapter.capability import CapabilityExecutor
@@ -79,7 +81,19 @@ class StorageContainerInspectCommand(CliCommandPort):
         container_id: Any = self._request.context.get_parameter_value(
             "container_id"
         )
-        return isinstance(container_id, str) and bool(container_id.strip())
+        if not (isinstance(container_id, str) and container_id.strip()):
+            asked: List[str] = self._request.command_args
+            if self.CONTAINER_FLAG in asked:
+                raise CliCommandArgumentException(
+                    f"No registered container matches {self.CONTAINER_FLAG} {asked[asked.index(self.CONTAINER_FLAG) + 1]}."
+                )
+            raise CliCommandArgumentException(
+                f"No container was found from {os.getcwd()}: the folder is not a registered container. Run the "
+                "command inside a container, give one with --container, or create it with "
+                "`ontobdc container --create`."
+            )
+
+        return True
 
     @staticmethod
     def _matches(scoped_args: List[str]) -> bool:
